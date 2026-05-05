@@ -1,0 +1,82 @@
+site_name: Festo Gantry -- Python-based control for Festo electrically-driven
+  motion components
+site_url: https://festo-se.github.io/festo-dev-applied-motion/
+repo_url: https://github.com/Festo-se/festo-dev-applied-motion
+
+site_dir: public
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: System preference
+
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Light mode
+
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Dark mode
+
+  logo: img/Festo_Logo_Caerul_Web.svg
+  favicon: img/method.png
+  features: navigation.sections content.code.copy content.tooltips
+
+use_directory_urls: true
+
+markdown_extensions:
+  - abbr
+  - attr_list
+  - footnotes
+  - pymdownx.highlight:
+      anchor_linenums: true
+      linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: class
+          class: highlight
+          format:
+
+            !!python/name:pymdownx.highlight.highlight ""
+plugins:
+  - codeinclude
+  - search
+  - include-markdown
+  - autorefs:
+      resolve_closest: true
+  - mkdocs-autoapi:
+      autoapi_dir: src
+      autoapi_add_nav_entry: true
+      autoapi_generate_api_docs: true
+      autoapi_file_patterns:
+        - "*.py"
+
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            show_source: true
+            docstring_style: google
+
+extra_css:
+  - css/extra.css
+  - https://www.festo.com/fonts/fonts.css
+
+nav:
+  - Home: "index.md"
+  - Festo Resources:
+      - "CMMT Product Page": "https://www.festo.com/us/en/p/servo-drive-for-synchronous\
+          -motors-id_CMMT-ST/"
+  - Issues Tracker:
+      - "Report an Issue": "https://github.com/Festo-se/festo-dev-fluid-motion/issues"

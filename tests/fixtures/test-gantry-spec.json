@@ -1,0 +1,39 @@
+{
+    "_comment": "Canonical instantiation parameters for EdconAxis and Gantry in the SLAS-8 pipettor configuration. IPs and axis names sourced from festo-dev-fluid-control/slas-8-config.json.",
+    "spec_version": "2.0",
+    "backend": "modbus",
+    "axes": {
+        "X": {
+            "name": "X",
+            "ip": "192.168.0.193",
+            "designation": "X-axis",
+            "type": "linear",
+            "motor_type": "stepper"
+        },
+        "Z": {
+            "name": "Z",
+            "ip": "192.168.0.32",
+            "designation": "Z-axis",
+            "type": "linear",
+            "motor_type": "stepper"
+        }
+    },
+    "gantry": {
+        "axis_count": 2,
+        "axis_order": [
+            "X",
+            "Z"
+        ],
+        "motion_ordering": {
+            "forward": [
+                "X",
+                "Z"
+            ],
+            "reverse": [
+                "Z",
+                "X"
+            ]
+        },
+        "concurrent_axes": null
+    }
+}

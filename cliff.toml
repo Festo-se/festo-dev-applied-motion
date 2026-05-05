@@ -1,0 +1,41 @@
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }} ([`{{ commit.id | truncate(length=7, end="") }}`]({{ commit.id }}))
+{%- endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+# Do not require conventional commit prefixes — sections are driven by the
+# "Changelog: <section>" trailer on each commit instead.
+conventional_commits = false
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = false
+filter_commits = true    # omit commits with no matching trailer
+
+commit_parsers = [
+    # Map the value of the "Changelog:" trailer to the group (section heading).
+    { trailer = "Changelog", group = "${1}" },
+]
+
+commit_preprocessors = [
+    # Strip conventional commit prefixes (feat:, fix(scope):, etc.) from the title.
+    { pattern = "^(feat|fix|chore|docs|style|refactor|perf|test|build|ci)([\\(\\[].+[\\)\\]])?!?: ", replace = "" },
+    # Normalize the Changelog: trailer value to title case so that e.g.
+    # "Changelog: added" and "Changelog: Added" map to the same section.
+    { pattern = "(?im)^Changelog:\\s*added$",       replace = "Changelog: Added" },
+    { pattern = "(?im)^Changelog:\\s*changed$",     replace = "Changelog: Changed" },
+    { pattern = "(?im)^Changelog:\\s*fixed$",       replace = "Changelog: Fixed" },
+    { pattern = "(?im)^Changelog:\\s*deprecated$",  replace = "Changelog: Deprecated" },
+    { pattern = "(?im)^Changelog:\\s*removed$",     replace = "Changelog: Removed" },
+    { pattern = "(?im)^Changelog:\\s*security$",    replace = "Changelog: Security" },
+    { pattern = "(?im)^Changelog:\\s*performance$", replace = "Changelog: Performance" },
+    { pattern = "(?im)^Changelog:\\s*other$",       replace = "Changelog: Other" },
+]
+tag_pattern = "[0-9]+\\.[0-9]+\\.[0-9]+"

@@ -1,0 +1,231 @@
+# SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
+
+
+"""FPosAPI axis proxy — represents one axis of a CECC-X controlled gantry.
+
+:class:`FPosAxis` delegates all motion commands through a shared
+:class:`~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClient` socket connection
+to the CECC-X PLC.  It satisfies the
+:class:`~festo_dev_applied_motion.backends.axis_protocol.Axis` structural interface
+and can be used anywhere a :class:`~festo_dev_applied_motion.gantry.backends.edcon_axis EdconAxis` is accepted
+by :class:`~festo_dev_applied_motion.gantry.Gantry`.
+
+Axis index convention (matches CECC-X CoDeSys program default):
+
+* ``1`` — X axis
+* ``2`` — Y axis
+* ``3`` — Z axis
+
+ROB_POS response field layout assumed by :meth:`FPosAxis.get_current_axis_position`::
+
+    msg_id, ROB_POS, x_mm, y_mm, z_mm, 0, NULL, SUCCESS
+
+Position at field index ``axis_index + 1`` (1-based field 2 = X, 3 = Y, 4 = Z).
+
+.. warning::
+    :meth:`move` issues a ``SET_PAR 103`` (global speed) command immediately
+    before ``MOV_AXIS``.  These two commands are serialised by the shared
+    :class:`~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClient` lock, but they
+    are **not** atomic — concurrent moves on different axes may interleave their
+    ``SET_PAR`` calls.  Use :meth:`~festo_dev_applied_motion.gantry.Gantry.move_to`
+    with a single-axis movement queue (not concurrent) when per-move velocity
+    accuracy matters.
+"""
+
+import logging
+
+from festo_dev_applied_motion.backends.fposapi_client import FPosAPIClient
+
+logger = logging.getLogger(__name__)
+
+
+class FPosAxis:
+    """FPosAPI-backed representation of a single CECC-X gantry axis.
+
+    Wraps ``MOV_AXIS``, ``HOME``, and ``ROB_POS`` FPosAPI commands behind the
+    same public interface as :class:`~festo_dev_applied_motion.gantry.backends.edcon_axis.EdconAxis`.  All
+    socket communication is performed via the shared *client* instance which
+    must be owned by the parent :class:`~festo_dev_applied_motion.gantry.Gantry`.
+
+    Attributes:
+        name: Human-readable axis label, e.g. ``"X"``.
+        index: 1-based axis number sent to ``MOV_AXIS`` (``1``=X, ``2``=Y,
+            ``3``=Z by CECC-X convention).
+    """
+
+    def __init__(self, name: str, index: int, client: FPosAPIClient) -> None:
+        """Initialise the axis proxy.
+
+        Args:
+            name: Human-readable axis label used in log messages and equality
+                checks.
+            index: 1-based axis index for ``MOV_AXIS`` commands.  Must match
+                the axis numbering configured in the CECC-X CoDeSys program.
+            client: Shared :class:`~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClient`
+                instance owned by the parent gantry.
+        """
+        self.name = name
+        self.index = index
+        self._client = client
+        logger.info("FPosAxis '%s' (index=%d) created", name, index)
+
+    def move(self, position: float, velocity: float, timeout: int | None = None, **kwargs) -> bool:
+        """Move this axis to *position* at *velocity*.
+
+        Sets the global gantry speed (parameter 103) to *velocity* before
+        issuing the ``MOV_AXIS`` command.  The call blocks until the PLC
+        reports ``SUCCESS``.
+
+        Args:
+            position: Target position in mm.  Interpreted as absolute by
+                default; pass ``position_type="relative"`` in *kwargs* for a
+                relative displacement.
+            velocity: Move speed in mm/s.  Written to PLC parameter 103
+                (global speed) before the move.
+            timeout: Accepted for interface compatibility; not applied —
+                the socket timeout on the underlying client provides the
+                effective upper bound.
+            **kwargs: Optional keyword overrides.  Recognised keys:
+
+                - ``position_type`` (``str``): ``"absolute"`` (default) or
+                  ``"relative"``.
+
+        Returns:
+            ``True`` when the PLC reports a successful move.
+
+        Raises:
+            ~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClientError: If the
+                PLC returns an error response.
+        """
+        position_type = kwargs.get("position_type", "absolute")
+        rel_flag = 0 if position_type == "absolute" else 1
+        logger.debug(
+            "FPosAxis '%s': move position=%s velocity=%s rel_flag=%d",
+            self.name,
+            position,
+            velocity,
+            rel_flag,
+        )
+        self._client.send_command("SET_PAR", 103, velocity)
+        self._client.send_command("MOV_AXIS", self.index, rel_flag, position)
+        logger.info(
+            "FPosAxis '%s': move complete (position=%s mm, velocity=%s mm/s)",
+            self.name,
+            position,
+            velocity,
+        )
+        return True
+
+    def home(self) -> None:
+        """Issue the ``HOME`` command, homing all axes together.
+
+        The FPosAPI ``HOME`` command references every axis simultaneously —
+        there is no per-axis home.  Calling this method on any individual
+        proxy triggers a full multi-axis homing sequence.
+
+        .. note::
+            :meth:`~festo_dev_applied_motion.gantry.Gantry.home` sends a single
+            ``HOME`` command at the gantry level and does not call this method
+            on each proxy individually, avoiding duplicate ``HOME`` requests.
+
+        Raises:
+            ~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClientError: If the
+                PLC returns an error response.
+        """
+        logger.info("FPosAxis '%s': issuing HOME command (homes all axes)", self.name)
+        self._client.send_command("HOME")
+
+    def get_current_axis_position(self) -> float:
+        """Return this axis's current position in mm via ``ROB_POS``.
+
+        Sends ``ROB_POS`` and extracts this axis's coordinate from the
+        response.  Assumes the response layout::
+
+            msg_id, ROB_POS, x_mm, y_mm, z_mm, 0, NULL, SUCCESS
+
+        where the position field for axis *n* is at ``fields[n + 1]``
+        (1-based field numbering after stripping the leading ``msg_id``
+        and ``ROB_POS`` label fields).
+
+        Returns:
+            Current axis position in mm.
+
+        Raises:
+            RuntimeError: If the response cannot be parsed.
+            ~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClientError: If the
+                PLC returns an error response.
+        """
+        response = self._client.send_command("ROB_POS")
+        fields = [f.strip() for f in response.split(",")]
+        # fields[0] = msg_id, fields[1] = "ROB_POS", fields[2] = X, fields[3] = Y, fields[4] = Z
+        position_field_index = self.index + 1
+        try:
+            value = float(fields[position_field_index])
+        except (IndexError, ValueError) as exc:
+            logger.error(
+                "FPosAxis '%s': cannot parse ROB_POS response — %s",
+                self.name,
+                response,
+            )
+            raise RuntimeError(
+                f"Failed to parse ROB_POS position for axis '{self.name}' "
+                f"(field index {position_field_index}): {response!r}"
+            ) from exc
+        logger.debug("FPosAxis '%s': current position = %s mm", self.name, value)
+        return value
+
+    def stopped(self) -> bool:
+        """Return ``True``; FPosAPI moves are blocking so motion is always complete on return.
+
+        :meth:`move` blocks until the PLC emits a ``SUCCESS`` response,
+        meaning by the time Python regains control the axis has stopped.
+        This method always returns ``True`` to satisfy the
+        :class:`~festo_dev_applied_motion.backends.axis_protocol.Axis` interface.
+
+        Returns:
+            Always ``True``.
+        """
+        return True
+
+    def ready_for_motion(self) -> bool:
+        """Return ``True`` as a conservative default.
+
+        The FPosAPI does not expose a structured per-axis readiness query in a
+        known stable format.  Returns ``True`` unconditionally; callers that
+        require a definitive answer should verify readiness via ``SYS_STATUS``
+        before commanding motion.
+
+        Returns:
+            Always ``True``.
+        """
+        return True
+
+    def __repr__(self) -> str:
+        """Return an unambiguous string representation."""
+        return f"FPosAxis(name={self.name!r}, index={self.index!r})"
+
+    def __str__(self) -> str:
+        """Return a human-readable description."""
+        return f"FPosAxis '{self.name}' (axis {self.index})"
+
+    def __eq__(self, other: object) -> bool:
+        """Return ``True`` when *other* represents the same axis on the same controller.
+
+        Args:
+            other: Object to compare.
+
+        Returns:
+            ``True`` if *other* is an :class:`FPosAxis` with equal
+            *name* and *index*; ``NotImplemented`` otherwise.
+        """
+        if not isinstance(other, FPosAxis):
+            return NotImplemented
+        return self.name == other.name and self.index == other.index
+
+    def __hash__(self) -> int:
+        """Return a hash derived from axis identity fields.
+
+        Returns:
+            Hash of ``(name, index)``.
+        """
+        return hash((self.name, self.index))

@@ -1,0 +1,127 @@
+# This workflow will upload a Python Package to PyPI when a release is created
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+name: "Publish Release"
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+# default: least privileged permissions across all jobs
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-release-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    permissions:
+      contents: write
+    steps:
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install Python 3.13
+        run: uv python install 3.13
+      - name: Build
+        run: uv build
+      - name: Upload | Distribution Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-artifacts
+          path: dist
+          if-no-files-found: error
+
+  deploy:
+    # 1. Separate out the deploy step from the publish step to run each step at
+    #    the least amount of token privilege
+    # 2. Also, deployments can fail, and its better to have a separate job if you need to retry
+    #    and it won't require reversing the release.
+    environment:
+      name: pypi
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Setup | Download Build Artifacts
+        uses: actions/download-artifact@v4
+        id: artifact-download
+        with:
+          name: distribution-artifacts
+          path: dist
+
+      # ------------------------------------------------------------------- #
+      # Python Semantic Release is not responsible for publishing your      #
+      # python artifacts to PyPI. Use the official PyPA publish action      #
+      # instead. The following steps are an example but is not guaranteed   #
+      # to work as the action is not maintained by the                      #
+      # python-semantic-release team.                                       #
+      # ------------------------------------------------------------------- #
+
+      # see https://docs.pypi.org/trusted-publishers/
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      # - name: Publish
+      #   run: uv publish
+      # - name: Publish package distributions to PyPI
+      #   continue-on-error: true
+      #   uses: pypa/gh-action-pypi-publish@release/v1
+      #   with:
+      #     packages-dir: dist
+      #     print-hash: true
+      #     verbose: true
+
+  sbom:
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Setup | Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install Python 3.13
+        run: uv python install 3.13
+
+      - name: Install project with dependencies
+        run: uv sync
+
+      - name: Install cyclonedx-bom
+        run: uv tool install cyclonedx-bom
+
+      - name: Generate SBOM
+        run: >
+          uv tool run cyclonedx-py environment --of JSON --output-file
+          festo-dev-applied-motion-${{ github.ref_name }}.cdx.json .venv
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: festo-dev-applied-motion-${{ github.ref_name }}.cdx.json
+          if-no-files-found: error
+
+      - name: Attach SBOM to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: festo-dev-applied-motion-${{ github.ref_name }}.cdx.json

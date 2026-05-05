@@ -1,0 +1,40 @@
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #0091DC;
+  --md-primary-fg-color--light: #E5E8EB;
+  --md-primary-fg-color--dark: #000000;
+  --md-accent-fg-color: #333333;
+  --md-accent-bg-color: #B6BEC6;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #0091DC;
+  --md-primary-fg-color--light: #000000;
+  --md-primary-fg-color--dark: #E5E8EB;
+  --md-accent-fg-color: #B6BEC6;
+  --md-accent-bg-color: #333333;
+}
+
+.md-header {
+  background-color: #333333;
+}
+
+.md-grid {
+  max-width: 80rem;
+}
+
+@font-face {
+  font-family: "MetaPro";
+  src: url("https://www.festo.com/Fonts/FestoW05-Regular.woff2") format("woff2"), url("https://www.festo.com/Fonts/FestoW05-Regular.woff") format("woff");
+}
+
+/* MetaPro bold */
+@font-face {
+  font-family: "MetaPro";
+  font-weight: bold;
+  src: url("https://www.festo.com/Fonts/FestoW05-Bold.woff2") format("woff2"), url("https://www.festo.com/Fonts/FestoW05-Bold.woff") format("woff");
+}
+
+body {
+  font-family: "MetaPro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
