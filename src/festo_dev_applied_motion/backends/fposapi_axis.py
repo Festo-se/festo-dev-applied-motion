@@ -24,7 +24,7 @@ Position at field index ``axis_index + 1`` (1-based field 2 = X, 3 = Y, 4 = Z).
 
 .. warning::
     :meth:`move` issues a ``SET_PAR 103`` (global speed) command immediately
-    before ``MOV_AXIS``.  These two commands are serialised by the shared
+    before ``MOVE_AXIS``.  These two commands are serialised by the shared
     :class:`~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClient` lock, but they
     are **not** atomic — concurrent moves on different axes may interleave their
     ``SET_PAR`` calls.  Use :meth:`~festo_dev_applied_motion.gantry.Gantry.move_to`
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 class FPosAxis:
     """FPosAPI-backed representation of a single CECC-X gantry axis.
 
-    Wraps ``MOV_AXIS``, ``HOME``, and ``ROB_POS`` FPosAPI commands behind the
+    Wraps ``MOVE_AXIS``, ``HOME``, and ``ROB_POS`` FPosAPI commands behind the
     same public interface as :class:`~festo_dev_applied_motion.gantry.backends.edcon_axis.EdconAxis`.  All
     socket communication is performed via the shared *client* instance which
     must be owned by the parent :class:`~festo_dev_applied_motion.gantry.Gantry`.
@@ -59,7 +59,7 @@ class FPosAxis:
         Args:
             name: Human-readable axis label used in log messages and equality
                 checks.
-            index: 1-based axis index for ``MOV_AXIS`` commands.  Must match
+            index: 1-based axis index for ``MOVE_AXIS`` commands.  Must match
                 the axis numbering configured in the CECC-X CoDeSys program.
             client: Shared :class:`~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClient`
                 instance owned by the parent gantry.
@@ -73,7 +73,7 @@ class FPosAxis:
         """Move this axis to *position* at *velocity*.
 
         Sets the global gantry speed (parameter 103) to *velocity* before
-        issuing the ``MOV_AXIS`` command.  The call blocks until the PLC
+        issuing the ``MOVE_AXIS`` command.  The call blocks until the PLC
         reports ``SUCCESS``.
 
         Args:
@@ -107,7 +107,7 @@ class FPosAxis:
             rel_flag,
         )
         self._client.send_command("SET_PAR", 103, velocity)
-        self._client.send_command("MOV_AXIS", self.index, rel_flag, position)
+        self._client.send_command("MOVE_AXIS", self.index, rel_flag, position)
         logger.info(
             "FPosAxis '%s': move complete (position=%s mm, velocity=%s mm/s)",
             self.name,
@@ -156,7 +156,7 @@ class FPosAxis:
                 PLC returns an error response.
         """
         response = self._client.send_command("ROB_POS")
-        fields = [f.strip() for f in response.split(",")]
+        fields = [f.strip() for f in response[-1].split(",")]
         # fields[0] = msg_id, fields[1] = "ROB_POS", fields[2] = X, fields[3] = Y, fields[4] = Z
         position_field_index = self.index + 1
         try:
@@ -174,6 +174,34 @@ class FPosAxis:
         logger.debug("FPosAxis '%s': current position = %s mm", self.name, value)
         return value
 
+    def is_homed(self) -> bool:
+        """Return whether the gantry has been homed via ``IS_HOME``.
+
+        Sends ``IS_HOME`` and interprets the response field that follows the
+        echoed command name.  The PLC returns ``1`` when homing is complete
+        and ``0`` when it is not.
+
+        Returns:
+            ``True`` if the PLC reports the gantry is homed; ``False``
+            otherwise.
+
+        Raises:
+            ~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClientError: If the
+                PLC returns an error response.
+            RuntimeError: If the response cannot be parsed.
+        """
+        response = self._client.send_command("IS_HOME")
+        fields = [f.strip() for f in response[-1].split(",")]
+        # fields: msg_id, IS_HOME, value, ERR_ID, ERR_TYPE, SUCCESS
+        try:
+            homed = bool(int(fields[2]))
+        except (IndexError, ValueError) as exc:
+            raise RuntimeError(
+                f"Failed to parse IS_HOME response for axis '{self.name}': {response!r}"
+            ) from exc
+        logger.debug("FPosAxis '%s': is_homed=%s", self.name, homed)
+        return homed
+
     def stopped(self) -> bool:
         """Return ``True``; FPosAPI moves are blocking so motion is always complete on return.
 
@@ -188,17 +216,32 @@ class FPosAxis:
         return True
 
     def ready_for_motion(self) -> bool:
-        """Return ``True`` as a conservative default.
+        """Return whether the gantry drives are enabled via ``IS_ENBL``.
 
-        The FPosAPI does not expose a structured per-axis readiness query in a
-        known stable format.  Returns ``True`` unconditionally; callers that
-        require a definitive answer should verify readiness via ``SYS_STATUS``
-        before commanding motion.
+        Sends ``IS_ENBL`` and interprets the response.  The PLC returns
+        ``1`` when drives are enabled and ready to accept motion commands,
+        ``0`` when they are disabled.
 
         Returns:
-            Always ``True``.
+            ``True`` if the PLC reports drives are enabled; ``False``
+            otherwise.
+
+        Raises:
+            ~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClientError: If the
+                PLC returns an error response.
+            RuntimeError: If the response cannot be parsed.
         """
-        return True
+        response = self._client.send_command("IS_ENBL")
+        fields = [f.strip() for f in response[-1].split(",")]
+        # fields: msg_id, IS_ENBL, value, ERR_ID, ERR_TYPE, SUCCESS
+        try:
+            enabled = bool(int(fields[2]))
+        except (IndexError, ValueError) as exc:
+            raise RuntimeError(
+                f"Failed to parse IS_ENBL response for axis '{self.name}': {response!r}"
+            ) from exc
+        logger.debug("FPosAxis '%s': ready_for_motion=%s", self.name, enabled)
+        return enabled
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation."""

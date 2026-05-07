@@ -64,7 +64,8 @@ class TestFPosAPIClientInit:
     def test_timeout_applied_to_socket(self, mocker, mock_sock):
         mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         FPosAPIClient(ip=_IP, port=_PORT, timeout=5.0)
-        mock_sock.settimeout.assert_called_once_with(5.0)
+        # settimeout(5.0) is the final call; _drain() temporarily sets 0.1 then restores 5.0
+        mock_sock.settimeout.assert_called_with(5.0)
 
     def test_ip_and_port_stored(self, client):
         assert client.ip == _IP
@@ -104,37 +105,57 @@ class TestFPosAPIClientRecvLine:
 
 
 # ---------------------------------------------------------------------------
-# _wait_complete
+# _recv_line — empty line (bare \r\n terminator)
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientWaitComplete:
-    def test_returns_line_on_success(self, client, mocker):
-        mocker.patch.object(client, "_recv_line", return_value="1, HOME, 0, NULL, SUCCESS")
-        result = client._wait_complete()
-        assert result == "1, HOME, 0, NULL, SUCCESS"
+class TestFPosAPIClientRecvLineEmpty:
+    def test_empty_line_returns_empty_string(self, client, mock_sock):
+        """A bare \\r\\n from the server should return an empty string."""
+        mock_sock.recv.side_effect = _byte_stream("\r\n")
+        assert client._recv_line() == ""
 
-    def test_raises_on_error_response(self, client, mocker):
-        mocker.patch.object(client, "_recv_line", return_value="1, HOME, 42, FAULT, AXIS_ERROR")
-        with pytest.raises(FPosAPIClientError, match="FPosAPI error response"):
-            client._wait_complete()
 
-    def test_discards_intermediate_lines_before_success(self, client, mocker):
-        """Lines where error_id==0 but last field is not SUCCESS must be
-        silently skipped; only the SUCCESS terminal should be returned."""
-        lines = iter([
-            "1, STATUS, 0, IN_PROGRESS, MOVING",
-            "1, STATUS, 0, IN_PROGRESS, DECELERATING",
-            "1, HOME, 0, NULL, SUCCESS",
-        ])
+# ---------------------------------------------------------------------------
+# _collect_response
+# ---------------------------------------------------------------------------
+
+
+class TestFPosAPIClientCollectResponse:
+    def test_returns_single_success_line(self, client, mocker):
+        lines = iter(["1, HOME, 0, NULL, SUCCESS"])
         mocker.patch.object(client, "_recv_line", side_effect=lambda: next(lines))
-        result = client._wait_complete()
-        assert result == "1, HOME, 0, NULL, SUCCESS"
+        result = client._collect_response()
+        assert result == ["1, HOME, 0, NULL, SUCCESS"]
 
-    def test_error_id_nonzero_raises(self, client, mocker):
-        mocker.patch.object(client, "_recv_line", return_value="1, MOV_AXIS, 5, HW_ERR, DRIVE_FAULT")
-        with pytest.raises(FPosAPIClientError):
-            client._wait_complete()
+    def test_returns_ack_and_terminal_lines(self, client, mocker):
+        """ACK lines are collected; reading stops on the non-ACK terminal line."""
+        lines = iter(["1, SYS_STATUS, 0, NULL, ACK", "1, SYS_STATUS, IDLE, 0, NULL, SUCCESS"])
+        mocker.patch.object(client, "_recv_line", side_effect=lambda: next(lines))
+        result = client._collect_response()
+        assert result == ["1, SYS_STATUS, 0, NULL, ACK", "1, SYS_STATUS, IDLE, 0, NULL, SUCCESS"]
+
+    def test_stops_after_terminal_line(self, client, mocker):
+        """Lines after the terminal SUCCESS must not be consumed."""
+        call_count = 0
+
+        def recv_line():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "1, HOME, 0, NULL, SUCCESS"
+            raise AssertionError("_recv_line called after terminal line")
+
+        mocker.patch.object(client, "_recv_line", side_effect=recv_line)
+        result = client._collect_response()
+        assert result == ["1, HOME, 0, NULL, SUCCESS"]
+
+    def test_connection_closed_mid_response_raises(self, client, mocker):
+        mocker.patch.object(
+            client, "_recv_line", side_effect=FPosAPIClientError("Connection closed by remote host")
+        )
+        with pytest.raises(FPosAPIClientError, match="Connection closed"):
+            client._collect_response()
 
 
 # ---------------------------------------------------------------------------
@@ -145,37 +166,104 @@ class TestFPosAPIClientWaitComplete:
 class TestFPosAPIClientSendCommand:
     def test_frame_format_no_params(self, client, mocker):
         """Command with no params must produce 'msg_id, COMMAND\\r\\n'."""
-        mocker.patch.object(client, "_wait_complete", return_value="1, HOME, 0, NULL, SUCCESS")
+        mocker.patch.object(client, "_collect_response", return_value=["1, HOME, 0, NULL, SUCCESS"])
         client.send_command("HOME")
         sent = client._sock.sendall.call_args[0][0]
         assert sent == b"1, HOME\r\n"
 
     def test_frame_format_with_params(self, client, mocker):
-        mocker.patch.object(client, "_wait_complete", return_value="1, MOV_AXIS, 0, NULL, SUCCESS")
-        client.send_command("MOV_AXIS", 1, 0, 150.0)
+        mocker.patch.object(client, "_collect_response", return_value=["1, MOVE_AXIS, 0, NULL, SUCCESS"])
+        client.send_command("MOVE_AXIS", 1, 0, 150.0)
         sent = client._sock.sendall.call_args[0][0]
-        assert sent == b"1, MOV_AXIS, 1, 0, 150.0\r\n"
+        assert sent == b"1, MOVE_AXIS, 1, 0, 150.0\r\n"
 
     def test_message_id_increments_each_call(self, client, mocker):
-        mocker.patch.object(client, "_wait_complete", return_value="N, CMD, 0, NULL, SUCCESS")
+        mocker.patch.object(
+            client, "_collect_response",
+            side_effect=[
+                ["1, ENABLE, 0, NULL, SUCCESS"],
+                ["2, DISABLE, 0, NULL, SUCCESS"],
+            ]
+        )
         client.send_command("ENABLE")
         assert client._msg_id == 1
         client.send_command("DISABLE")
         assert client._msg_id == 2
 
-    def test_returns_terminal_response(self, client, mocker):
-        expected = "3, SYS_STATUS, 0, NULL, SUCCESS"
-        mocker.patch.object(client, "_wait_complete", return_value=expected)
+    def test_returns_all_response_lines(self, client, mocker):
+        lines = ["1, SYS_STATUS, 0, NULL, SUCCESS"]
+        mocker.patch.object(client, "_collect_response", return_value=lines)
         result = client.send_command("SYS_STATUS")
-        assert result == expected
+        assert result == lines
+
+    def test_returns_multiline_response(self, client, mocker):
+        lines = ["1, ERR_LOG, fault1", "1, ERR_LOG, fault2", "1, ERR_LOG, 0, NULL, SUCCESS"]
+        mocker.patch.object(client, "_collect_response", return_value=lines)
+        result = client.send_command("ERR_LOG")
+        assert result == lines
 
     def test_params_converted_to_str(self, client, mocker):
         """Numeric params must be stringified, not repr'd."""
-        mocker.patch.object(client, "_wait_complete", return_value="1, SET_PAR, 0, NULL, SUCCESS")
+        mocker.patch.object(client, "_collect_response", return_value=["1, SET_PAR, 0, NULL, SUCCESS"])
         client.send_command("SET_PAR", 103, 75.5)
         sent = client._sock.sendall.call_args[0][0]
         assert b"75.5" in sent
         assert b"103" in sent
+
+    def test_raises_on_empty_response(self, client, mocker):
+        mocker.patch.object(client, "_collect_response", return_value=[])
+        with pytest.raises(FPosAPIClientError, match="Empty response"):
+            client.send_command("HOME")
+
+    def test_raises_on_error_status(self, client, mocker):
+        mocker.patch.object(client, "_collect_response", return_value=["1, HOME, 42, FAULT, AXIS_ERROR"])
+        with pytest.raises(FPosAPIClientError, match="FPosAPI error response"):
+            client.send_command("HOME")
+
+    def test_raises_on_msg_id_mismatch(self, client, mocker):
+        mocker.patch.object(client, "_collect_response", return_value=["99, HOME, 0, NULL, SUCCESS"])
+        with pytest.raises(FPosAPIClientError, match="MSG_ID mismatch"):
+            client.send_command("HOME")
+
+    def test_raises_on_cmd_echo_mismatch(self, client, mocker):
+        mocker.patch.object(client, "_collect_response", return_value=["1, WRONG_CMD, 0, NULL, SUCCESS"])
+        with pytest.raises(FPosAPIClientError, match="CMD echo mismatch"):
+            client.send_command("HOME")
+
+
+# ---------------------------------------------------------------------------
+# list_commands
+# ---------------------------------------------------------------------------
+
+
+class TestFPosAPIClientListCommands:
+    def test_returns_parsed_command_names(self, client, mocker):
+        mocker.patch.object(
+            client,
+            "_collect_response",
+            return_value=["1, CMD_LIST, ENABLE, DISABLE, HOME, MOVE_AXIS, ROB_POS, 0, NULL, SUCCESS"],
+        )
+        commands = client.list_commands()
+        assert commands == ["ENABLE", "DISABLE", "HOME", "MOVE_AXIS", "ROB_POS"]
+
+    def test_sends_cmd_list_command(self, client, mocker):
+        mocker.patch.object(
+            client,
+            "_collect_response",
+            return_value=["1, CMD_LIST, HOME, 0, NULL, SUCCESS"],
+        )
+        client.list_commands()
+        sent = client._sock.sendall.call_args[0][0]
+        assert b"CMD_LIST" in sent
+
+    def test_empty_server_list_returns_empty(self, client, mocker):
+        mocker.patch.object(
+            client,
+            "_collect_response",
+            return_value=["1, CMD_LIST, 0, NULL, SUCCESS"],
+        )
+        commands = client.list_commands()
+        assert commands == []
 
 
 # ---------------------------------------------------------------------------

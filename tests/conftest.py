@@ -45,8 +45,10 @@ Override connection details at runtime::
     GANTRY_A_IP=10.0.0.5 GANTRY_A_NAME=X GANTRY_B_IP=10.0.0.6 GANTRY_B_NAME=Z uv run pytest -m hardware
 """
 
+import json
 import socket
 from os import getenv
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -80,6 +82,8 @@ _DEFAULT_A_IP = "192.168.0.193"
 _DEFAULT_A_NAME = "X"
 _DEFAULT_B_IP = "192.168.0.32"
 _DEFAULT_B_NAME = "Z"
+_DEFAULT_FPOSAPI_IP = "192.168.10.25"
+_DEFAULT_FPOSAPI_PORT = 1234
 
 # PNU addresses used by EdconAxis during construction and unit-conversion
 _PNU_NEG_SW_LIMIT = 11584
@@ -189,7 +193,7 @@ def fposapi_client_mock(mocker):
     client = MagicMock(spec=FPosAPIClient)
     client.ip = "192.168.10.10"
     client.port = 1234
-    client.send_command.return_value = "1, CMD, 0, NULL, SUCCESS"
+    client.send_command.return_value = ["1, CMD, 0, NULL, SUCCESS"]
     return client
 
 
@@ -257,3 +261,32 @@ def axis_b():
 def gantry(axis_a, axis_b):
     """Return a Gantry built from the two configured hardware fixtures."""
     return Gantry(axes={axis_a.name: axis_a, axis_b.name: axis_b})
+
+
+@pytest.fixture(scope="module")
+def gantry_fposapi():
+    """Return a :class:`Gantry` built from the FPosAPI JSON fixture spec.
+
+    Loads ``tests/fixtures/test-gantry-spec-fposapi.json`` and overrides the
+    connection block from ``FPOSAPI_IP`` / ``FPOSAPI_PORT`` environment
+    variables so the target PLC can be changed at runtime without editing the
+    fixture file.  Skips immediately when the CECC-X PLC is not reachable.
+
+    Override connection details at runtime::
+
+        FPOSAPI_IP=10.0.0.1 FPOSAPI_PORT=1234 uv run pytest -m hardware
+    """
+    ip = getenv("FPOSAPI_IP", _DEFAULT_FPOSAPI_IP)
+    port = int(getenv("FPOSAPI_PORT", str(_DEFAULT_FPOSAPI_PORT)))
+    fixture_path = Path(__file__).parent / "fixtures" / "test-gantry-spec-fposapi.json"
+    with fixture_path.open() as fh:
+        cfg = json.load(fh)
+    cfg["connection"]["ip"] = ip
+    cfg["connection"]["port"] = port
+    try:
+        gantry = Gantry.from_config(cfg)
+    except OSError:
+        pytest.skip(f"FPosAPI PLC not reachable at {ip}:{port}")
+    yield gantry
+    if gantry._client is not None:
+        gantry._client.close()

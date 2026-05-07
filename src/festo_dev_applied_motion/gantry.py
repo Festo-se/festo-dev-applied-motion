@@ -467,6 +467,11 @@ class Gantry:
         if backend == "fposapi":
             conn = config["connection"]
             client = FPosAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
+            try:
+                client.send_command("ENABLE", 1)
+            except Exception:
+                client.close()
+                raise
             fpos_axes: dict[str, Axis] = {
                 name: FPosAxis(
                     name=axes_cfg[name]["name"],

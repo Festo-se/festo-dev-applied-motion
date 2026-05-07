@@ -191,6 +191,14 @@ class TestFromConfigFPosAPI:
         g = Gantry.from_config(_FPOSAPI_CONFIG)
         assert list(g.axes.keys()) == ["X", "Y", "Z"]
 
+    def test_enable_sent_with_flag_1(self, patched_fposapi_client):
+        """ENABLE must be called with argument 1 to energise the drives."""
+        _, mock_client = patched_fposapi_client
+        Gantry.from_config(_FPOSAPI_CONFIG)
+        enable_calls = [c for c in mock_client.send_command.call_args_list if c[0][0] == "ENABLE"]
+        assert len(enable_calls) == 1
+        assert enable_calls[0][0][1] == 1
+
 
 # ---------------------------------------------------------------------------
 # from_config with Path

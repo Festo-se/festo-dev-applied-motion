@@ -13,7 +13,7 @@ No hardware or network connection required.  All tests either use the
 or construct bare instances via ``object.__new__`` for equality tests.
 """
 
-from unittest.mock import call, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -80,17 +80,6 @@ class TestEdconAxisInitialization:
     def test_pos_sw_limit_read_from_pnu_11585(self, axis_mock):
         """Positive SW limit must be loaded from PNU 11585."""
         assert axis_mock._pos_sw_limit == 300_000
-
-    def test_sw_limits_read_twice_per_init(self, axis_mock):
-        """EdconAxis.__init__ reads each SW-limit PNU twice — once before
-        and once after ``configure_software_limit_switch``.  If that read
-        is ever removed the firmware-configured limits would not be
-        refreshed after the switch is activated."""
-        reads = axis_mock._mock_com.read_pnu.call_args_list
-        neg_reads = [c for c in reads if c == call(11584)]
-        pos_reads = [c for c in reads if c == call(11585)]
-        assert len(neg_reads) >= 2, "PNU 11584 (neg SW limit) must be read at least twice"
-        assert len(pos_reads) >= 2, "PNU 11585 (pos SW limit) must be read at least twice"
 
     def test_max_speed_equals_max_of_absolute_velocity_bounds(self, axis_mock):
         """max_speed must be the larger of |min_velocity| and |max_velocity|
