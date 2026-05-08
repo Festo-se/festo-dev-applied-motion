@@ -262,7 +262,7 @@ class Gantry:
         except Exception as e:
             logger.error("_single_move: axis '%s' not found or raised error: %s", axis_name, e)
             move_result = 1
-            raise AxisNotFoundError(f"Axis {axis_name} not found") from e
+            raise MovementError(f"Axis {axis_name} move failed: {e}") from e
         return move_result
 
     def _get_next_moves(self, movements: deque, concurrent_axes: dict[str, Axis], timeout: int | None) -> deque:
@@ -468,7 +468,7 @@ class Gantry:
             conn = config["connection"]
             client = FPosAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
             try:
-                client.send_command("ENABLE", 1)
+                client.send_command("ENABLE")
             except Exception:
                 client.close()
                 raise
