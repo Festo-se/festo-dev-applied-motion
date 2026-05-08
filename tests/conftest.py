@@ -58,7 +58,7 @@ from edcon.edrive.motion_handler import MotionHandler
 from applied_motion.gantry import Gantry
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposapi_axis import FPosAxis
-from applied_motion.backends.fposapi_client import FPosAPIClient
+from applied_motion.backends.fposapi_client import FPosAPIClient, FPosAPIClientError
 
 # ---------------------------------------------------------------------------
 # Hardware reachability probe
@@ -283,10 +283,11 @@ def gantry_fposapi():
         cfg = json.load(fh)
     cfg["connection"]["ip"] = ip
     cfg["connection"]["port"] = port
-    try:
-        gantry = Gantry.from_config(cfg)
-    except OSError:
+
+    if not _is_reachable(ip, port):
         pytest.skip(f"FPosAPI PLC not reachable at {ip}:{port}")
+
+    gantry = Gantry.from_config(cfg)
     yield gantry
     if gantry._client is not None:
         gantry._client.close()

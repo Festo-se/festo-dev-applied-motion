@@ -16,10 +16,9 @@ Coverage areas
   - Absolute vs relative positioning controlled by the
     ``position_type`` kwarg.
   - Timeout path: a worker thread is launched, joined with the supplied
-    timeout, and ``stop_motion_task`` is called to halt motion.  A known
-    bug (``UnboundLocalError`` on the ``result`` variable in this branch)
-    is documented with an ``xfail`` marker so the regression is caught
-    automatically when the bug is fixed.
+    timeout, and ``stop_motion_task`` is called only if the thread is still
+    alive after the join.  The thread's return value is captured via a
+    result box and returned correctly.
 
 * ``EdconAxis.home()``
 
@@ -211,44 +210,59 @@ class TestEdconAxisMoveWithTimeout:
         """When a timeout is provided and the move thread does not finish
         in time, ``stop_motion_task`` must be called to halt the drive and
         prevent an axis runaway.
-
-        NOTE: The current implementation has a known bug — ``result`` is
-        never assigned in the timeout branch, so an ``UnboundLocalError``
-        is raised after ``stop_motion_task`` is called.  This test absorbs
-        that error so the critical assertion (stop was issued) is still
-        verified.  The ``xfail`` test below documents the full contract.
         """
         axis = _make_move_axis()
 
         # Make position_task block long enough for the join timeout to expire
         started = Event()
+        blocked = Event()
 
         def _blocking_position_task(*args, **kwargs):
             started.set()
-            # Block until the test harness unblocks us (after join times out)
-            started.wait(timeout=5)
+            blocked.wait(timeout=5)
 
         axis.position_task.side_effect = _blocking_position_task
 
-        try:
-            axis.move(position=5_000, velocity=100, timeout=0.01)
-        except UnboundLocalError:
-            # Known bug: result is unbound in the timeout branch.
-            # We still fall through to verify stop_motion_task was called.
-            pass
+        axis.move(position=5_000, velocity=100, timeout=0.01)
 
+        blocked.set()  # unblock the background thread
         axis.stop_motion_task.assert_called_once()
 
-    def test_timeout_path_returns_without_unbound_error(self):
-        """``move()`` must return a value (or at minimum not raise
-        ``UnboundLocalError``) when called with a timeout, even if the
-        motion thread is still running when the timeout expires."""
+    def test_stop_motion_task_not_called_when_move_completes_in_time(self):
+        """When the move finishes before the timeout, ``stop_motion_task``
+        must NOT be called — the axis completed normally.
+        """
         axis = _make_move_axis()
-        # position_task completes instantly so the thread finishes before join
+        axis.position_task.return_value = True
+        axis.move(position=5_000, velocity=100, timeout=5)
+        axis.stop_motion_task.assert_not_called()
+
+    def test_timeout_path_returns_result_from_thread(self):
+        """When the thread finishes before the timeout, ``move()`` must
+        return the boolean result from ``position_task``.
+        """
+        axis = _make_move_axis()
         axis.position_task.return_value = True
         result = axis.move(position=5_000, velocity=100, timeout=5)
-        # Regardless of what it returns, it must not raise
-        assert result is not None or result is None  # any value is acceptable
+        assert result is True
+
+    def test_timeout_path_returns_false_when_timed_out(self):
+        """When the move thread is still alive after the timeout, ``move()``
+        stops the axis and returns ``False``.
+        """
+        axis = _make_move_axis()
+        started = Event()
+        blocked = Event()
+
+        def _blocking_position_task(*args, **kwargs):
+            started.set()
+            blocked.wait(timeout=5)
+
+        axis.position_task.side_effect = _blocking_position_task
+
+        result = axis.move(position=5_000, velocity=100, timeout=0.01)
+        blocked.set()
+        assert result is False
 
 
 # ---------------------------------------------------------------------------
