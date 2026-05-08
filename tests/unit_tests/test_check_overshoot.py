@@ -8,7 +8,7 @@ are set.
 
 import pytest
 
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.edcon_axis import EdconAxis
 
 
 def _make_axis(neg_limit: int, pos_limit: int, current_pos: int = 0) -> EdconAxis:

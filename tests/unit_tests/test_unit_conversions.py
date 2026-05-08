@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.edcon_axis import EdconAxis
 
 # PNU numbers used by _valid_position and _valid_velocity respectively
 _PNU_POSITION_UNIT = 11724
@@ -211,7 +211,7 @@ def test_current_position_emits_warning(mocker, caplog):
 
     mocker.patch.object(MotionHandler, "current_position", return_value=0)
 
-    with caplog.at_level(logging.WARNING, logger="festo_dev_applied_motion.gantry"):
+    with caplog.at_level(logging.WARNING, logger="applied_motion.gantry"):
         axis.current_position()
 
     assert any(

@@ -12,7 +12,7 @@ from collections import deque
 
 import pytest
 
-from festo_dev_applied_motion.backends.fposapi_client import FPosAPIClientError
+from applied_motion.backends.fposapi_client import FPosAPIClientError
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ def test_gantry_is_stopped_after_move_to(gantry):
 @pytest.mark.hardware
 def test_gantry_move_to_unknown_axis_raises(gantry):
     """move_to with an axis name not in the gantry should raise AxisNotFoundError."""
-    from festo_dev_applied_motion.gantry import AxisNotFoundError
+    from applied_motion.gantry import AxisNotFoundError
 
     movements = deque([{"__nonexistent__": {"position": _SAFE_POSITION_MM, "velocity": _SAFE_VELOCITY_MM_S}}])
     with pytest.raises(AxisNotFoundError):

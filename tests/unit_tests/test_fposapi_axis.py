@@ -21,8 +21,8 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from festo_dev_applied_motion.backends.fposapi_axis import FPosAxis
-from festo_dev_applied_motion.backends.fposapi_client import FPosAPIClient, FPosAPIClientError
+from applied_motion.backends.fposapi_axis import FPosAxis
+from applied_motion.backends.fposapi_client import FPosAPIClient, FPosAPIClientError
 
 
 # ---------------------------------------------------------------------------

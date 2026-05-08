@@ -9,9 +9,9 @@ convenience.
 
 Two axis backends are available:
 
-* :class:`~festo_dev_applied_motion.backends.edcon_axis.EdconAxis` — direct Modbus TCP
+* :class:`~applied_motion.backends.edcon_axis.EdconAxis` — direct Modbus TCP
   connection to an individual CMMT/CMMT-ST drive via ``festo-edcon``.
-* :class:`~festo_dev_applied_motion.backends.fposapi_axis.FPosAxis` — TCP socket
+* :class:`~applied_motion.backends.fposapi_axis.FPosAxis` — TCP socket
   connection to a CECC-X PLC running the FPosAPI CoDeSys server.
 
 Use :meth:`Gantry.from_config` to instantiate the correct backend
@@ -27,10 +27,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Thread
 
-from festo_dev_applied_motion.backends.axis_protocol import Axis
-from festo_dev_applied_motion.backends.fposapi_axis import FPosAxis
-from festo_dev_applied_motion.backends.fposapi_client import FPosAPIClient
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.axis_protocol import Axis
+from applied_motion.backends.fposapi_axis import FPosAxis
+from applied_motion.backends.fposapi_client import FPosAPIClient
+from applied_motion.backends.edcon_axis import EdconAxis
 
 
 logger = logging.getLogger(__name__)
@@ -76,14 +76,14 @@ class Gantry:
         Args:
             axes: Dict mapping axis names to axis instances.  Accepts both
                 :class:`EdconAxis` (Modbus backend) and
-                :class:`~festo_dev_applied_motion.backends.fposapi_axis.FPosAxis`
+                :class:`~applied_motion.backends.fposapi_axis.FPosAxis`
                 (FPosAPI backend) — any object satisfying
-                :class:`~festo_dev_applied_motion.backends.axis_protocol.Axis`.
+                :class:`~applied_motion.backends.axis_protocol.Axis`.
             concurrent_axes: Optional dict of axes that are allowed to move
                 simultaneously.  Pass ``None`` (default) to disable concurrent
                 grouping.
             _client: Internal.  The shared
-                :class:`~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClient`
+                :class:`~applied_motion.backends.fposapi_client.FPosAPIClient`
                 instance when using the FPosAPI backend.  Set by
                 :meth:`from_config`; do not pass directly.
         """
@@ -387,9 +387,9 @@ class Gantry:
         * ``"modbus"`` — creates :class:`EdconAxis` instances, one per axis
           entry, using the ``ip`` field from each axis config.
         * ``"fposapi"`` — creates one shared
-          :class:`~festo_dev_applied_motion.backends.fposapi_client.FPosAPIClient` from the
+          :class:`~applied_motion.backends.fposapi_client.FPosAPIClient` from the
           top-level ``connection`` block, then creates
-          :class:`~festo_dev_applied_motion.backends.fposapi_axis.FPosAxis` instances
+          :class:`~applied_motion.backends.fposapi_axis.FPosAxis` instances
           using the ``index`` field from each axis config.
 
         Config schema (JSON):

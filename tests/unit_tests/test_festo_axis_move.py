@@ -32,7 +32,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.edcon_axis import EdconAxis
 
 
 # ---------------------------------------------------------------------------

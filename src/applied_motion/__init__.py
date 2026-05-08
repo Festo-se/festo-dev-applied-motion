@@ -14,5 +14,5 @@ __all__ = [
     "FPosAxis",
 ]
 
-from festo_dev_applied_motion.gantry import Gantry, MovementError, AxisNotFoundError
-from festo_dev_applied_motion.backends import Axis, FPosAPIClient, FPosAPIClientError, FPosAxis, EdconAxis
+from applied_motion.gantry import Gantry, MovementError, AxisNotFoundError
+from applied_motion.backends import Axis, FPosAPIClient, FPosAPIClientError, FPosAxis, EdconAxis

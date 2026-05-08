@@ -28,10 +28,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
-from festo_dev_applied_motion.gantry import Gantry
-from festo_dev_applied_motion.backends.fposapi_axis import FPosAxis
-from festo_dev_applied_motion.backends.fposapi_client import FPosAPIClient
+from applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.gantry import Gantry
+from applied_motion.backends.fposapi_axis import FPosAxis
+from applied_motion.backends.fposapi_client import FPosAPIClient
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ _FPOSAPI_CONFIG = {
 @pytest.fixture()
 def patched_festo_axis(mocker):
     """Patch EdconAxis so its __init__ does not open a Modbus connection."""
-    mock_cls = mocker.patch("festo_dev_applied_motion.gantry.EdconAxis", autospec=True)
+    mock_cls = mocker.patch("applied_motion.gantry.EdconAxis", autospec=True)
     mock_cls.side_effect = lambda name, ip, run_referencing=False: MagicMock(
         spec=EdconAxis, name=name, ip=ip
     )
@@ -80,7 +80,7 @@ def patched_festo_axis(mocker):
 @pytest.fixture()
 def patched_fposapi_client(mocker):
     """Patch FPosAPIClient so from_config does not open a TCP socket."""
-    mock_cls = mocker.patch("festo_dev_applied_motion.gantry.FPosAPIClient", autospec=True)
+    mock_cls = mocker.patch("applied_motion.gantry.FPosAPIClient", autospec=True)
     mock_instance = MagicMock(spec=FPosAPIClient)
     mock_instance.ip = "192.168.10.10"
     mock_instance.port = 1234

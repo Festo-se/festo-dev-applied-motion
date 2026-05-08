@@ -7,14 +7,14 @@
 connects directly to an individual CMMT servo/stepper drive via
 Modbus TCP using the ``festo-edcon`` library, and exposes a millimetre-based
 public API that satisfies
-:class:`~festo_dev_applied_motion.backends.axis_protocol.Axis`.
+:class:`~applied_motion.backends.axis_protocol.Axis`.
 
 This backend is appropriate when each drive is individually addressable on the
-network and :class:`~festo_dev_applied_motion.gantry.Gantry` manages concurrency in
+network and :class:`~applied_motion.gantry.Gantry` manages concurrency in
 Python.
 
 For coordinated multi-axis motion managed by a CECC-X PLC using the Festo Easy
-Positioning API, use :class:`~festo_dev_applied_motion.backends.fposapi_axis.FPosAxis`
+Positioning API, use :class:`~applied_motion.backends.fposapi_axis.FPosAxis`
 with the FPosAPI backend instead.
 
 """

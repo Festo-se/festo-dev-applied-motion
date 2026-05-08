@@ -24,8 +24,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from festo_dev_applied_motion.gantry import AxisNotFoundError, Gantry, MovementError
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.gantry import AxisNotFoundError, Gantry, MovementError
+from applied_motion.backends.edcon_axis import EdconAxis
 
 
 # ---------------------------------------------------------------------------

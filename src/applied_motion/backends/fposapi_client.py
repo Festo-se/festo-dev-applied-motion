@@ -14,8 +14,8 @@ On error the last three fields carry a non-zero error id, type string, and
 message string.
 
 A single :class:`FPosAPIClient` instance should be shared across all
-:class:`~festo_dev_applied_motion.backends.fposapi_axis.FPosAxis` objects belonging
-to the same gantry, and is owned by :class:`~festo_dev_applied_motion.gantry.Gantry`.
+:class:`~applied_motion.backends.fposapi_axis.FPosAxis` objects belonging
+to the same gantry, and is owned by :class:`~applied_motion.gantry.Gantry`.
 All send/receive operations are serialised through an internal
 :class:`threading.Lock`.
 """
@@ -36,7 +36,7 @@ class FPosAPIClient:
 
     Connects to the CECC-X PLC on *ip*:*port* and wraps the request/response
     cycle in :meth:`send_command`.  A :class:`threading.Lock` serialises all
-    socket I/O so multiple :class:`~festo_dev_applied_motion.backends.fposapi_axis.FPosAxis`
+    socket I/O so multiple :class:`~applied_motion.backends.fposapi_axis.FPosAxis`
     objects sharing the same client do not interleave their frames.
 
     Attributes:
@@ -89,7 +89,7 @@ class FPosAPIClient:
             for _ in range(max_chunks):
                 if not self._sock.recv(4096):
                     break
-        except (socket.timeout, BlockingIOError, OSError):  # noqa
+        except socket.timeout, BlockingIOError, OSError:  # noqa
             pass
         finally:
             self._sock.settimeout(self._timeout)
@@ -218,7 +218,7 @@ class FPosAPIClient:
                 self._sock.settimeout(0.5)
                 try:
                     self._recv_line()  # discard the bare \r\n terminator
-                except (socket.timeout, OSError):
+                except socket.timeout, OSError:
                     pass  # PLC did not send a frame terminator — that is fine
                 finally:
                     self._sock.settimeout(self._timeout)

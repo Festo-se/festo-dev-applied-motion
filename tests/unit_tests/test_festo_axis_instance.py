@@ -17,7 +17,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.edcon_axis import EdconAxis
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ class TestEdconAxisInitialization:
 
         from edcon.edrive.motion_handler import MotionHandler
 
-        with patch("festo_dev_applied_motion.backends.edcon_axis.ComModbus", return_value=mock_com) as mock_cls:
+        with patch("applied_motion.backends.edcon_axis.ComModbus", return_value=mock_com) as mock_cls:
             with patch.object(MotionHandler, "__init__", lambda self, com: setattr(self, "min_velocity", 0.0) or setattr(self, "max_velocity", 0.0)):
                 with patch.object(MotionHandler, "acknowledge_faults"):
                     with patch.object(MotionHandler, "configure_software_limit_switch"):

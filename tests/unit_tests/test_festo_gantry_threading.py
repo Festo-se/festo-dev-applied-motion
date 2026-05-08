@@ -43,8 +43,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from festo_dev_applied_motion.gantry import AxisNotFoundError, Gantry
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.gantry import AxisNotFoundError, Gantry
+from applied_motion.backends.edcon_axis import EdconAxis
 
 # ---------------------------------------------------------------------------
 # Shared helper

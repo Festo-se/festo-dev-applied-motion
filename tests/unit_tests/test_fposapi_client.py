@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from festo_dev_applied_motion.backends.fposapi_client import FPosAPIClient, FPosAPIClientError
+from applied_motion.backends.fposapi_client import FPosAPIClient, FPosAPIClientError
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ def mock_sock(mocker):
 @pytest.fixture()
 def client(mocker, mock_sock):
     """FPosAPIClient with the TCP socket fully replaced by *mock_sock*."""
-    mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+    mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
     return FPosAPIClient(ip=_IP, port=_PORT)
 
 
@@ -57,12 +57,12 @@ def client(mocker, mock_sock):
 
 class TestFPosAPIClientInit:
     def test_connect_called_with_ip_and_port(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         FPosAPIClient(ip=_IP, port=_PORT)
         mock_sock.connect.assert_called_once_with((_IP, _PORT))
 
     def test_timeout_applied_to_socket(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         FPosAPIClient(ip=_IP, port=_PORT, timeout=5.0)
         # settimeout(5.0) is the final call; _drain() temporarily sets 0.1 then restores 5.0
         mock_sock.settimeout.assert_called_with(5.0)
@@ -277,13 +277,13 @@ class TestFPosAPIClientClose:
         mock_sock.close.assert_called_once()
 
     def test_context_manager_calls_close_on_exit(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         with FPosAPIClient(ip=_IP, port=_PORT) as c:
             pass
         mock_sock.close.assert_called_once()
 
     def test_context_manager_returns_client_instance(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         with FPosAPIClient(ip=_IP, port=_PORT) as c:
             assert isinstance(c, FPosAPIClient)
 
@@ -300,19 +300,19 @@ class TestFPosAPIClientIdentity:
         assert str(_PORT) in r
 
     def test_eq_same_ip_and_port(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         a = FPosAPIClient(ip=_IP, port=_PORT)
         b = FPosAPIClient(ip=_IP, port=_PORT)
         assert a == b
 
     def test_eq_different_ip(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         a = FPosAPIClient(ip=_IP, port=_PORT)
         b = FPosAPIClient(ip="10.0.0.1", port=_PORT)
         assert a != b
 
     def test_eq_different_port(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         a = FPosAPIClient(ip=_IP, port=_PORT)
         b = FPosAPIClient(ip=_IP, port=9999)
         assert a != b
@@ -321,7 +321,7 @@ class TestFPosAPIClientIdentity:
         assert client.__eq__("not-a-client") is NotImplemented
 
     def test_hash_equal_instances_match(self, mocker, mock_sock):
-        mocker.patch("festo_dev_applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
+        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
         a = FPosAPIClient(ip=_IP, port=_PORT)
         b = FPosAPIClient(ip=_IP, port=_PORT)
         assert hash(a) == hash(b)

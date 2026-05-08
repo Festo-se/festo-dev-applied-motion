@@ -55,10 +55,10 @@ import pytest
 
 from edcon.edrive.motion_handler import MotionHandler
 
-from festo_dev_applied_motion.gantry import Gantry
-from festo_dev_applied_motion.backends.edcon_axis import EdconAxis
-from festo_dev_applied_motion.backends.fposapi_axis import FPosAxis
-from festo_dev_applied_motion.backends.fposapi_client import FPosAPIClient
+from applied_motion.gantry import Gantry
+from applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.fposapi_axis import FPosAxis
+from applied_motion.backends.fposapi_client import FPosAPIClient
 
 # ---------------------------------------------------------------------------
 # Hardware reachability probe
@@ -132,7 +132,7 @@ def axis_mock(mocker):
         _PNU_VEL_UNIT_SCALE: -3,
     }.get(pnu, 0)
 
-    mocker.patch("festo_dev_applied_motion.backends.edcon_axis.ComModbus", return_value=mock_com)
+    mocker.patch("applied_motion.backends.edcon_axis.ComModbus", return_value=mock_com)
 
     def _fake_mh_init(self, com):
         # Provide the velocity-bound attributes that EdconAxis.__init__
