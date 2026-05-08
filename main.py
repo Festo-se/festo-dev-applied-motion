@@ -15,11 +15,11 @@ logging.basicConfig(
     handlers=[logging.FileHandler("applied_motion.log"), logging.StreamHandler()],
 )
 
-_DEFAULT_FPOSAPI_IP = "192.168.10.25"
-_DEFAULT_FPOSAPI_PORT = 1234
+_DEFAULT_FPOSBAPI_IP = "192.168.10.25"
+_DEFAULT_FPOSBAPI_PORT = 1234
 
-ip = getenv("FPOSAPI_IP", _DEFAULT_FPOSAPI_IP)
-port = int(getenv("FPOSAPI_PORT", str(_DEFAULT_FPOSAPI_PORT)))
+ip = getenv("FPOSBAPI_IP", _DEFAULT_FPOSBAPI_IP)
+port = int(getenv("FPOSBAPI_PORT", str(_DEFAULT_FPOSBAPI_PORT)))
 fixture_path = Path(__file__).parent / "gantry.json"
 with fixture_path.open() as fh:
     cfg = json.load(fh)

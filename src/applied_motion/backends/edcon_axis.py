@@ -14,8 +14,8 @@ network and :class:`~applied_motion.gantry.Gantry` manages concurrency in
 Python.
 
 For coordinated multi-axis motion managed by a CECC-X PLC using the Festo Easy
-Positioning API, use :class:`~applied_motion.backends.fposapi_axis.FPosAxis`
-with the FPosAPI backend instead.
+Positioning API, use :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis`
+with the FPosBAPI backend instead.
 
 """
 
@@ -248,9 +248,7 @@ class EdconAxis(MotionHandler):
             move_thread.start()
             move_thread.join(timeout=timeout)
             if move_thread.is_alive():
-                logger.warning(
-                    "Axis '%s': move timed out after %ss — sending stop motion task", self.name, timeout
-                )
+                logger.warning("Axis '%s': move timed out after %ss — sending stop motion task", self.name, timeout)
                 self.stop_motion_task()
                 time.sleep(0.05)
             else:

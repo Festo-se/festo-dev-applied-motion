@@ -1,16 +1,16 @@
-"""Unit tests for FPosAPIClient.
+"""Unit tests for FPosBAPIClient.
 
 Coverage areas
 --------------
-* ``FPosAPIClient.__init__`` — socket creation, connect call, timeout applied.
-* ``FPosAPIClient._recv_line`` — byte accumulation, newline termination,
+* ``FPosBAPIClient.__init__`` — socket creation, connect call, timeout applied.
+* ``FPosBAPIClient._recv_line`` — byte accumulation, newline termination,
   decoding, and connection-closed error.
-* ``FPosAPIClient._wait_complete`` — SUCCESS terminal, error terminal raises,
+* ``FPosBAPIClient._wait_complete`` — SUCCESS terminal, error terminal raises,
   intermediate lines discarded.
-* ``FPosAPIClient.send_command`` — correct frame format, message ID
+* ``FPosBAPIClient.send_command`` — correct frame format, message ID
   increments, lock serialises, returns terminal response.
-* ``FPosAPIClient.close`` — delegates to socket.close.
-* ``FPosAPIClient.__repr__``, ``__eq__``, ``__hash__``.
+* ``FPosBAPIClient.close`` — delegates to socket.close.
+* ``FPosBAPIClient.__repr__``, ``__eq__``, ``__hash__``.
 * Context manager — ``__exit__`` calls ``close``.
 
 No hardware or network connection required.  The underlying socket is
@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from applied_motion.backends.fposapi_client import FPosAPIClient, FPosAPIClientError
+from applied_motion.backends.fposbapi_client import FPosBAPIClient, FPosBAPIClientError
 
 
 # ---------------------------------------------------------------------------
@@ -45,9 +45,9 @@ def mock_sock(mocker):
 
 @pytest.fixture()
 def client(mocker, mock_sock):
-    """FPosAPIClient with the TCP socket fully replaced by *mock_sock*."""
-    mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-    return FPosAPIClient(ip=_IP, port=_PORT)
+    """FPosBAPIClient with the TCP socket fully replaced by *mock_sock*."""
+    mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+    return FPosBAPIClient(ip=_IP, port=_PORT)
 
 
 # ---------------------------------------------------------------------------
@@ -55,15 +55,15 @@ def client(mocker, mock_sock):
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientInit:
+class TestFPosBAPIClientInit:
     def test_connect_called_with_ip_and_port(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        FPosAPIClient(ip=_IP, port=_PORT)
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        FPosBAPIClient(ip=_IP, port=_PORT)
         mock_sock.connect.assert_called_once_with((_IP, _PORT))
 
     def test_timeout_applied_to_socket(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        FPosAPIClient(ip=_IP, port=_PORT, timeout=5.0)
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        FPosBAPIClient(ip=_IP, port=_PORT, timeout=5.0)
         # settimeout(5.0) is the final call; _drain() temporarily sets 0.1 then restores 5.0
         mock_sock.settimeout.assert_called_with(5.0)
 
@@ -80,7 +80,7 @@ class TestFPosAPIClientInit:
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientRecvLine:
+class TestFPosBAPIClientRecvLine:
     def test_accumulates_bytes_until_newline(self, client, mock_sock):
         mock_sock.recv.side_effect = _byte_stream("HELLO\r\n")
         result = client._recv_line()
@@ -94,7 +94,7 @@ class TestFPosAPIClientRecvLine:
     def test_empty_recv_raises_client_error(self, client, mock_sock):
         """A zero-byte recv signals the remote host has closed the connection."""
         mock_sock.recv.return_value = b""
-        with pytest.raises(FPosAPIClientError, match="Connection closed"):
+        with pytest.raises(FPosBAPIClientError, match="Connection closed"):
             client._recv_line()
 
     def test_multicharacter_line_accumulated_correctly(self, client, mock_sock):
@@ -109,7 +109,7 @@ class TestFPosAPIClientRecvLine:
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientRecvLineEmpty:
+class TestFPosBAPIClientRecvLineEmpty:
     def test_empty_line_returns_empty_string(self, client, mock_sock):
         """A bare \\r\\n from the server should return an empty string."""
         mock_sock.recv.side_effect = _byte_stream("\r\n")
@@ -121,7 +121,7 @@ class TestFPosAPIClientRecvLineEmpty:
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientCollectResponse:
+class TestFPosBAPIClientCollectResponse:
     def test_returns_single_success_line(self, client, mocker):
         lines = iter(["1, HOME, 0, NULL, SUCCESS"])
         mocker.patch.object(client, "_recv_line", side_effect=lambda: next(lines))
@@ -152,9 +152,9 @@ class TestFPosAPIClientCollectResponse:
 
     def test_connection_closed_mid_response_raises(self, client, mocker):
         mocker.patch.object(
-            client, "_recv_line", side_effect=FPosAPIClientError("Connection closed by remote host")
+            client, "_recv_line", side_effect=FPosBAPIClientError("Connection closed by remote host")
         )
-        with pytest.raises(FPosAPIClientError, match="Connection closed"):
+        with pytest.raises(FPosBAPIClientError, match="Connection closed"):
             client._collect_response()
 
 
@@ -163,7 +163,7 @@ class TestFPosAPIClientCollectResponse:
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientSendCommand:
+class TestFPosBAPIClientSendCommand:
     def test_frame_format_no_params(self, client, mocker):
         """Command with no params must produce 'msg_id, COMMAND\\r\\n'."""
         mocker.patch.object(client, "_collect_response", return_value=["1, HOME, 0, NULL, SUCCESS"])
@@ -212,22 +212,22 @@ class TestFPosAPIClientSendCommand:
 
     def test_raises_on_empty_response(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=[])
-        with pytest.raises(FPosAPIClientError, match="Empty response"):
+        with pytest.raises(FPosBAPIClientError, match="Empty response"):
             client.send_command("HOME")
 
     def test_raises_on_error_status(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=["1, HOME, 42, FAULT, AXIS_ERROR"])
-        with pytest.raises(FPosAPIClientError, match="FPosAPI error response"):
+        with pytest.raises(FPosBAPIClientError, match="FPosBAPI error response"):
             client.send_command("HOME")
 
     def test_raises_on_msg_id_mismatch(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=["99, HOME, 0, NULL, SUCCESS"])
-        with pytest.raises(FPosAPIClientError, match="MSG_ID mismatch"):
+        with pytest.raises(FPosBAPIClientError, match="MSG_ID mismatch"):
             client.send_command("HOME")
 
     def test_raises_on_cmd_echo_mismatch(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=["1, WRONG_CMD, 0, NULL, SUCCESS"])
-        with pytest.raises(FPosAPIClientError, match="CMD echo mismatch"):
+        with pytest.raises(FPosBAPIClientError, match="CMD echo mismatch"):
             client.send_command("HOME")
 
 
@@ -236,7 +236,7 @@ class TestFPosAPIClientSendCommand:
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientListCommands:
+class TestFPosBAPIClientListCommands:
     def test_returns_parsed_command_names(self, client, mocker):
         mocker.patch.object(
             client,
@@ -271,21 +271,21 @@ class TestFPosAPIClientListCommands:
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientClose:
+class TestFPosBAPIClientClose:
     def test_close_calls_socket_close(self, client, mock_sock):
         client.close()
         mock_sock.close.assert_called_once()
 
     def test_context_manager_calls_close_on_exit(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        with FPosAPIClient(ip=_IP, port=_PORT) as c:
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        with FPosBAPIClient(ip=_IP, port=_PORT) as c:
             pass
         mock_sock.close.assert_called_once()
 
     def test_context_manager_returns_client_instance(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        with FPosAPIClient(ip=_IP, port=_PORT) as c:
-            assert isinstance(c, FPosAPIClient)
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        with FPosBAPIClient(ip=_IP, port=_PORT) as c:
+            assert isinstance(c, FPosBAPIClient)
 
 
 # ---------------------------------------------------------------------------
@@ -293,37 +293,37 @@ class TestFPosAPIClientClose:
 # ---------------------------------------------------------------------------
 
 
-class TestFPosAPIClientIdentity:
+class TestFPosBAPIClientIdentity:
     def test_repr_contains_ip_and_port(self, client):
         r = repr(client)
         assert _IP in r
         assert str(_PORT) in r
 
     def test_eq_same_ip_and_port(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        a = FPosAPIClient(ip=_IP, port=_PORT)
-        b = FPosAPIClient(ip=_IP, port=_PORT)
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        a = FPosBAPIClient(ip=_IP, port=_PORT)
+        b = FPosBAPIClient(ip=_IP, port=_PORT)
         assert a == b
 
     def test_eq_different_ip(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        a = FPosAPIClient(ip=_IP, port=_PORT)
-        b = FPosAPIClient(ip="10.0.0.1", port=_PORT)
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        a = FPosBAPIClient(ip=_IP, port=_PORT)
+        b = FPosBAPIClient(ip="10.0.0.1", port=_PORT)
         assert a != b
 
     def test_eq_different_port(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        a = FPosAPIClient(ip=_IP, port=_PORT)
-        b = FPosAPIClient(ip=_IP, port=9999)
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        a = FPosBAPIClient(ip=_IP, port=_PORT)
+        b = FPosBAPIClient(ip=_IP, port=9999)
         assert a != b
 
     def test_eq_non_client_returns_not_implemented(self, client):
         assert client.__eq__("not-a-client") is NotImplemented
 
     def test_hash_equal_instances_match(self, mocker, mock_sock):
-        mocker.patch("applied_motion.backends.fposapi_client.socket.socket", return_value=mock_sock)
-        a = FPosAPIClient(ip=_IP, port=_PORT)
-        b = FPosAPIClient(ip=_IP, port=_PORT)
+        mocker.patch("applied_motion.backends.fposbapi_client.socket.socket", return_value=mock_sock)
+        a = FPosBAPIClient(ip=_IP, port=_PORT)
+        b = FPosBAPIClient(ip=_IP, port=_PORT)
         assert hash(a) == hash(b)
 
     def test_hash_usable_in_set(self, client):

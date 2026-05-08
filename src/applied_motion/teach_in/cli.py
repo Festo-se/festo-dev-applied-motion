@@ -27,8 +27,8 @@ Command                                 Effect
 ``where``                               Print current axis positions
 ``home``                                Home all axes
 ``capture <label>``                     Record current position as *label*
-``teach pos <pos_id>``                  (FPosAPI only) Send TEACH_POS to PLC
-``teach tray <tray_id> <tray_pos>``     (FPosAPI only) Send TEACH_TRAY to PLC
+``teach pos <pos_id>``                  (FPosBAPI only) Send TEACH_POS to PLC
+``teach tray <tray_id> <tray_pos>``     (FPosBAPI only) Send TEACH_TRAY to PLC
 ``list``                                List all captured positions
 ``save <path>``                         Write positions to a JSON file
 ``load <path>``                         Merge positions from a JSON file
@@ -84,8 +84,8 @@ _HELP_TEXT = """
   [green]where[/]                            Print current axis positions
   [green]home[/]                             Home all axes
   [green]capture[/] [yellow]<label>[/]                  Record current position as label
-  [green]teach pos[/] [yellow]<pos_id>[/]               (FPosAPI) TEACH_POS → PLC slot
-  [green]teach tray[/] [yellow]<tray_id>[/] [yellow]<tray_pos>[/]   (FPosAPI) TEACH_TRAY → PLC
+  [green]teach pos[/] [yellow]<pos_id>[/]               (FPosBAPI) TEACH_POS → PLC slot
+  [green]teach tray[/] [yellow]<tray_id>[/] [yellow]<tray_pos>[/]   (FPosBAPI) TEACH_TRAY → PLC
   [green]list[/]                             List all captured positions
   [green]save[/] [yellow]<path>[/]                       Write positions to JSON
   [green]load[/] [yellow]<path>[/]                       Merge positions from JSON
@@ -387,7 +387,7 @@ def main() -> None:
 
     console.print(f"[green]✓[/] Connected: [bold]{gantry!r}[/]")
 
-    # Wire FPosAPI hook: after every capture, remind the operator to
+    # Wire FPosBAPI hook: after every capture, remind the operator to
     # optionally commit the position to the PLC with 'teach pos'.
     on_capture = None
     if gantry._client is not None:

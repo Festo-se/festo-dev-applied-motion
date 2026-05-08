@@ -11,7 +11,7 @@ class Axis(Protocol):
     """Structural interface for a single controllable axis.
 
     Both :class:`~applied_motion.gantry.backend.edcon_axis.EdconAxis` (Modbus/EDCON backend) and
-    :class:`~applied_motion.backends.fposapi_axis.FPosAxis` (FPosAPI backend)
+    :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` (FPosBAPI backend)
     satisfy this protocol structurally — no explicit inheritance required.
 
     All position values are in **millimetres (mm)**.

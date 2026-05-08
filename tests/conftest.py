@@ -57,8 +57,8 @@ from edcon.edrive.motion_handler import MotionHandler
 
 from applied_motion.gantry import Gantry
 from applied_motion.backends.edcon_axis import EdconAxis
-from applied_motion.backends.fposapi_axis import FPosAxis
-from applied_motion.backends.fposapi_client import FPosAPIClient, FPosAPIClientError
+from applied_motion.backends.fposbapi_axis import FPosBAxis
+from applied_motion.backends.fposbapi_client import FPosBAPIClient, FPosBAPIClientError
 
 # ---------------------------------------------------------------------------
 # Hardware reachability probe
@@ -82,8 +82,8 @@ _DEFAULT_A_IP = "192.168.0.193"
 _DEFAULT_A_NAME = "X"
 _DEFAULT_B_IP = "192.168.0.32"
 _DEFAULT_B_NAME = "Z"
-_DEFAULT_FPOSAPI_IP = "192.168.10.25"
-_DEFAULT_FPOSAPI_PORT = 1234
+_DEFAULT_FPOSBAPI_IP = "192.168.10.25"
+_DEFAULT_FPOSBAPI_PORT = 1234
 
 # PNU addresses used by EdconAxis during construction and unit-conversion
 _PNU_NEG_SW_LIMIT = 11584
@@ -183,14 +183,14 @@ def gantry_mock():
 
 
 @pytest.fixture()
-def fposapi_client_mock(mocker):
-    """Return a mock :class:`FPosAPIClient` with ``send_command`` stubbed.
+def fposbapi_client_mock(mocker):
+    """Return a mock :class:`FPosBAPIClient` with ``send_command`` stubbed.
 
     ``send_command`` returns a generic SUCCESS response line by default.
     Individual tests can override ``send_command.return_value`` or
     ``send_command.side_effect`` as needed.
     """
-    client = MagicMock(spec=FPosAPIClient)
+    client = MagicMock(spec=FPosBAPIClient)
     client.ip = "192.168.10.10"
     client.port = 1234
     client.send_command.return_value = ["1, CMD, 0, NULL, SUCCESS"]
@@ -198,30 +198,30 @@ def fposapi_client_mock(mocker):
 
 
 @pytest.fixture()
-def fposapi_axis_mock(fposapi_client_mock):
-    """Return a :class:`FPosAxis` backed by ``fposapi_client_mock``.
+def fposbapi_axis_mock(fposbapi_client_mock):
+    """Return a :class:`FPosBAxis` backed by ``fposbapi_client_mock``.
 
     Uses axis name ``"X"`` and index ``1`` — the canonical X-axis in the
     CECC-X convention.  The underlying mock client is accessible as
-    ``fposapi_axis_mock._client``.
+    ``fposbapi_axis_mock._client``.
     """
-    return FPosAxis(name="X", index=1, client=fposapi_client_mock)
+    return FPosBAxis(name="X", index=1, client=fposbapi_client_mock)
 
 
 @pytest.fixture()
-def gantry_fposapi_mock(fposapi_client_mock):
-    """Return a :class:`Gantry` with three :class:`FPosAxis` stubs.
+def gantry_fposbapi_mock(fposbapi_client_mock):
+    """Return a :class:`Gantry` with three :class:`FPosBAxis` stubs.
 
     Axes X (index 1), Y (index 2), Z (index 3) are backed by
-    ``fposapi_client_mock``.  The proxy instances are accessible as
-    ``gantry_fposapi_mock._stub_axes`` and the shared client as
-    ``gantry_fposapi_mock._client``.
+    ``fposbapi_client_mock``.  The proxy instances are accessible as
+    ``gantry_fposbapi_mock._stub_axes`` and the shared client as
+    ``gantry_fposbapi_mock._client``.
     """
-    axis_x = FPosAxis(name="X", index=1, client=fposapi_client_mock)
-    axis_y = FPosAxis(name="Y", index=2, client=fposapi_client_mock)
-    axis_z = FPosAxis(name="Z", index=3, client=fposapi_client_mock)
+    axis_x = FPosBAxis(name="X", index=1, client=fposbapi_client_mock)
+    axis_y = FPosBAxis(name="Y", index=2, client=fposbapi_client_mock)
+    axis_z = FPosBAxis(name="Z", index=3, client=fposbapi_client_mock)
     axes = {"X": axis_x, "Y": axis_y, "Z": axis_z}
-    g = Gantry(axes=axes, _client=fposapi_client_mock)
+    g = Gantry(axes=axes, _client=fposbapi_client_mock)
     g._stub_axes = axes
     return g
 
@@ -264,28 +264,28 @@ def gantry(axis_a, axis_b):
 
 
 @pytest.fixture(scope="module")
-def gantry_fposapi():
-    """Return a :class:`Gantry` built from the FPosAPI JSON fixture spec.
+def gantry_fposbapi():
+    """Return a :class:`Gantry` built from the FPosBAPI JSON fixture spec.
 
-    Loads ``tests/fixtures/test-gantry-spec-fposapi.json`` and overrides the
-    connection block from ``FPOSAPI_IP`` / ``FPOSAPI_PORT`` environment
+    Loads ``tests/fixtures/test-gantry-spec-fposbapi.json`` and overrides the
+    connection block from ``FPOSBAPI_IP`` / ``FPOSBAPI_PORT`` environment
     variables so the target PLC can be changed at runtime without editing the
     fixture file.  Skips immediately when the CECC-X PLC is not reachable.
 
     Override connection details at runtime::
 
-        FPOSAPI_IP=10.0.0.1 FPOSAPI_PORT=1234 uv run pytest -m hardware
+        FPOSBAPI_IP=10.0.0.1 FPOSBAPI_PORT=1234 uv run pytest -m hardware
     """
-    ip = getenv("FPOSAPI_IP", _DEFAULT_FPOSAPI_IP)
-    port = int(getenv("FPOSAPI_PORT", str(_DEFAULT_FPOSAPI_PORT)))
-    fixture_path = Path(__file__).parent / "fixtures" / "test-gantry-spec-fposapi.json"
+    ip = getenv("FPOSBAPI_IP", _DEFAULT_FPOSBAPI_IP)
+    port = int(getenv("FPOSBAPI_PORT", str(_DEFAULT_FPOSBAPI_PORT)))
+    fixture_path = Path(__file__).parent / "fixtures" / "test-gantry-spec-fposbapi.json"
     with fixture_path.open() as fh:
         cfg = json.load(fh)
     cfg["connection"]["ip"] = ip
     cfg["connection"]["port"] = port
 
     if not _is_reachable(ip, port):
-        pytest.skip(f"FPosAPI PLC not reachable at {ip}:{port}")
+        pytest.skip(f"FPosBAPI PLC not reachable at {ip}:{port}")
 
     gantry = Gantry.from_config(cfg)
     yield gantry

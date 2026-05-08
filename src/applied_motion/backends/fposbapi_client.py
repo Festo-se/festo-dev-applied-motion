@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
 
 
-r"""Thread-safe ASCII TCP socket client for the Festo FPosAPI server.
+r"""Thread-safe ASCII TCP socket client for the Festo FPosBAPI server.
 
-The FPosAPI server runs on the Festo CECC-X PLC (CoDeSys) and listens on
+The FPosBAPI server runs on the Festo CECC-X PLC (CoDeSys) and listens on
 TCP port 1234.  It speaks a line-oriented ASCII protocol::
 
     Request:  MSG_ID, COMMAND[, PARAM, ...]\r\n
@@ -13,8 +13,8 @@ On success the last three comma-delimited fields are ``0, NULL, SUCCESS``.
 On error the last three fields carry a non-zero error id, type string, and
 message string.
 
-A single :class:`FPosAPIClient` instance should be shared across all
-:class:`~applied_motion.backends.fposapi_axis.FPosAxis` objects belonging
+A single :class:`FPosBAPIClient` instance should be shared across all
+:class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` objects belonging
 to the same gantry, and is owned by :class:`~applied_motion.gantry.Gantry`.
 All send/receive operations are serialised through an internal
 :class:`threading.Lock`.
@@ -28,29 +28,29 @@ import time
 logger = logging.getLogger(__name__)
 
 
-class FPosAPIClientError(Exception):
-    """Raised when the FPosAPI server returns an error response or the connection is lost."""
+class FPosBAPIClientError(Exception):
+    """Raised when the FPosBAPI server returns an error response or the connection is lost."""
 
 
-class FPosAPIClient:
-    """Thread-safe TCP socket client for the Festo FPosAPI ASCII protocol.
+class FPosBAPIClient:
+    """Thread-safe TCP socket client for the Festo FPosBAPI ASCII protocol.
 
     Connects to the CECC-X PLC on *ip*:*port* and wraps the request/response
     cycle in :meth:`send_command`.  A :class:`threading.Lock` serialises all
-    socket I/O so multiple :class:`~applied_motion.backends.fposapi_axis.FPosAxis`
+    socket I/O so multiple :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis`
     objects sharing the same client do not interleave their frames.
 
     Attributes:
         ip: IPv4 address of the CECC-X TCP server.
-        port: TCP port of the FPosAPI server (default ``1234``).
+        port: TCP port of the FPosBAPI server (default ``1234``).
     """
 
     def __init__(self, ip: str, port: int = 1234, timeout: float | None = None) -> None:
-        """Connect to the FPosAPI server.
+        """Connect to the FPosBAPI server.
 
         Args:
             ip: IPv4 address of the CECC-X PLC.
-            port: TCP port the FPosAPI server is listening on.  Defaults to
+            port: TCP port the FPosBAPI server is listening on.  Defaults to
                 ``1234``.
             timeout: Socket timeout in seconds.  Applied to both ``connect``
                 and ``recv`` operations.  ``None`` (default) means blocking
@@ -67,7 +67,7 @@ class FPosAPIClient:
         self._msg_id = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._connect()
-        logger.info("FPosAPIClient connected to %s:%d", ip, port)
+        logger.info("FPosBAPIClient connected to %s:%d", ip, port)
 
     def _configure_keepalive(self, sock: socket.socket) -> None:
         """Enable and tune TCP keepalive where supported."""
@@ -89,13 +89,13 @@ class FPosAPIClient:
 
     def _reconnect(self) -> None:
         """Close the current socket and establish a fresh connection."""
-        logger.warning("FPosAPIClient: reconnecting to %s:%d", self.ip, self.port)
+        logger.warning("FPosBAPIClient: reconnecting to %s:%d", self.ip, self.port)
         try:
             self._sock.close()
         except OSError:
             pass
         self._connect()
-        logger.info("FPosAPIClient: reconnected to %s:%d", self.ip, self.port)
+        logger.info("FPosBAPIClient: reconnected to %s:%d", self.ip, self.port)
 
     def _drain(self, max_chunks: int = 64) -> None:
         r"""Discard bytes buffered in the receive socket.
@@ -120,7 +120,7 @@ class FPosAPIClient:
             pass
         finally:
             self._sock.settimeout(self._timeout)
-        logger.debug("FPosAPIClient: socket drained (%d chunk max)", max_chunks)
+        logger.debug("FPosBAPIClient: socket drained (%d chunk max)", max_chunks)
 
     def _next_id(self) -> int:
         """Return the next monotonically increasing message ID.
@@ -132,7 +132,7 @@ class FPosAPIClient:
         return self._msg_id
 
     def send_command(self, command: str, *params) -> list[str]:
-        """Send a command to the FPosAPI server and return all response lines.
+        """Send a command to the FPosBAPI server and return all response lines.
 
         Acquires the internal lock, increments the message ID, formats the
         ASCII request frame, sends it, then reads lines via
@@ -141,7 +141,7 @@ class FPosAPIClient:
         echo, CMD echo, and ``SUCCESS`` status before returning.
 
         Args:
-            command: FPosAPI command string, e.g. ``"ENABLE"``, ``"MOVE_AXIS"``.
+            command: FPosBAPI command string, e.g. ``"ENABLE"``, ``"MOVE_AXIS"``.
             *params: Zero or more positional parameters appended to the frame.
 
         Returns:
@@ -150,7 +150,7 @@ class FPosAPIClient:
             the command and carrying ``SUCCESS``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error status, the
+            FPosBAPIClientError: If the server returns an error status, the
                 echoed MSG_ID or command name does not match what was sent, the
                 response is empty, or the connection is closed.
         """
@@ -158,38 +158,38 @@ class FPosAPIClient:
             msg_id = self._next_id()
             parts = [str(msg_id), command] + [str(p) for p in params]
             raw = ", ".join(parts) + "\r\n"
-            logger.debug("FPosAPIClient <- %s", raw.strip())
+            logger.debug("FPosBAPIClient <- %s", raw.strip())
             try:
                 self._sock.sendall(raw.encode("ascii"))
             except (ConnectionResetError, BrokenPipeError, OSError) as exc:
-                logger.warning("FPosAPIClient send failed (%s); reconnecting once", exc)
+                logger.warning("FPosBAPIClient send failed (%s); reconnecting once", exc)
                 try:
                     self._reconnect()
                     self._sock.sendall(raw.encode("ascii"))
                 except OSError as retry_exc:
-                    raise FPosAPIClientError(f"Connection lost during {command!r}: {retry_exc}") from retry_exc
+                    raise FPosBAPIClientError(f"Connection lost during {command!r}: {retry_exc}") from retry_exc
             lines = self._collect_response()
 
             # Validate while holding the lock so subsequent send_command calls
             # see a clean socket regardless of the outcome here.
             if not lines:
                 self._drain(max_chunks=1)
-                raise FPosAPIClientError(f"Empty response to {command!r}")
+                raise FPosBAPIClientError(f"Empty response to {command!r}")
 
             terminal = lines[-1]
             fields = [f.strip() for f in terminal.split(",")]
 
             if "VEAB" in command:
                 fields = self._handle_malformed_veab_output(fields, msg_id, command)
-                logger.debug("FPosAPIClient <- %s", ",".join(fields))
+                logger.debug("FPosBAPIClient <- %s", ",".join(fields))
             if len(fields) < 3:
-                raise FPosAPIClientError(f"Malformed response to {command!r}: {terminal!r}")
+                raise FPosBAPIClientError(f"Malformed response to {command!r}: {terminal!r}")
             if fields[0] != str(msg_id):
-                raise FPosAPIClientError(f"MSG_ID mismatch: sent {msg_id}, got {fields[0]!r} in {terminal!r}")
+                raise FPosBAPIClientError(f"MSG_ID mismatch: sent {msg_id}, got {fields[0]!r} in {terminal!r}")
             if fields[1] != command:
-                raise FPosAPIClientError(f"CMD echo mismatch: sent {command!r}, got {fields[1]!r} in {terminal!r}")
+                raise FPosBAPIClientError(f"CMD echo mismatch: sent {command!r}, got {fields[1]!r} in {terminal!r}")
             if fields[-1] != "SUCCESS":
-                raise FPosAPIClientError(f"FPosAPI error response: {terminal}")
+                raise FPosBAPIClientError(f"FPosBAPI error response: {terminal}")
 
         return lines
 
@@ -233,7 +233,7 @@ class FPosAPIClient:
             for a bare terminator.
 
         Raises:
-            FPosAPIClientError: If the remote host closes the connection
+            FPosBAPIClientError: If the remote host closes the connection
                 (``recv`` returns ``b""``).
         """
         buf = b""
@@ -241,13 +241,13 @@ class FPosAPIClient:
             try:
                 ch = self._sock.recv(1)
             except OSError as exc:
-                raise FPosAPIClientError(f"Connection lost: {exc}") from exc
+                raise FPosBAPIClientError(f"Connection lost: {exc}") from exc
             if not ch:
-                raise FPosAPIClientError("Connection closed by remote host")
+                raise FPosBAPIClientError("Connection closed by remote host")
             buf += ch
             if ch == b"\n":
                 line = buf.decode("ascii").strip()
-                logger.debug("FPosAPIClient <- %r", line)
+                logger.debug("FPosBAPIClient <- %r", line)
                 return line
 
     def _collect_response(self) -> list[str]:
@@ -264,7 +264,7 @@ class FPosAPIClient:
             terminal line.
 
         Raises:
-            FPosAPIClientError: If the connection is closed before the terminal
+            FPosBAPIClientError: If the connection is closed before the terminal
                 line arrives.
         """
         lines: list[str] = []
@@ -294,7 +294,7 @@ class FPosAPIClient:
         """Query the server for its supported command set via ``CMD_LIST``.
 
         Sends ``CMD_LIST`` and parses the response to extract the command
-        names the connected FPosAPI server advertises.  The set varies
+        names the connected FPosBAPI server advertises.  The set varies
         between firmware versions, so callers can use this to feature-detect
         before issuing optional commands (e.g. ``IS_HOME``, ``SYS_STATUS``).
 
@@ -311,7 +311,7 @@ class FPosAPIClient:
             e.g. ``["ENABLE", "DISABLE", "HOME", "MOVE_AXIS", ...]``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         lines = self.send_command("CMD_LIST")
@@ -331,31 +331,31 @@ class FPosAPIClient:
         """Enable the gantry drives via ``ENABLE``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("ENABLE")
-        logger.info("FPosAPIClient: drives enabled")
+        logger.info("FPosBAPIClient: drives enabled")
 
     def disable(self) -> None:
         """Disable the gantry drives via ``DISABLE``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("DISABLE")
-        logger.info("FPosAPIClient: drives disabled")
+        logger.info("FPosBAPIClient: drives disabled")
 
     def home(self) -> None:
         """Home all axes via ``HOME``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("HOME")
-        logger.info("FPosAPIClient: homing complete")
+        logger.info("FPosBAPIClient: homing complete")
 
     def move_pos(
         self,
@@ -374,11 +374,11 @@ class FPosAPIClient:
                 full speed.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("MOVE_POS", pos_id, tool_id, retract_z, slow_app)
-        logger.info("FPosAPIClient: MOVE_POS complete (pos_id=%d, tool_id=%d)", pos_id, tool_id)
+        logger.info("FPosBAPIClient: MOVE_POS complete (pos_id=%d, tool_id=%d)", pos_id, tool_id)
 
     def move_loc(
         self,
@@ -403,62 +403,62 @@ class FPosAPIClient:
                 full speed.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("MOVE_LOC", a1, a2, a3, tool_id, move_typ, retract_z, slow_app)
-        logger.info("FPosAPIClient: MOVE_LOC complete (a1=%s, a2=%s, a3=%s mm)", a1, a2, a3)
+        logger.info("FPosBAPIClient: MOVE_LOC complete (a1=%s, a2=%s, a3=%s mm)", a1, a2, a3)
 
     def move_path(self) -> None:
         """Execute the programmed motion path via ``MOVE_PATH``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         # TODO: Needs WRITE_PATH?
         self.send_command("MOVE_PATH")
-        logger.info("FPosAPIClient: MOVE_PATH complete")
+        logger.info("FPosBAPIClient: MOVE_PATH complete")
 
     def halt(self) -> None:
         """Halt the current motion via ``HALT``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("HALT")
-        logger.info("FPosAPIClient: HALT issued")
+        logger.info("FPosBAPIClient: HALT issued")
 
     def resume(self) -> None:
         """Resume a halted motion via ``RESUME``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("RESUME")
-        logger.info("FPosAPIClient: RESUME issued")
+        logger.info("FPosBAPIClient: RESUME issued")
 
     def abort(self) -> None:
         """Abort the current motion via ``ABORT``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("ABORT")
-        logger.info("FPosAPIClient: ABORT issued")
+        logger.info("FPosBAPIClient: ABORT issued")
 
     def reset_err(self) -> None:
         """Reset the active error via ``RESET_ERR``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("RESET_ERR")
-        logger.info("FPosAPIClient: error reset")
+        logger.info("FPosBAPIClient: error reset")
 
     def open_valve(
         self,
@@ -484,7 +484,7 @@ class FPosAPIClient:
             v8_time: Valve 8 open duration in ms.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command(
@@ -498,7 +498,7 @@ class FPosAPIClient:
             v7_time,
             v8_time,
         )
-        logger.info("FPosAPIClient: OPEN_VALVE complete")
+        logger.info("FPosBAPIClient: OPEN_VALVE complete")
 
     # ------------------------------------------------------------------
     # Teaching commands
@@ -518,7 +518,7 @@ class FPosAPIClient:
             Tuple of ``(abs_a1, abs_a2, abs_a3)`` in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
             RuntimeError: If the response cannot be parsed.
         """
@@ -529,7 +529,7 @@ class FPosAPIClient:
             result = float(fields[3]), float(fields[4]), float(fields[5])
         except (IndexError, ValueError) as exc:
             raise RuntimeError(f"Failed to parse READ_POS response for pos_id={pos_id}: {lines!r}") from exc
-        logger.debug("FPosAPIClient: READ_POS pos_id=%d → %s", pos_id, result)
+        logger.debug("FPosBAPIClient: READ_POS pos_id=%d → %s", pos_id, result)
         return result
 
     def teach_pos(self, pos_id: int, tool_id: int = 0) -> None:
@@ -540,11 +540,11 @@ class FPosAPIClient:
             tool_id: Tool offset to associate with this position.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("TEACH_POS", pos_id, tool_id)
-        logger.info("FPosAPIClient: TEACH_POS complete (pos_id=%d)", pos_id)
+        logger.info("FPosBAPIClient: TEACH_POS complete (pos_id=%d)", pos_id)
 
     def write_pos(
         self,
@@ -562,12 +562,12 @@ class FPosAPIClient:
             abs_a3: Absolute Z-axis position in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("WRITE_POS", pos_id, abs_a1, abs_a2, abs_a3)
         logger.info(
-            "FPosAPIClient: WRITE_POS complete (pos_id=%d, a1=%s, a2=%s, a3=%s mm)",
+            "FPosBAPIClient: WRITE_POS complete (pos_id=%d, a1=%s, a2=%s, a3=%s mm)",
             pos_id,
             abs_a1,
             abs_a2,
@@ -590,11 +590,11 @@ class FPosAPIClient:
             rel_a3: Relative Z-axis offset in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("MOD_POS", pos_id, rel_a1, rel_a2, rel_a3)
-        logger.info("FPosAPIClient: MOD_POS complete (pos_id=%d)", pos_id)
+        logger.info("FPosBAPIClient: MOD_POS complete (pos_id=%d)", pos_id)
 
     def write_path(
         self,
@@ -612,11 +612,11 @@ class FPosAPIClient:
             abs_a3: Absolute Z-axis position in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("WRITE_PATH", pa_pos_id, abs_a1, abs_a2, abs_a3)
-        logger.info("FPosAPIClient: WRITE_PATH complete (pa_pos_id=%d)", pa_pos_id)
+        logger.info("FPosBAPIClient: WRITE_PATH complete (pa_pos_id=%d)", pa_pos_id)
 
     def read_path(self, pa_pos_id: int) -> tuple[float, float, float]:
         """Read one waypoint from the motion path via ``READ_PATH``.
@@ -628,7 +628,7 @@ class FPosAPIClient:
             Tuple of ``(abs_a1, abs_a2, abs_a3)`` in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
             RuntimeError: If the response cannot be parsed.
         """
@@ -639,7 +639,7 @@ class FPosAPIClient:
             result = float(fields[3]), float(fields[4]), float(fields[5])
         except (IndexError, ValueError) as exc:
             raise RuntimeError(f"Failed to parse READ_PATH response for pa_pos_id={pa_pos_id}: {lines!r}") from exc
-        logger.debug("FPosAPIClient: READ_PATH pa_pos_id=%d → %s", pa_pos_id, result)
+        logger.debug("FPosBAPIClient: READ_PATH pa_pos_id=%d → %s", pa_pos_id, result)
         return result
 
     # ------------------------------------------------------------------
@@ -657,7 +657,7 @@ class FPosAPIClient:
             Status string reported by the PLC (e.g. ``"IDLE"``).
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
             RuntimeError: If the response cannot be parsed.
         """
@@ -668,7 +668,7 @@ class FPosAPIClient:
             status = fields[2]
         except IndexError as exc:
             raise RuntimeError(f"Failed to parse SYS_STATUS response: {lines!r}") from exc
-        logger.debug("FPosAPIClient: SYS_STATUS → %r", status)
+        logger.debug("FPosBAPIClient: SYS_STATUS → %r", status)
         return status
 
     def is_error(self) -> bool:
@@ -682,7 +682,7 @@ class FPosAPIClient:
             ``True`` if the PLC reports an active error; ``False`` otherwise.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
             RuntimeError: If the response cannot be parsed.
         """
@@ -693,7 +693,7 @@ class FPosAPIClient:
             result = bool(int(fields[2]))
         except (IndexError, ValueError) as exc:
             raise RuntimeError(f"Failed to parse IS_ERROR response: {lines!r}") from exc
-        logger.debug("FPosAPIClient: IS_ERROR → %s", result)
+        logger.debug("FPosBAPIClient: IS_ERROR → %s", result)
         return result
 
     def fpb_error(self) -> str:
@@ -707,13 +707,13 @@ class FPosAPIClient:
             Raw status string from the terminal response field.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         lines = self.send_command("FPB_ERROR")
         fields = [f.strip() for f in lines[-1].split(",")]
         status = fields[2] if len(fields) > 2 else ""
-        logger.debug("FPosAPIClient: FPB_ERROR → %r", status)
+        logger.debug("FPosBAPIClient: FPB_ERROR → %r", status)
         return status
 
     def read_err(self) -> str:
@@ -723,11 +723,11 @@ class FPosAPIClient:
             The raw terminal response line from the server.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         lines = self.send_command("READ_ERR")
-        logger.debug("FPosAPIClient: READ_ERR → %r", lines[-1])
+        logger.debug("FPosBAPIClient: READ_ERR → %r", lines[-1])
         return lines[-1]
 
     def err_log(self) -> list[str]:
@@ -740,12 +740,12 @@ class FPosAPIClient:
             List of error log strings (all lines except the terminal status).
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         lines = self.send_command("ERR_LOG")
         log = lines[:-1]  # strip terminal SUCCESS line
-        logger.debug("FPosAPIClient: ERR_LOG returned %d line(s)", len(log))
+        logger.debug("FPosBAPIClient: ERR_LOG returned %d line(s)", len(log))
         return log
 
     def com_log(self) -> list[str]:
@@ -758,12 +758,12 @@ class FPosAPIClient:
             List of communication log strings (all lines except the terminal status).
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         lines = self.send_command("COM_LOG")
         log = lines[:-1]  # strip terminal SUCCESS line
-        logger.debug("FPosAPIClient: COM_LOG returned %d line(s)", len(log))
+        logger.debug("FPosBAPIClient: COM_LOG returned %d line(s)", len(log))
         return log
 
     def err_desc(self) -> str:
@@ -773,11 +773,11 @@ class FPosAPIClient:
             Raw terminal response line from the server.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         lines = self.send_command("ERR_DESC")
-        logger.debug("FPosAPIClient: ERR_DESC → %r", lines[-1])
+        logger.debug("FPosBAPIClient: ERR_DESC → %r", lines[-1])
         return lines[-1]
 
     # ------------------------------------------------------------------
@@ -798,7 +798,7 @@ class FPosAPIClient:
             Current value of the I/O channel.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
             RuntimeError: If the response cannot be parsed.
         """
@@ -809,7 +809,7 @@ class FPosAPIClient:
             value = float(fields[3])
         except (IndexError, ValueError) as exc:
             raise RuntimeError(f"Failed to parse GET_IO response for io_id={io_id}: {lines!r}") from exc
-        logger.debug("FPosAPIClient: GET_IO io_id=%d → %s", io_id, value)
+        logger.debug("FPosBAPIClient: GET_IO io_id=%d → %s", io_id, value)
         return value
 
     def set_io(self, io_id: int, value: float) -> None:
@@ -820,16 +820,16 @@ class FPosAPIClient:
             value: Value to write to the I/O channel.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("SET_IO", io_id, value)
-        logger.info("FPosAPIClient: SET_IO io_id=%d value=%s", io_id, value)
+        logger.info("FPosBAPIClient: SET_IO io_id=%d value=%s", io_id, value)
 
     def get_par(self, par_id: int) -> list[float]:
         """Return parameter values for *par_id* via ``GET_PAR``.
 
-        The FPosAPI server returns up to four value fields per parameter
+        The FPosBAPI server returns up to four value fields per parameter
         (e.g. tray parameters include column count, column offset, row count,
         and row offset).  Fields that are absent or non-numeric are omitted
         from the returned list.
@@ -845,7 +845,7 @@ class FPosAPIClient:
             List of up to four float values for the requested parameter.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         lines = self.send_command("GET_PAR", par_id)
@@ -859,7 +859,7 @@ class FPosAPIClient:
                 values.append(float(f))
             except ValueError:
                 break
-        logger.debug("FPosAPIClient: GET_PAR par_id=%d → %s", par_id, values)
+        logger.debug("FPosBAPIClient: GET_PAR par_id=%d → %s", par_id, values)
         return values
 
     def set_par(self, par_id: int, *values: float) -> None:
@@ -870,11 +870,11 @@ class FPosAPIClient:
             *values: Up to four values to write to the parameter.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("SET_PAR", par_id, *values)
-        logger.info("FPosAPIClient: SET_PAR par_id=%d values=%s", par_id, values)
+        logger.info("FPosBAPIClient: SET_PAR par_id=%d values=%s", par_id, values)
 
     # ------------------------------------------------------------------
     # Tray commands
@@ -889,11 +889,11 @@ class FPosAPIClient:
             tool_id: Tool offset to associate with this position.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("TEACH_TRAY", tray_id, tray_pos, tool_id)
-        logger.info("FPosAPIClient: TEACH_TRAY complete (tray_id=%d, tray_pos=%d)", tray_id, tray_pos)
+        logger.info("FPosBAPIClient: TEACH_TRAY complete (tray_id=%d, tray_pos=%d)", tray_id, tray_pos)
 
     def write_tray(
         self,
@@ -913,11 +913,11 @@ class FPosAPIClient:
             abs_a3: Absolute Z-axis position in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("WRITE_TRAY", tray_id, tray_pos, abs_a1, abs_a2, abs_a3)
-        logger.info("FPosAPIClient: WRITE_TRAY complete (tray_id=%d, tray_pos=%d)", tray_id, tray_pos)
+        logger.info("FPosBAPIClient: WRITE_TRAY complete (tray_id=%d, tray_pos=%d)", tray_id, tray_pos)
 
     def read_tray(self, tray_id: int, tray_pos: int) -> tuple[float, float, float]:
         """Read the stored coordinates of a tray position via ``READ_TRAY``.
@@ -934,7 +934,7 @@ class FPosAPIClient:
             Tuple of ``(abs_a1, abs_a2, abs_a3)`` in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
             RuntimeError: If the response cannot be parsed.
         """
@@ -947,7 +947,7 @@ class FPosAPIClient:
             raise RuntimeError(
                 f"Failed to parse READ_TRAY response for tray_id={tray_id}, tray_pos={tray_pos}: {lines!r}"
             ) from exc
-        logger.debug("FPosAPIClient: READ_TRAY tray_id=%d tray_pos=%d → %s", tray_id, tray_pos, result)
+        logger.debug("FPosBAPIClient: READ_TRAY tray_id=%d tray_pos=%d → %s", tray_id, tray_pos, result)
         return result
 
     def mod_tray(
@@ -968,11 +968,11 @@ class FPosAPIClient:
             rel_a3: Relative Z-axis offset in mm.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("MOD_TRAY", tray_id, tray_pos, rel_a1, rel_a2, rel_a3)
-        logger.info("FPosAPIClient: MOD_TRAY complete (tray_id=%d, tray_pos=%d)", tray_id, tray_pos)
+        logger.info("FPosBAPIClient: MOD_TRAY complete (tray_id=%d, tray_pos=%d)", tray_id, tray_pos)
 
     def move_tray(
         self,
@@ -995,12 +995,12 @@ class FPosAPIClient:
                 full speed.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("MOVE_TRAY", tray_id, tray_col, tray_row, tool_id, retract_z, slow_app)
         logger.info(
-            "FPosAPIClient: MOVE_TRAY complete (tray_id=%d, col=%d, row=%d)",
+            "FPosBAPIClient: MOVE_TRAY complete (tray_id=%d, col=%d, row=%d)",
             tray_id,
             tray_col,
             tray_row,
@@ -1014,11 +1014,11 @@ class FPosAPIClient:
         """Initialize system parameters via ``INIT_SYS``.
 
         Raises:
-            FPosAPIClientError: If the server returns an error response or
+            FPosBAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
         self.send_command("INIT_SYS")
-        logger.info("FPosAPIClient: system initialized")
+        logger.info("FPosBAPIClient: system initialized")
 
     def close(self) -> None:
         """Close the underlying TCP socket.
@@ -1027,19 +1027,19 @@ class FPosAPIClient:
         OS will already have released the socket descriptor.
         """
         self._sock.close()
-        logger.info("FPosAPIClient disconnected from %s:%d", self.ip, self.port)
+        logger.info("FPosBAPIClient disconnected from %s:%d", self.ip, self.port)
 
     # def reconnect(self) -> None:
     #     """Close the current socket and open a fresh connection to the same server.
 
-    #     Call this after a :class:`FPosAPIClientError` caused by a PLC reboot
+    #     Call this after a :class:`FPosBAPIClientError` caused by a PLC reboot
     #     or a dropped TCP connection.  The new socket is drained of any
     #     buffered bytes before this method returns.
 
     #     Raises:
     #         OSError: If the TCP connection cannot be re-established.
     #     """
-    #     logger.info("FPosAPIClient: reconnecting to %s:%d", self.ip, self.port)
+    #     logger.info("FPosBAPIClient: reconnecting to %s:%d", self.ip, self.port)
     #     try:
     #         self._sock.close()
     #     except OSError:
@@ -1048,7 +1048,7 @@ class FPosAPIClient:
     #     self._sock.settimeout(self._timeout)
     #     self._sock.connect((self.ip, self.port))
     #     self._drain()
-    #     logger.info("FPosAPIClient: reconnected to %s:%d", self.ip, self.port)
+    #     logger.info("FPosBAPIClient: reconnected to %s:%d", self.ip, self.port)
 
     # def wait_until_ready(
     #     self,
@@ -1056,9 +1056,9 @@ class FPosAPIClient:
     #     poll_interval: float = 2.0,
     #     probe_timeout: float = 5.0,
     # ) -> None:
-    #     """Block until the FPosAPI server responds to ``CMD_LIST`` or raise on timeout.
+    #     """Block until the FPosBAPI server responds to ``CMD_LIST`` or raise on timeout.
 
-    #     The CECC-X PLC opens the TCP port before the CoDeSys FPosAPI runtime
+    #     The CECC-X PLC opens the TCP port before the CoDeSys FPosBAPI runtime
     #     is ready to service commands.  This method polls with a short per-attempt
     #     socket timeout rather than a single long blocking call, so it fails fast
     #     on each attempt and retries until the server becomes responsive or
@@ -1069,7 +1069,7 @@ class FPosAPIClient:
 
     #     Args:
     #         deadline: Maximum total seconds to wait.  Raises
-    #             :class:`FPosAPIClientError` if the server is still not ready.
+    #             :class:`FPosBAPIClientError` if the server is still not ready.
     #             Defaults to ``120.0``.
     #         poll_interval: Seconds to wait between probe attempts.  Defaults
     #             to ``2.0``.
@@ -1077,13 +1077,13 @@ class FPosAPIClient:
     #             so unresponsive attempts fail quickly.  Defaults to ``5.0``.
 
     #     Raises:
-    #         FPosAPIClientError: If the server has not responded within *deadline*
+    #         FPosBAPIClientError: If the server has not responded within *deadline*
     #             seconds.
     #     """
     #     end = time.monotonic() + deadline
     #     attempt = 0
     #     logger.info(
-    #         "FPosAPIClient: waiting up to %.0fs for server at %s:%d to become ready",
+    #         "FPosBAPIClient: waiting up to %.0fs for server at %s:%d to become ready",
     #         deadline,
     #         self.ip,
     #         self.port,
@@ -1105,18 +1105,18 @@ class FPosAPIClient:
     #                     raise OSError("Connection closed")
     #                 buf += chunk
     #             logger.info(
-    #                 "FPosAPIClient: server ready after attempt %d",
+    #                 "FPosBAPIClient: server ready after attempt %d",
     #                 attempt,
     #             )
     #             return
     #         except OSError as exc:
     #             remaining = end - time.monotonic()
     #             if remaining <= 0:
-    #                 raise FPosAPIClientError(
+    #                 raise FPosBAPIClientError(
     #                     f"Server at {self.ip}:{self.port} not ready after {deadline:.0f}s"
     #                 ) from exc
     #             logger.debug(
-    #                 "FPosAPIClient: attempt %d failed (%s), %.0fs remaining",
+    #                 "FPosBAPIClient: attempt %d failed (%s), %.0fs remaining",
     #                 attempt,
     #                 exc,
     #                 remaining,
@@ -1125,7 +1125,7 @@ class FPosAPIClient:
     #         finally:
     #             probe_sock.close()
 
-    def __enter__(self) -> "FPosAPIClient":
+    def __enter__(self) -> "FPosBAPIClient":
         """Return *self* to support use as a context manager."""
         return self
 
@@ -1135,7 +1135,7 @@ class FPosAPIClient:
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation."""
-        return f"FPosAPIClient(ip={self.ip!r}, port={self.port!r})"
+        return f"FPosBAPIClient(ip={self.ip!r}, port={self.port!r})"
 
     def __eq__(self, other: object) -> bool:
         """Return ``True`` when *other* targets the same server endpoint.
@@ -1144,10 +1144,10 @@ class FPosAPIClient:
             other: Object to compare.
 
         Returns:
-            ``True`` if *other* is an :class:`FPosAPIClient` with equal *ip*
+            ``True`` if *other* is an :class:`FPosBAPIClient` with equal *ip*
             and *port*; ``False`` otherwise.
         """
-        if not isinstance(other, FPosAPIClient):
+        if not isinstance(other, FPosBAPIClient):
             return NotImplemented
         return self.ip == other.ip and self.port == other.port
 

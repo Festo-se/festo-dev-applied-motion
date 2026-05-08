@@ -9,10 +9,10 @@ __all__ = [
     "MovementError",
     "AxisNotFoundError",
     "Axis",
-    "FPosAPIClient",
-    "FPosAPIClientError",
-    "FPosAxis",
+    "FPosBAPIClient",
+    "FPosBAPIClientError",
+    "FPosBAxis",
 ]
 
 from applied_motion.gantry import Gantry, MovementError, AxisNotFoundError
-from applied_motion.backends import Axis, FPosAPIClient, FPosAPIClientError, FPosAxis, EdconAxis
+from applied_motion.backends import Axis, FPosBAPIClient, FPosBAPIClientError, FPosBAxis, EdconAxis

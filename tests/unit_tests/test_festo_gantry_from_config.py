@@ -8,17 +8,17 @@ Coverage areas
   correctly.
 * ``from_config`` with no ``backend`` key — defaults to ``"modbus"`` for
   backward compatibility with spec version 1.0 configs.
-* ``from_config`` with a fposapi backend dict — creates FPosAPIClient with
-  the correct ip/port, creates FPosAxis instances with correct name and
+* ``from_config`` with a fposbapi backend dict — creates FPosBAPIClient with
+  the correct ip/port, creates FPosBAxis instances with correct name and
   index, stores the client on the gantry.
 * ``from_config`` with concurrent_axes specified — populates
   ``gantry.concurrent_axes``.
 * ``from_config`` with an unsupported backend — raises ``ValueError``.
-* ``Gantry.home`` for FPosAPI backend — sends single HOME command via
+* ``Gantry.home`` for FPosBAPI backend — sends single HOME command via
   client rather than calling axis.home() on each proxy.
 * ``Gantry.home`` for Modbus backend — delegates to each axis.
 
-No hardware or network connection required.  EdconAxis and FPosAPIClient
+No hardware or network connection required.  EdconAxis and FPosBAPIClient
 constructors are patched so no TCP or Modbus connections are attempted.
 """
 
@@ -30,8 +30,8 @@ import pytest
 
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.gantry import Gantry
-from applied_motion.backends.fposapi_axis import FPosAxis
-from applied_motion.backends.fposapi_client import FPosAPIClient
+from applied_motion.backends.fposbapi_axis import FPosBAxis
+from applied_motion.backends.fposbapi_client import FPosBAPIClient
 
 
 # ---------------------------------------------------------------------------
@@ -51,9 +51,9 @@ _MODBUS_CONFIG = {
     },
 }
 
-_FPOSAPI_CONFIG = {
+_FPOSBAPI_CONFIG = {
     "spec_version": "2.0",
-    "backend": "fposapi",
+    "backend": "fposbapi",
     "connection": {"ip": "192.168.10.10", "port": 1234},
     "axes": {
         "X": {"name": "X", "index": 1},
@@ -78,10 +78,10 @@ def patched_festo_axis(mocker):
 
 
 @pytest.fixture()
-def patched_fposapi_client(mocker):
-    """Patch FPosAPIClient so from_config does not open a TCP socket."""
-    mock_cls = mocker.patch("applied_motion.gantry.FPosAPIClient", autospec=True)
-    mock_instance = MagicMock(spec=FPosAPIClient)
+def patched_fposbapi_client(mocker):
+    """Patch FPosBAPIClient so from_config does not open a TCP socket."""
+    mock_cls = mocker.patch("applied_motion.gantry.FPosBAPIClient", autospec=True)
+    mock_instance = MagicMock(spec=FPosBAPIClient)
     mock_instance.ip = "192.168.10.10"
     mock_instance.port = 1234
     mock_instance.send_command.return_value = "1, HOME, 0, NULL, SUCCESS"
@@ -141,60 +141,60 @@ class TestFromConfigModbus:
 
 
 # ---------------------------------------------------------------------------
-# FPosAPI backend
+# FPosBAPI backend
 # ---------------------------------------------------------------------------
 
 
-class TestFromConfigFPosAPI:
-    def test_creates_fposapi_client_with_correct_ip(self, patched_fposapi_client):
-        mock_cls, _ = patched_fposapi_client
-        Gantry.from_config(_FPOSAPI_CONFIG)
+class TestFromConfigFPosBAPI:
+    def test_creates_fposbapi_client_with_correct_ip(self, patched_fposbapi_client):
+        mock_cls, _ = patched_fposbapi_client
+        Gantry.from_config(_FPOSBAPI_CONFIG)
         mock_cls.assert_called_once_with(ip="192.168.10.10", port=1234)
 
-    def test_creates_fposaxis_proxy_for_each_entry(self, patched_fposapi_client):
-        _, mock_client = patched_fposapi_client
-        g = Gantry.from_config(_FPOSAPI_CONFIG)
+    def test_creates_fposbaxis_proxy_for_each_entry(self, patched_fposbapi_client):
+        _, mock_client = patched_fposbapi_client
+        g = Gantry.from_config(_FPOSBAPI_CONFIG)
         assert "X" in g.axes
         assert "Y" in g.axes
         assert "Z" in g.axes
 
-    def test_proxy_types_are_fposaxis_proxy(self, patched_fposapi_client):
-        _, mock_client = patched_fposapi_client
-        g = Gantry.from_config(_FPOSAPI_CONFIG)
+    def test_proxy_types_are_fposbaxis_proxy(self, patched_fposbapi_client):
+        _, mock_client = patched_fposbapi_client
+        g = Gantry.from_config(_FPOSBAPI_CONFIG)
         for axis in g.axes.values():
-            assert isinstance(axis, FPosAxis)
+            assert isinstance(axis, FPosBAxis)
 
-    def test_proxy_indices_match_config(self, patched_fposapi_client):
-        _, mock_client = patched_fposapi_client
-        g = Gantry.from_config(_FPOSAPI_CONFIG)
+    def test_proxy_indices_match_config(self, patched_fposbapi_client):
+        _, mock_client = patched_fposbapi_client
+        g = Gantry.from_config(_FPOSBAPI_CONFIG)
         assert g.axes["X"].index == 1
         assert g.axes["Y"].index == 2
         assert g.axes["Z"].index == 3
 
-    def test_proxy_names_match_config(self, patched_fposapi_client):
-        _, mock_client = patched_fposapi_client
-        g = Gantry.from_config(_FPOSAPI_CONFIG)
+    def test_proxy_names_match_config(self, patched_fposbapi_client):
+        _, mock_client = patched_fposbapi_client
+        g = Gantry.from_config(_FPOSBAPI_CONFIG)
         assert g.axes["X"].name == "X"
         assert g.axes["Y"].name == "Y"
         assert g.axes["Z"].name == "Z"
 
-    def test_gantry_client_is_shared_instance(self, patched_fposapi_client):
+    def test_gantry_client_is_shared_instance(self, patched_fposbapi_client):
         """The gantry's _client and all proxy _client refs must be the same object."""
-        _, mock_client = patched_fposapi_client
-        g = Gantry.from_config(_FPOSAPI_CONFIG)
+        _, mock_client = patched_fposbapi_client
+        g = Gantry.from_config(_FPOSBAPI_CONFIG)
         assert g._client is mock_client
         for axis in g.axes.values():
             assert axis._client is mock_client
 
-    def test_axis_order_respected(self, patched_fposapi_client):
-        _, _ = patched_fposapi_client
-        g = Gantry.from_config(_FPOSAPI_CONFIG)
+    def test_axis_order_respected(self, patched_fposbapi_client):
+        _, _ = patched_fposbapi_client
+        g = Gantry.from_config(_FPOSBAPI_CONFIG)
         assert list(g.axes.keys()) == ["X", "Y", "Z"]
 
-    def test_enable_sent_with_flag_1(self, patched_fposapi_client):
+    def test_enable_sent_with_flag_1(self, patched_fposbapi_client):
         """ENABLE must be called with argument 1 to energise the drives."""
-        _, mock_client = patched_fposapi_client
-        Gantry.from_config(_FPOSAPI_CONFIG)
+        _, mock_client = patched_fposbapi_client
+        Gantry.from_config(_FPOSBAPI_CONFIG)
         enable_calls = [c for c in mock_client.send_command.call_args_list if c[0][0] == "ENABLE"]
         assert len(enable_calls) == 1
         assert enable_calls[0][0][1] == 1
@@ -213,10 +213,10 @@ class TestFromConfigPath:
         assert "X" in g.axes
         assert "Z" in g.axes
 
-    def test_loads_fposapi_json_file(self, tmp_path, patched_fposapi_client):
-        _, mock_client = patched_fposapi_client
-        spec_file = tmp_path / "fposapi-spec.json"
-        spec_file.write_text(json.dumps(_FPOSAPI_CONFIG))
+    def test_loads_fposbapi_json_file(self, tmp_path, patched_fposbapi_client):
+        _, mock_client = patched_fposbapi_client
+        spec_file = tmp_path / "fposbapi-spec.json"
+        spec_file.write_text(json.dumps(_FPOSBAPI_CONFIG))
         g = Gantry.from_config(spec_file)
         assert len(g.axes) == 3
 
@@ -226,10 +226,10 @@ class TestFromConfigPath:
         g = Gantry.from_config(fixture)
         assert len(g.axes) == 2
 
-    def test_loads_canonical_fposapi_fixture(self, patched_fposapi_client):
-        """The checked-in test-gantry-spec-fposapi.json must parse without error."""
-        _, _ = patched_fposapi_client
-        fixture = Path(__file__).parent.parent / "fixtures" / "test-gantry-spec-fposapi.json"
+    def test_loads_canonical_fposbapi_fixture(self, patched_fposbapi_client):
+        """The checked-in test-gantry-spec-fposbapi.json must parse without error."""
+        _, _ = patched_fposbapi_client
+        fixture = Path(__file__).parent.parent / "fixtures" / "test-gantry-spec-fposbapi.json"
         g = Gantry.from_config(fixture)
         assert len(g.axes) == 3
 
@@ -257,20 +257,20 @@ class TestFromConfigInvalidBackend:
 
 
 class TestGantryHomeBackendDispatch:
-    def test_fposapi_home_sends_single_home_command(self, gantry_fposapi_mock):
-        """For FPosAPI backend, one HOME command must be sent via the client,
+    def test_fposbapi_home_sends_single_home_command(self, gantry_fposbapi_mock):
+        """For FPosBAPI backend, one HOME command must be sent via the client,
         not one per axis."""
-        gantry_fposapi_mock.home()
-        gantry_fposapi_mock._client.send_command.assert_called_once_with("HOME")
+        gantry_fposbapi_mock.home()
+        gantry_fposbapi_mock._client.send_command.assert_called_once_with("HOME")
 
-    def test_fposapi_home_does_not_call_axis_home(self, gantry_fposapi_mock):
-        """FPosAPI home must NOT call home() on individual axis proxies since
+    def test_fposbapi_home_does_not_call_axis_home(self, gantry_fposbapi_mock):
+        """FPosBAPI home must NOT call home() on individual axis proxies since
         the controller homes all axes together via a single command."""
         # Patch each proxy's home method to detect spurious calls
-        for axis in gantry_fposapi_mock._stub_axes.values():
+        for axis in gantry_fposbapi_mock._stub_axes.values():
             axis.home = MagicMock()
-        gantry_fposapi_mock.home()
-        for axis in gantry_fposapi_mock._stub_axes.values():
+        gantry_fposbapi_mock.home()
+        for axis in gantry_fposbapi_mock._stub_axes.values():
             axis.home.assert_not_called()
 
     def test_modbus_home_calls_home_on_every_axis(self, gantry_mock):

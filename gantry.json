@@ -1,7 +1,7 @@
 {
-    "_comment": "FPosAPI backend test fixture for Gantry. Targets a CECC-X PLC running the FPosAPI CoDeSys server.",
+    "_comment": "FPosBAPI backend test fixture for Gantry. Targets a CECC-X PLC running the FPosBAPI CoDeSys server.",
     "spec_version": "2.0",
-    "backend": "fposapi",
+    "backend": "fposbapi",
     "connection": {
         "ip": "192.168.10.25",
         "port": 1234

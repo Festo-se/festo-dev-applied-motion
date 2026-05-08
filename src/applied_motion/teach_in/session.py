@@ -33,7 +33,7 @@ Called after every successful :meth:`TeachSession.capture` with the
 position label and the recorded position dict.  Typical uses:
 
 * Send ``TEACH_POS`` / ``TEACH_TRAY`` to the CECC-X PLC via
-  :class:`~applied_motion.backends.fposapi_client.FPosAPIClient`.
+  :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient`.
 * Emit an event to a higher-level orchestration layer.
 * Write a running log to a remote database.
 """
@@ -47,7 +47,7 @@ class TeachSession:
     in :attr:`positions` and can be persisted to and from JSON via
     :meth:`save` / :meth:`load`.
 
-    This class has no knowledge of the gantry backend (Modbus vs FPosAPI)
+    This class has no knowledge of the gantry backend (Modbus vs FPosBAPI)
     and no dependency on ``prompt_toolkit`` or ``rich``.  Backend-specific
     post-capture actions (e.g. sending ``TEACH_POS`` to the PLC) are
     performed by the caller through the *on_capture* hook.
@@ -65,7 +65,7 @@ class TeachSession:
 
     Example::
 
-        # FPosAPI: wire a hook that commits positions to the PLC
+        # FPosBAPI: wire a hook that commits positions to the PLC
         def plc_hook(label, pos):
             gantry._client.teach_pos(pos_id=label_to_id[label])
 

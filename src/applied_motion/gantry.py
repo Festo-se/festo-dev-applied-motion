@@ -11,8 +11,8 @@ Two axis backends are available:
 
 * :class:`~applied_motion.backends.edcon_axis.EdconAxis` — direct Modbus TCP
   connection to an individual CMMT/CMMT-ST drive via ``festo-edcon``.
-* :class:`~applied_motion.backends.fposapi_axis.FPosAxis` — TCP socket
-  connection to a CECC-X PLC running the FPosAPI CoDeSys server.
+* :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` — TCP socket
+  connection to a CECC-X PLC running the FPosBAPI CoDeSys server.
 
 Use :meth:`Gantry.from_config` to instantiate the correct backend
 automatically from a JSON configuration dict or file.
@@ -28,8 +28,8 @@ from pathlib import Path
 from threading import Thread
 
 from applied_motion.backends.axis_protocol import Axis
-from applied_motion.backends.fposapi_axis import FPosAxis
-from applied_motion.backends.fposapi_client import FPosAPIClient
+from applied_motion.backends.fposbapi_axis import FPosBAxis
+from applied_motion.backends.fposbapi_client import FPosBAPIClient
 from applied_motion.backends.edcon_axis import EdconAxis
 
 
@@ -65,31 +65,31 @@ class Gantry:
         axes: dict[str, Axis],
         concurrent_axes: dict[str, Axis] | None = None,
         *,
-        _client: FPosAPIClient | None = None,
+        _client: FPosBAPIClient | None = None,
     ) -> None:
         """Initialise the gantry with the provided axis mapping.
 
         Prefer :meth:`from_config` for production use; it selects the correct
-        backend (Modbus or FPosAPI) and creates axes automatically from a JSON
+        backend (Modbus or FPosBAPI) and creates axes automatically from a JSON
         configuration dict or file.
 
         Args:
             axes: Dict mapping axis names to axis instances.  Accepts both
                 :class:`EdconAxis` (Modbus backend) and
-                :class:`~applied_motion.backends.fposapi_axis.FPosAxis`
-                (FPosAPI backend) — any object satisfying
+                :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis`
+                (FPosBAPI backend) — any object satisfying
                 :class:`~applied_motion.backends.axis_protocol.Axis`.
             concurrent_axes: Optional dict of axes that are allowed to move
                 simultaneously.  Pass ``None`` (default) to disable concurrent
                 grouping.
             _client: Internal.  The shared
-                :class:`~applied_motion.backends.fposapi_client.FPosAPIClient`
-                instance when using the FPosAPI backend.  Set by
+                :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient`
+                instance when using the FPosBAPI backend.  Set by
                 :meth:`from_config`; do not pass directly.
         """
         self.axes = axes
         self.concurrent_axes = concurrent_axes
-        self._client: FPosAPIClient | None = _client
+        self._client: FPosBAPIClient | None = _client
         logger.info("Gantry initialized with axes: %s", list(axes.keys()))
         if concurrent_axes:
             logger.debug("Concurrent axes: %s", list(concurrent_axes.keys()))
@@ -362,14 +362,14 @@ class Gantry:
     def home(self) -> None:
         """Home all registered axes.
 
-        For the **FPosAPI backend**, sends a single ``HOME`` command to the
+        For the **FPosBAPI backend**, sends a single ``HOME`` command to the
         CECC-X PLC which homes all axes in a coordinated sequence.
 
         For the **Modbus backend**, iterates over every axis in insertion
         order and calls :meth:`EdconAxis.home` on each one sequentially.
         """
         if self._client is not None:
-            logger.info("Gantry.home: sending HOME via FPosAPI client")
+            logger.info("Gantry.home: sending HOME via FPosBAPI client")
             self._client.send_command("HOME")
         else:
             for axis in self.axes:
@@ -386,10 +386,10 @@ class Gantry:
 
         * ``"modbus"`` — creates :class:`EdconAxis` instances, one per axis
           entry, using the ``ip`` field from each axis config.
-        * ``"fposapi"`` — creates one shared
-          :class:`~applied_motion.backends.fposapi_client.FPosAPIClient` from the
+        * ``"fposbapi"`` — creates one shared
+          :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient` from the
           top-level ``connection`` block, then creates
-          :class:`~applied_motion.backends.fposapi_axis.FPosAxis` instances
+          :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` instances
           using the ``index`` field from each axis config.
 
         Config schema (JSON):
@@ -407,12 +407,12 @@ class Gantry:
                 }
             }
 
-        FPosAPI variant:
+        FPosBAPI variant:
 
         .. code-block:: json
 
             {
-                "backend": "fposapi",
+                "backend": "fposbapi",
                 "connection": {"ip": "192.168.10.10", "port": 1234},
                 "axes": {
                     "X": {"name": "X", "index": 1},
@@ -436,7 +436,7 @@ class Gantry:
         Raises:
             ValueError: If ``backend`` is set to an unrecognised value.
             KeyError: If required config fields are missing.
-            OSError: (FPosAPI only) If the TCP connection to the CECC-X cannot
+            OSError: (FPosBAPI only) If the TCP connection to the CECC-X cannot
                 be established.
         """
         if isinstance(config, Path):
@@ -464,29 +464,29 @@ class Gantry:
             logger.info("Gantry.from_config: modbus backend, axes=%s", axis_order)
             return cls(axes=axes, concurrent_axes=concurrent_axes)
 
-        if backend == "fposapi":
+        if backend == "fposbapi":
             conn = config["connection"]
-            client = FPosAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
+            client = FPosBAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
             try:
                 client.send_command("ENABLE")
             except Exception:
                 client.close()
                 raise
-            fpos_axes: dict[str, Axis] = {
-                name: FPosAxis(
+            fposb_axes: dict[str, Axis] = {
+                name: FPosBAxis(
                     name=axes_cfg[name]["name"],
                     index=axes_cfg[name]["index"],
                     client=client,
                 )
                 for name in axis_order
             }
-            fpos_concurrent: dict[str, Axis] | None = (
-                {name: fpos_axes[name] for name in concurrent_raw if name in fpos_axes} if concurrent_raw else None
+            fposb_concurrent: dict[str, Axis] | None = (
+                {name: fposb_axes[name] for name in concurrent_raw if name in fposb_axes} if concurrent_raw else None
             )
-            logger.info("Gantry.from_config: fposapi backend, axes=%s", axis_order)
-            return cls(axes=fpos_axes, concurrent_axes=fpos_concurrent, _client=client)
+            logger.info("Gantry.from_config: fposbapi backend, axes=%s", axis_order)
+            return cls(axes=fposb_axes, concurrent_axes=fposb_concurrent, _client=client)
 
-        raise ValueError(f'Unsupported backend: {backend!r}. Expected "modbus" or "fposapi".')
+        raise ValueError(f'Unsupported backend: {backend!r}. Expected "modbus" or "fposbapi".')
 
     def get_status(self) -> None:
         """Return the current status of the gantry.
