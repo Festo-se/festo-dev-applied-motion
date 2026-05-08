@@ -234,19 +234,27 @@ class EdconAxis(MotionHandler):
                 nonblocking=False,
             )
         else:
+            _result_box: list[bool] = []
             move_thread = Thread(
-                target=self.position_task,
-                args=(
-                    validated_position,
-                    validated_velocity,
-                ),
-                kwargs={"absolute": positioning_type, "nonblocking": False},
+                target=lambda: _result_box.append(
+                    self.position_task(
+                        validated_position,
+                        validated_velocity,
+                        absolute=positioning_type,
+                        nonblocking=False,
+                    )
+                )
             )
             move_thread.start()
             move_thread.join(timeout=timeout)
-            logger.warning("Axis '%s': move timed out after %ss — sending stop motion task", self.name, timeout)
-            self.stop_motion_task()
-            time.sleep(0.05)
+            if move_thread.is_alive():
+                logger.warning(
+                    "Axis '%s': move timed out after %ss — sending stop motion task", self.name, timeout
+                )
+                self.stop_motion_task()
+                time.sleep(0.05)
+            else:
+                result = _result_box[0] if _result_box else False
 
         logger.info("Axis '%s': motion task complete, result=%s", self.name, result)
         return result
