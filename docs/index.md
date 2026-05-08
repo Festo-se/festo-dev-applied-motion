@@ -55,5 +55,4 @@ uv pip install -e .
 
 ## Festo Resources
 
-- [Festo CMMT Product Page](https://www.festo.com/us/en/p/servo-drive-for-synchronous-motors-id_CMMT-ST/)
-- [Issues Tracker](https://github.com/Festo-se/festo-dev-fluid-motion/issues)
+- [Issues Tracker](https://github.com/Festo-se/festo-dev-applied-motion/issues)
