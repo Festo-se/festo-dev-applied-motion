@@ -179,6 +179,9 @@ class FPosAPIClient:
             terminal = lines[-1]
             fields = [f.strip() for f in terminal.split(",")]
 
+            if "VEAB" in command:
+                fields = self._handle_malformed_veab_output(fields, msg_id, command)
+                logger.debug("FPosAPIClient <- %s", ",".join(fields))
             if len(fields) < 3:
                 raise FPosAPIClientError(f"Malformed response to {command!r}: {terminal!r}")
             if fields[0] != str(msg_id):
@@ -189,6 +192,34 @@ class FPosAPIClient:
                 raise FPosAPIClientError(f"FPosAPI error response: {terminal}")
 
         return lines
+
+    def _handle_malformed_veab_output(self, fields: list[str], msg_id: int, command: str):
+        """Fix malformed VEAB hook output.
+
+        The VEAB hook on the controller has an API non-conformant output, but is
+        technically correct and not indicative of an error state. This function rectifies this.
+        Total hack
+        """
+        fields[0] = str(msg_id)
+        fields[1] = command
+
+        return fields
+
+    def get_veab(self) -> int:
+        """Get the pressure set value of the VEAB."""
+        # TODO: This __REALLY__ needs to be contingent on the config and how it is passed in
+        # TODO: The ideal would be a PressureControl() class that shares the intantiated gantry and can take it in as input parameter. All of these classes would benefit from that bc of necessary shared socket on CECC-X
+
+        lines = self.send_command("GET_VEAB")
+        terminal = lines[-1]
+        fields = [f.strip() for f in terminal.split(",")]
+
+        return int(fields[2])
+
+    def set_veab(self, set_value: int) -> None:
+        """Set the pressure value of the VEAB."""
+        self.send_command("SET_VEAB", set_value)
+        # TODO: add polling loop to get_veab() to sample this until the value is set and bail after a timeout
 
     def _recv_line(self) -> str:
         r"""Read exactly one ``\r\n``-terminated line from the socket.
@@ -216,7 +247,7 @@ class FPosAPIClient:
             buf += ch
             if ch == b"\n":
                 line = buf.decode("ascii").strip()
-                logger.debug("FPosAPIClient ← %r", line)
+                logger.debug("FPosAPIClient <- %r", line)
                 return line
 
     def _collect_response(self) -> list[str]:
@@ -385,6 +416,7 @@ class FPosAPIClient:
             FPosAPIClientError: If the server returns an error response or
                 the connection is lost.
         """
+        # TODO: Needs WRITE_PATH?
         self.send_command("MOVE_PATH")
         logger.info("FPosAPIClient: MOVE_PATH complete")
 

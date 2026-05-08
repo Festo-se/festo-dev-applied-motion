@@ -156,7 +156,9 @@ class FPosAxis:
                 PLC returns an error response.
         """
         response = self._client.send_command("ROB_POS")
-        fields = [f.strip() for f in response[-1].split(",")]
+        fields = [
+            f.strip() for f in response[-1].split(",")
+        ]  # TODO: Make this a function in the client that is passed in here
         # fields[0] = msg_id, fields[1] = "ROB_POS", fields[2] = X, fields[3] = Y, fields[4] = Z
         position_field_index = self.index + 1
         try:
