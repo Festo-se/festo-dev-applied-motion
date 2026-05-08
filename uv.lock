@@ -333,6 +333,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "festo-pgva" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
@@ -359,6 +360,7 @@ requires-dist = [{ name = "festo-edcon", specifier = ">=0.15.0" }]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "festo-pgva", specifier = ">=0.2.1" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pytest-mock", specifier = ">=3.14.0" },
@@ -390,6 +392,18 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b4/7a/6adcbd3779ffe35131efb2f149ed19b9692be87761f402d2178cc8032bb6/festo_edcon-1.0.0-py3-none-any.whl", hash = "sha256:b4c929f381fd345f14d87066b7d15d842127d67e17b0dc753539c38f8efcf5e6", size = 117997, upload-time = "2026-03-27T16:12:35.294Z" },
+]
+
+[[package]]
+name = "festo-pgva"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pymodbus" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3f/7f/34416444b0575464506ea79d5ff0447c8da6f9b7004162d34537aa752996/festo_pgva-0.2.1.tar.gz", hash = "sha256:30e78694a5cf2b32149074d666fa90f3ec50a9813501990789e612639f36b934", size = 11012, upload-time = "2026-03-02T19:57:55.709Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/50/a8b0f1ab4248f2bc601a2a865f836bdbbc9430650c15f5078dd4c14af854/festo_pgva-0.2.1-py3-none-any.whl", hash = "sha256:ed5b732473bda211c6b967c2eee3ea2a43b6d8efab839cc5d9b9409be8f22ce5", size = 12828, upload-time = "2026-03-02T19:57:57.029Z" },
 ]
 
 [[package]]
