@@ -1,0 +1,31 @@
+{
+    "_comment": "FPosAPI backend test fixture for Gantry. Targets a CECC-X PLC running the FPosAPI CoDeSys server.",
+    "spec_version": "2.0",
+    "backend": "fposapi",
+    "connection": {
+        "ip": "192.168.10.25",
+        "port": 1234
+    },
+    "axes": {
+        "X": {
+            "name": "X",
+            "index": 1
+        },
+        "Y": {
+            "name": "Y",
+            "index": 2
+        },
+        "Z": {
+            "name": "Z",
+            "index": 3
+        }
+    },
+    "gantry": {
+        "axis_order": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "concurrent_axes": null
+    }
+}
