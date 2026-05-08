@@ -23,6 +23,7 @@ All send/receive operations are serialised through an internal
 import logging
 import socket
 import threading
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,36 @@ class FPosAPIClient:
         self._lock = threading.Lock()
         self._msg_id = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.settimeout(timeout)
-        self._sock.connect((ip, port))
-        self._drain()
+        self._connect()
         logger.info("FPosAPIClient connected to %s:%d", ip, port)
+
+    def _configure_keepalive(self, sock: socket.socket) -> None:
+        """Enable and tune TCP keepalive where supported."""
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
+        # Windows-specific keepalive tuning:
+        # (onoff, keepalivetime_ms, keepaliveinterval_ms)
+        if hasattr(socket, "SIO_KEEPALIVE_VALS"):
+            sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 15_000, 5_000))
+
+    def _connect(self) -> None:
+        """Open and configure a TCP socket to the configured endpoint."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(self._timeout)
+        self._configure_keepalive(sock)
+        sock.connect((self.ip, self.port))
+        self._sock = sock
+        self._drain()
+
+    def _reconnect(self) -> None:
+        """Close the current socket and establish a fresh connection."""
+        logger.warning("FPosAPIClient: reconnecting to %s:%d", self.ip, self.port)
+        try:
+            self._sock.close()
+        except OSError:
+            pass
+        self._connect()
+        logger.info("FPosAPIClient: reconnected to %s:%d", self.ip, self.port)
 
     def _drain(self, max_chunks: int = 64) -> None:
         r"""Discard bytes buffered in the receive socket.
@@ -89,7 +116,7 @@ class FPosAPIClient:
             for _ in range(max_chunks):
                 if not self._sock.recv(4096):
                     break
-        except socket.timeout, BlockingIOError, OSError:  # noqa
+        except (socket.timeout, BlockingIOError, OSError):  # noqa
             pass
         finally:
             self._sock.settimeout(self._timeout)
@@ -132,7 +159,15 @@ class FPosAPIClient:
             parts = [str(msg_id), command] + [str(p) for p in params]
             raw = ", ".join(parts) + "\r\n"
             logger.debug("FPosAPIClient \u2192 %s", raw.strip())
-            self._sock.sendall(raw.encode("ascii"))
+            try:
+                self._sock.sendall(raw.encode("ascii"))
+            except (ConnectionResetError, BrokenPipeError, OSError) as exc:
+                logger.warning("FPosAPIClient send failed (%s); reconnecting once", exc)
+                try:
+                    self._reconnect()
+                    self._sock.sendall(raw.encode("ascii"))
+                except OSError as retry_exc:
+                    raise FPosAPIClientError(f"Connection lost during {command!r}: {retry_exc}") from retry_exc
             lines = self._collect_response()
 
             # Validate while holding the lock so subsequent send_command calls
@@ -218,7 +253,7 @@ class FPosAPIClient:
                 self._sock.settimeout(0.5)
                 try:
                     self._recv_line()  # discard the bare \r\n terminator
-                except socket.timeout, OSError:
+                except (socket.timeout, OSError):  # noqa
                     pass  # PLC did not send a frame terminator — that is fine
                 finally:
                     self._sock.settimeout(self._timeout)
@@ -301,7 +336,7 @@ class FPosAPIClient:
         """Execute a motion sequence to a stored position via ``MOVE_POS``.
 
         Args:
-            pos_id: Position record ID (1–100).
+            pos_id: Position record ID (1-100).
             tool_id: Tool offset to apply.  ``0`` selects no tool.
             retract_z: ``1`` to retract Z before moving, ``0`` to skip.
             slow_app: ``1`` to slow approach the target position, ``0`` for
@@ -445,7 +480,7 @@ class FPosAPIClient:
             MSG_ID, READ_POS, POS_ID, ABS_A1, ABS_A2, ABS_A3, 0, NULL, SUCCESS
 
         Args:
-            pos_id: Position record ID (1–100).
+            pos_id: Position record ID (1-100).
 
         Returns:
             Tuple of ``(abs_a1, abs_a2, abs_a3)`` in mm.
@@ -469,7 +504,7 @@ class FPosAPIClient:
         """Save the current axis positions to *pos_id* via ``TEACH_POS``.
 
         Args:
-            pos_id: Position record ID to write (1–100).
+            pos_id: Position record ID to write (1-100).
             tool_id: Tool offset to associate with this position.
 
         Raises:
@@ -489,7 +524,7 @@ class FPosAPIClient:
         """Write absolute axis coordinates to *pos_id* via ``WRITE_POS``.
 
         Args:
-            pos_id: Position record ID to write (1–100).
+            pos_id: Position record ID to write (1-100).
             abs_a1: Absolute X-axis position in mm.
             abs_a2: Absolute Y-axis position in mm.
             abs_a3: Absolute Z-axis position in mm.
@@ -517,7 +552,7 @@ class FPosAPIClient:
         """Modify a stored position by relative offsets via ``MOD_POS``.
 
         Args:
-            pos_id: Position record ID to modify (1–100).
+            pos_id: Position record ID to modify (1-100).
             rel_a1: Relative X-axis offset in mm.
             rel_a2: Relative Y-axis offset in mm.
             rel_a3: Relative Z-axis offset in mm.
@@ -539,7 +574,7 @@ class FPosAPIClient:
         """Write one waypoint along the motion path via ``WRITE_PATH``.
 
         Args:
-            pa_pos_id: Path position index (1–10).
+            pa_pos_id: Path position index (1-10).
             abs_a1: Absolute X-axis position in mm.
             abs_a2: Absolute Y-axis position in mm.
             abs_a3: Absolute Z-axis position in mm.
@@ -555,7 +590,7 @@ class FPosAPIClient:
         """Read one waypoint from the motion path via ``READ_PATH``.
 
         Args:
-            pa_pos_id: Path position index (1–10).
+            pa_pos_id: Path position index (1-10).
 
         Returns:
             Tuple of ``(abs_a1, abs_a2, abs_a3)`` in mm.
@@ -784,7 +819,7 @@ class FPosAPIClient:
         lines = self.send_command("GET_PAR", par_id)
         fields = [f.strip() for f in lines[-1].split(",")]
         # fields: msg_id, GET_PAR, par_id, v1, v2, v3, v4, 0, NULL, SUCCESS
-        # Value fields are at indices 3–6; trailing error triplet at -3 to -1.
+        # Value fields are at indices 3-6; trailing error triplet at -3 to -1.
         value_fields = fields[3:-3]
         values: list[float] = []
         for f in value_fields:
@@ -817,7 +852,7 @@ class FPosAPIClient:
         """Save the current axis positions as a tray position via ``TEACH_TRAY``.
 
         Args:
-            tray_id: Tray ID (1–20).
+            tray_id: Tray ID (1-20).
             tray_pos: Position within the tray to teach.
             tool_id: Tool offset to associate with this position.
 
@@ -839,7 +874,7 @@ class FPosAPIClient:
         """Write absolute coordinates to a tray position via ``WRITE_TRAY``.
 
         Args:
-            tray_id: Tray ID (1–20).
+            tray_id: Tray ID (1-20).
             tray_pos: Position index within the tray.
             abs_a1: Absolute X-axis position in mm.
             abs_a2: Absolute Y-axis position in mm.
@@ -860,7 +895,7 @@ class FPosAPIClient:
             MSG_ID, READ_TRAY, TRAY_ID, TRAY_POS, ABS_A1, ABS_A2, ABS_A3, 0, NULL, SUCCESS
 
         Args:
-            tray_id: Tray ID (1–20).
+            tray_id: Tray ID (1-20).
             tray_pos: Position index within the tray.
 
         Returns:
@@ -894,7 +929,7 @@ class FPosAPIClient:
         """Modify a stored tray position by relative offsets via ``MOD_TRAY``.
 
         Args:
-            tray_id: Tray ID (1–20).
+            tray_id: Tray ID (1-20).
             tray_pos: Position index within the tray.
             rel_a1: Relative X-axis offset in mm.
             rel_a2: Relative Y-axis offset in mm.
@@ -919,7 +954,7 @@ class FPosAPIClient:
         """Move the gantry to a tray location via ``MOVE_TRAY``.
 
         Args:
-            tray_id: Tray ID (1–20).
+            tray_id: Tray ID (1-20).
             tray_col: Target column within the tray.
             tray_row: Target row within the tray.
             tool_id: Tool offset to apply.  ``0`` selects no tool.
@@ -961,6 +996,102 @@ class FPosAPIClient:
         """
         self._sock.close()
         logger.info("FPosAPIClient disconnected from %s:%d", self.ip, self.port)
+
+    # def reconnect(self) -> None:
+    #     """Close the current socket and open a fresh connection to the same server.
+
+    #     Call this after a :class:`FPosAPIClientError` caused by a PLC reboot
+    #     or a dropped TCP connection.  The new socket is drained of any
+    #     buffered bytes before this method returns.
+
+    #     Raises:
+    #         OSError: If the TCP connection cannot be re-established.
+    #     """
+    #     logger.info("FPosAPIClient: reconnecting to %s:%d", self.ip, self.port)
+    #     try:
+    #         self._sock.close()
+    #     except OSError:
+    #         pass
+    #     self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #     self._sock.settimeout(self._timeout)
+    #     self._sock.connect((self.ip, self.port))
+    #     self._drain()
+    #     logger.info("FPosAPIClient: reconnected to %s:%d", self.ip, self.port)
+
+    # def wait_until_ready(
+    #     self,
+    #     deadline: float = 120.0,
+    #     poll_interval: float = 2.0,
+    #     probe_timeout: float = 5.0,
+    # ) -> None:
+    #     """Block until the FPosAPI server responds to ``CMD_LIST`` or raise on timeout.
+
+    #     The CECC-X PLC opens the TCP port before the CoDeSys FPosAPI runtime
+    #     is ready to service commands.  This method polls with a short per-attempt
+    #     socket timeout rather than a single long blocking call, so it fails fast
+    #     on each attempt and retries until the server becomes responsive or
+    #     *deadline* seconds elapse.
+
+    #     Typical CECC-X boot time is 30-90 seconds.  The default *deadline* of
+    #     120 s gives the PLC ample time without waiting indefinitely. # TODO: Verify this
+
+    #     Args:
+    #         deadline: Maximum total seconds to wait.  Raises
+    #             :class:`FPosAPIClientError` if the server is still not ready.
+    #             Defaults to ``120.0``.
+    #         poll_interval: Seconds to wait between probe attempts.  Defaults
+    #             to ``2.0``.
+    #         probe_timeout: Per-attempt socket timeout in seconds.  Kept short
+    #             so unresponsive attempts fail quickly.  Defaults to ``5.0``.
+
+    #     Raises:
+    #         FPosAPIClientError: If the server has not responded within *deadline*
+    #             seconds.
+    #     """
+    #     end = time.monotonic() + deadline
+    #     attempt = 0
+    #     logger.info(
+    #         "FPosAPIClient: waiting up to %.0fs for server at %s:%d to become ready",
+    #         deadline,
+    #         self.ip,
+    #         self.port,
+    #     )
+    #     while True:
+    #         attempt += 1
+    #         # Use a disposable socket per attempt — never touch self._sock,
+    #         # which may be in use by another thread via send_command.
+    #         probe_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #         try:
+    #             probe_sock.settimeout(probe_timeout)
+    #             probe_sock.connect((self.ip, self.port))
+    #             msg_id = 1
+    #             probe_sock.sendall(f"{msg_id}, CMD_LIST\r\n".encode("ascii"))
+    #             buf = b""
+    #             while b"\n" not in buf:
+    #                 chunk = probe_sock.recv(4096)
+    #                 if not chunk:
+    #                     raise OSError("Connection closed")
+    #                 buf += chunk
+    #             logger.info(
+    #                 "FPosAPIClient: server ready after attempt %d",
+    #                 attempt,
+    #             )
+    #             return
+    #         except OSError as exc:
+    #             remaining = end - time.monotonic()
+    #             if remaining <= 0:
+    #                 raise FPosAPIClientError(
+    #                     f"Server at {self.ip}:{self.port} not ready after {deadline:.0f}s"
+    #                 ) from exc
+    #             logger.debug(
+    #                 "FPosAPIClient: attempt %d failed (%s), %.0fs remaining",
+    #                 attempt,
+    #                 exc,
+    #                 remaining,
+    #             )
+    #             time.sleep(min(poll_interval, remaining))
+    #         finally:
+    #             probe_sock.close()
 
     def __enter__(self) -> "FPosAPIClient":
         """Return *self* to support use as a context manager."""
