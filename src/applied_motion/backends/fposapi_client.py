@@ -158,7 +158,7 @@ class FPosAPIClient:
             msg_id = self._next_id()
             parts = [str(msg_id), command] + [str(p) for p in params]
             raw = ", ".join(parts) + "\r\n"
-            logger.debug("FPosAPIClient \u2192 %s", raw.strip())
+            logger.debug("FPosAPIClient <- %s", raw.strip())
             try:
                 self._sock.sendall(raw.encode("ascii"))
             except (ConnectionResetError, BrokenPipeError, OSError) as exc:
