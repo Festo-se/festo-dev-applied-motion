@@ -454,6 +454,7 @@ class Gantry:
             pprint.pprint(parsed_config)
             logger.debug("parsed config: ", parsed_config)
 
+        pprint.pprint(parsed_config)
         logger.debug("parsed config scoped: ", parsed_config)
         gantry_cfg = parsed_config["components"][name]
         backend: str = gantry_cfg.get("backend", "modbus")
