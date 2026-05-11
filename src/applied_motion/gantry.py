@@ -446,6 +446,7 @@ class Gantry:
                 config = json.load(fh)
 
         # TODO: Festo config validation and config spec alignment
+        parsed_config = {}
         if "component_config" in config:
             parsed_config = config["component_config"]
         gantry_cfg = parsed_config["components"][name]
