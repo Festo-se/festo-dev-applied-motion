@@ -23,7 +23,6 @@ All send/receive operations are serialised through an internal
 import logging
 import socket
 import threading
-import time
 
 logger = logging.getLogger(__name__)
 
