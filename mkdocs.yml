@@ -43,9 +43,7 @@ markdown_extensions:
       custom_fences:
         - name: class
           class: highlight
-          format:
-
-            !!python/name:pymdownx.highlight.highlight ""
+          format: !!python/name:pymdownx.highlight.highlight
 plugins:
   - codeinclude
   - search
@@ -76,7 +74,8 @@ extra_css:
 nav:
   - Home: "index.md"
   - Festo Resources:
-      - "CMMT Product Page": "https://www.festo.com/us/en/p/servo-drive-for-synchronous\
+      - "CMMT Product Page":
+          "https://www.festo.com/us/en/p/servo-drive-for-synchronous\
           -motors-id_CMMT-ST/"
   - Issues Tracker:
       - "Report an Issue": "https://github.com/Festo-se/festo-dev-fluid-motion/issues"
