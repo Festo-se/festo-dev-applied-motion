@@ -232,7 +232,22 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
     console.print("[dim]Returned to REPL.[/]")
 
 
-def _run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
+def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
+    """Launch the interactive teach-in REPL for a connected gantry.
+
+    Presents a prompt-toolkit REPL that accepts ``jog``, ``capture``,
+    ``where``, ``home``, ``teach pos``, ``teach tray``, ``list``, ``save``,
+    ``load``, ``help``, and ``quit`` commands.  Tab-completion and command
+    history are provided automatically.
+
+    Args:
+        session: A :class:`~applied_motion.teach_in.session.TeachSession`
+            instance backed by a connected, homed gantry.  Captured
+            positions accumulate in ``session.positions``.
+        gantry: The connected :class:`~applied_motion.gantry.Gantry`
+            instance whose axes define the tab-completion candidates and
+            receive motion commands.
+    """
     axis_names = list(gantry.axes.keys())
     ps: PromptSession[str] = PromptSession(
         history=InMemoryHistory(),
@@ -396,7 +411,7 @@ def main() -> None:
             console.print(f"  [dim]Tip: run [green]teach pos <id>[/] to commit [bold]{label!r}[/] to the PLC.[/]")
 
     session = TeachSession(gantry, on_capture=on_capture)
-    _run_repl(session, gantry)
+    run_repl(session, gantry)
 
 
 if __name__ == "__main__":

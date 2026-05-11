@@ -25,5 +25,6 @@ To launch the interactive REPL::
 """
 
 from applied_motion.teach_in.session import TeachSession
+from applied_motion.teach_in.cli import run_repl
 
-__all__ = ["TeachSession"]
+__all__ = ["TeachSession", "run_repl"]
