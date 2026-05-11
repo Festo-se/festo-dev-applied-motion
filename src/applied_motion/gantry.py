@@ -446,15 +446,8 @@ class Gantry:
                 config = json.load(fh)
         logger.debug("config import: ", config)
         # TODO: Festo config validation and config spec alignment
-        parsed_config = {}
-        if "component_config" in config:
-            parsed_config = config["component_config"]
-            import pprint
+        parsed_config = config.get("component_config", config)
 
-            pprint.pprint(parsed_config)
-            logger.debug("parsed config: ", parsed_config)
-
-        pprint.pprint(parsed_config)
         logger.debug("parsed config scoped: ", parsed_config)
         gantry_cfg = parsed_config["components"][name]
         backend: str = gantry_cfg.get("backend", "modbus")
