@@ -93,6 +93,7 @@ class Gantry:
         logger.info("Gantry initialized with axes: %s", list(axes.keys()))
         if concurrent_axes:
             logger.debug("Concurrent axes: %s", list(concurrent_axes.keys()))
+        self.gantry = self  # Experimental
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the gantry."""
@@ -377,7 +378,7 @@ class Gantry:
         logger.info("All axes homed")
 
     @classmethod
-    def from_config(cls, config: dict | Path) -> "Gantry":
+    def from_config(cls, config: dict | Path, name: str = "gantry_1") -> "Gantry":
         """Instantiate a :class:`Gantry` from a configuration dict or JSON file.
 
         Reads the ``backend`` key (defaults to ``"modbus"`` when absent for
@@ -413,7 +414,7 @@ class Gantry:
 
             {
                 "backend": "fposbapi",
-                "connection": {"ip": "192.168.10.10", "port": 1234},
+                "interface": {"type":"tcp/ip","ip": "192.168.10.10", "port": 1234},
                 "axes": {
                     "X": {"name": "X", "index": 1},
                     "Y": {"name": "Y", "index": 2},
@@ -428,6 +429,7 @@ class Gantry:
         Args:
             config: Either a :class:`dict` containing the parsed configuration,
                 or a :class:`~pathlib.Path` to a JSON file on disk.
+            name: Unique key/name of gantry in config file. Used to select intended gantry.
 
         Returns:
             A fully initialised :class:`Gantry` with axes created for the
@@ -443,9 +445,12 @@ class Gantry:
             with config.open() as fh:
                 config = json.load(fh)
 
-        backend: str = config.get("backend", "modbus")
-        axes_cfg: dict = config["axes"]
-        gantry_cfg: dict = config.get("gantry", {})
+        # TODO: Festo config validation and config spec alignment
+        if "component_config" in config:
+            parsed_config = config["component_config"]
+        gantry_cfg = parsed_config["components"][name]
+        backend: str = gantry_cfg.get("backend", "modbus")
+        axes_cfg: dict = gantry_cfg["axes"]
         axis_order: list[str] = gantry_cfg.get("axis_order", list(axes_cfg.keys()))
         concurrent_raw: list[str] | None = gantry_cfg.get("concurrent_axes")
 
@@ -465,7 +470,7 @@ class Gantry:
             return cls(axes=axes, concurrent_axes=concurrent_axes)
 
         if backend == "fposbapi":
-            conn = config["connection"]
+            conn = gantry_cfg["interface"]
             client = FPosBAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
             try:
                 client.send_command("ENABLE")

@@ -368,7 +368,7 @@ class FPosBAPIClient:
 
         Args:
             pos_id: Position record ID (1-100).
-            tool_id: Tool offset to apply.  ``0`` selects no tool.
+            tool_id: Tool index to apply.  ``0`` selects no tool.
             retract_z: ``1`` to retract Z before moving, ``0`` to skip.
             slow_app: ``1`` to slow approach the target position, ``0`` for
                 full speed.

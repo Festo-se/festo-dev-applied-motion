@@ -281,8 +281,9 @@ def gantry_fposbapi():
     fixture_path = Path(__file__).parent / "fixtures" / "test-gantry-spec-fposbapi.json"
     with fixture_path.open() as fh:
         cfg = json.load(fh)
-    cfg["connection"]["ip"] = ip
-    cfg["connection"]["port"] = port
+    # cfg["interface"]["type"]="tcp/ip"
+    cfg["interface"]["ip"] = ip
+    cfg["interface"]["port"] = port
 
     if not _is_reachable(ip, port):
         pytest.skip(f"FPosBAPI PLC not reachable at {ip}:{port}")

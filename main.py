@@ -23,8 +23,9 @@ port = int(getenv("FPOSBAPI_PORT", str(_DEFAULT_FPOSBAPI_PORT)))
 fixture_path = Path(__file__).parent / "gantry.json"
 with fixture_path.open() as fh:
     cfg = json.load(fh)
-    cfg["connection"]["ip"] = ip
-    cfg["connection"]["port"] = port
+    # TODO: Validate TCP connction with cfg["interface"]["type"] = "tcp/ip"
+    cfg["interface"]["ip"] = ip
+    cfg["interface"]["port"] = port
 
 pgva = PGVA(config=PGVATCPConfig(interface="tcp/ip", ip="192.168.10.102"))
 pgva.set_output_pressure(449)

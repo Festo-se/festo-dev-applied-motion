@@ -39,31 +39,229 @@ from applied_motion.backends.fposbapi_client import FPosBAPIClient
 # ---------------------------------------------------------------------------
 
 _MODBUS_CONFIG = {
-    "spec_version": "2.0",
+    "_comment": "Canonical instantiation parameters for EdconAxis and Gantry in the SLAS-8 pipettor configuration. IPs and axis names sourced from festo-dev-fluid-control/slas-8-config.json.",
+    "component_spec_version": "2.0",
+    "component_class": "gantry",
     "backend": "modbus",
+    "uuid": "0000-000000000-000000-000",
+    "control_mode": "python",
+    "control_package": "festo-edcon",
+    "control_library": "edcon",
+    "control_system": "edrive",
+    "control_bus": "com_modbus",
+    "control_handler": "motion_handler",
+    "control_modules": {
+        "_comment": "TODO: Some way of indicating this is per-axis, to not hardwire deps.",
+        "com_modbus": "ComModbus",
+        "motion_handler": "MotionHandler"
+    },
+    "axis_count": 4,
+    "axis_connections": {
+        "X": [
+            "Y"
+        ],
+        "Y": [
+            "ZP",
+            "ZG"
+        ]
+    },
+    "motion_ordering": {
+        "forward": [
+            "X",
+            "Y",
+            "ZP",
+            "ZG"
+        ],
+        "reverse": [
+            "ZG",
+            "ZP",
+            "Y",
+            "X"
+        ]
+    },
+    "concurrent_axes": [
+        "X",
+        "Y"
+    ],
     "axes": {
-        "X": {"name": "X", "ip": "192.168.0.193"},
-        "Z": {"name": "Z", "ip": "192.168.0.32"},
-    },
-    "gantry": {
-        "axis_order": ["X", "Z"],
-        "concurrent_axes": None,
-    },
+        "X": {
+            "name": "X",
+            "uuid": "0000-000000000-000000-000",
+            "designation": "X-axis",
+            "ip": "192.168.0.100",
+            "port": null,
+            "type": "linear",
+            "motor_type": "stepper",
+            "embedded_config": {
+                "type": "festo-automation-suite",
+                "location": null
+            },
+            "mounting_connections": {
+                "dynamic_components": {
+                    "axes": [
+                        {
+                            "name": "Y",
+                            "uuid": null
+                        }
+                    ]
+                },
+                "static_components": {
+                    "frame": {
+                        "name": "cabinet",
+                        "uuid": null
+                    }
+                }
+            }
+        },
+        "Y": {
+            "name": "Y",
+            "uuid": "0000-000000000-000000-000",
+            "designation": "Y-axis",
+            "ip": "192.168.0.101",
+            "port": "",
+            "type": "linear",
+            "motor_type": "stepper",
+            "embedded_config": {
+                "type": "festo-automation-suite",
+                "location": null
+            },
+            "mounting_connections": {
+                "dynamic_components": {
+                    "axes": [
+                        {
+                            "name": "X",
+                            "uuid": null
+                        },
+                        {
+                            "name": "ZP",
+                            "uuid": null
+                        },
+                        {
+                            "name": "ZG",
+                            "uuid": null
+                        }
+                    ]
+                },
+                "static_components": null
+            }
+        },
+        "ZG": {
+            "name": "ZG",
+            "uuid": "0000-000000000-000000-000",
+            "designation": "Z-axis with gripper",
+            "ip": "192.168.0.102",
+            "port": "",
+            "type": "linear",
+            "motor_type": "stepper",
+            "embedded_config": {
+                "type": "festo-automation-suite",
+                "location": null
+            },
+            "mounting_connections": {
+                "dynamic_components": {
+                    "axes": [
+                        {
+                            "name": "Y",
+                            "uuid": null
+                        }
+                    ],
+                    "tools": [
+                        {
+                            "name": "gripper",
+                            "uuid": null
+                        }
+                    ]
+                },
+                "static_components": null
+            }
+        },
+        "ZP": {
+            "name": "ZP",
+            "uuid": "0000-000000000-000000-000",
+            "designation": "Z-axis with pipettor",
+            "ip": "192.168.0.103",
+            "port": "",
+            "type": "linear",
+            "motor_type": "stepper",
+            "embedded_config": {
+                "type": "festo-automation-suite",
+                "location": null
+            },
+            "mounting_connections": {
+                "dynamic_components": {
+                    "axes": [
+                        {
+                            "name": "Y",
+                            "uuid": null
+                        }
+                    ],
+                    "tools": [
+                        {
+                            "name": "pipettor",
+                            "uuid": null
+                        }
+                    ]
+                },
+                "static_components": null
+            }
+        }
+    }
 }
 
 _FPOSBAPI_CONFIG = {
-    "spec_version": "2.0",
-    "backend": "fposbapi",
-    "connection": {"ip": "192.168.10.10", "port": 1234},
-    "axes": {
-        "X": {"name": "X", "index": 1},
-        "Y": {"name": "Y", "index": 2},
-        "Z": {"name": "Z", "index": 3},
+    {
+    "_comment": "Festo component control config. General config covering fluid control and motion.",
+    "spec_version": "3.0",
+    "system_config": {
+        "metadata": {}
     },
-    "gantry": {
-        "axis_order": ["X", "Y", "Z"],
-        "concurrent_axes": None,
-    },
+    "component_config": {
+        "metadata": {},
+        "components": 
+            {"gantry_1": {
+                "_comment": "FPosBAPI backend test fixture for Gantry. Targets a CECC-X PLC running the FPosBAPI CoDeSys server.",
+                "control_mode": "python",
+                "motion_control": {
+                    "_comment": "TODO: unify control scheme under this config spec",
+                    "control_package": "festo-applied-motion",
+                    "control_library": "applied_motion",
+                    "control_system": "gantry",
+                    "control_bus": "backends",
+                    "control_handler": "fposbapi_client",
+                    "control_modules": {
+                        "com_modbus": "FPosBAPIClient",
+                        "motion_handler": "Gantry"
+                    }
+                },
+                "backend": "fposbapi",
+                "interface": {
+                    "type": "tcp/ip",
+                    "ip": "192.168.10.25",
+                    "port": 1234
+                },
+                "axes": {
+                    "X": {
+                        "name": "X",
+                        "index": 1
+                    },
+                    "Y": {
+                        "name": "Y",
+                        "index": 2
+                    },
+                    "Z": {
+                        "name": "Z",
+                        "index": 3
+                    }
+                },
+                "axis_order": [
+                    "X",
+                    "Y",
+                    "Z"
+                ],
+                "concurrent_axes": null
+            },}
+        }
+    }
 }
 
 
