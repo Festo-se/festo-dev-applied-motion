@@ -65,6 +65,8 @@ class FPosBAPIClient:
         self._lock = threading.Lock()
         self._msg_id = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        logger.info("FPosBAPIClient attempting to connect to %s:%d", ip, port)
         self._connect()
         logger.info("FPosBAPIClient connected to %s:%d", ip, port)
 
@@ -157,7 +159,7 @@ class FPosBAPIClient:
             msg_id = self._next_id()
             parts = [str(msg_id), command] + [str(p) for p in params]
             raw = ", ".join(parts) + "\r\n"
-            logger.debug("FPosBAPIClient <- %s", raw.strip())
+            logger.debug("    FPosBAPIClient <- %s", raw.strip())
             try:
                 self._sock.sendall(raw.encode("ascii"))
             except (ConnectionResetError, BrokenPipeError, OSError) as exc:
@@ -168,6 +170,7 @@ class FPosBAPIClient:
                 except OSError as retry_exc:
                     raise FPosBAPIClientError(f"Connection lost during {command!r}: {retry_exc}") from retry_exc
             lines = self._collect_response()
+            logger.debug("    FPosBAPIClient raw response <- %s", ",\n    ".join(lines))
 
             # Validate while holding the lock so subsequent send_command calls
             # see a clean socket regardless of the outcome here.
@@ -180,9 +183,9 @@ class FPosBAPIClient:
 
             if "VEAB" in command:
                 fields = self._handle_malformed_veab_output(fields, msg_id, command)
-                logger.debug("FPosBAPIClient <- %s", ",".join(fields))
+                logger.debug("    FPosBAPIClient <- %s", ",".join(fields))
             if len(fields) < 3:
-                raise FPosBAPIClientError(f"Malformed response to {command!r}: {terminal!r}")
+                raise FPosBAPIClientError(f"Malformed response to {command!r}: {','.join(fields)!r}")
             if fields[0] != str(msg_id):
                 raise FPosBAPIClientError(f"MSG_ID mismatch: sent {msg_id}, got {fields[0]!r} in {terminal!r}")
             if fields[1] != command:
@@ -271,8 +274,16 @@ class FPosBAPIClient:
             line = self._recv_line()
             if line:
                 lines.append(line)
-            last_field = line.split(",")[-1].strip() if line else ""
-            if last_field != "ACK":
+            if not line:
+                break
+            last_field = line.split(",")[-1].strip()
+            # A terminal protocol line starts with the MSG_ID (a digit) and
+            # contains commas.  Bare intermediate-data lines (e.g. command
+            # names returned by CMD_LIST) contain no commas and do not start
+            # with a digit — keep reading those.
+            first_field = line.split(",")[0].strip()
+            is_protocol_line = first_field.isdigit() and "," in line
+            if is_protocol_line and last_field != "ACK":
                 break
         # The PLC appends a bare \r\n frame terminator after error responses
         # (but NOT after success responses).  Consume it while still holding
@@ -314,11 +325,10 @@ class FPosBAPIClient:
                 the connection is lost.
         """
         lines = self.send_command("CMD_LIST")
-        terminal = lines[-1]
-        fields = [f.strip() for f in terminal.split(",")]
-        # Strip: fields[0]=msg_id, fields[1]="CMD_LIST"; trailing: ERR_ID, ERR_TYPE, "SUCCESS"
-        command_fields = fields[2:-3]
-        commands = [c for c in command_fields if c]
+        # The server sends one bare command name per intermediate line.
+        # lines[0] is the ACK, lines[1:-1] are the bare command names,
+        # lines[-1] is the terminal SUCCESS line.
+        commands = [line.strip() for line in lines[1:-1] if line.strip()]
         logger.debug("CMD_LIST returned %d command(s): %s", len(commands), commands)
         return commands
 
@@ -531,7 +541,7 @@ class FPosBAPIClient:
         logger.debug("FPosBAPIClient: READ_POS pos_id=%d → %s", pos_id, result)
         return result
 
-    def teach_pos(self, pos_id: int, tool_id: int = 0) -> None:
+    def teach_pos(self, pos_id: int, tool_id: int = 1) -> None:
         """Save the current axis positions to *pos_id* via ``TEACH_POS``.
 
         Args:
