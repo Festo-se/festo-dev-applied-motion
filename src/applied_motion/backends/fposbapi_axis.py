@@ -215,6 +215,25 @@ class FPosBAxis:
         """
         return True
 
+    def acknowledge_faults(self):
+        """Clear errors."""
+        pass
+
+    def disable_powerstage(self):
+        """Turn off torque to motor controlling this axis."""
+        # TODO: Implement this functionality using corresponding FPosBAPI command
+        pass
+
+    def current_position(self):
+        """Return current position."""
+        # TODO: Implement this functionality using corresponding FPosBAPI command
+        pass
+
+    def jog_task(self, param1, param2, duration):
+        """Jog axis."""
+        # TODO: Implement this functionality using corresponding FPosBAPI command
+        pass
+
     def ready_for_motion(self) -> bool:
         """Return whether the gantry drives are enabled via ``IS_ENBL``.
 
