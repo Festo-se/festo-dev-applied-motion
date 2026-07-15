@@ -35,7 +35,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from applied_motion.teach_in.session import TeachSession
+from applied_motion.cli.session import TeachSession
 
 
 # ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 This module is backend-agnostic.  It does not depend on ``prompt_toolkit``
 or ``rich`` and can be imported and tested without the ``teach`` extra
-installed, as long as :func:`applied_motion.teach_in` (the package guard)
+installed, as long as :func:`applied_motion.cli` (the package guard)
 is not triggered first.
 
 The :class:`TeachSession` class deliberately avoids calling any private

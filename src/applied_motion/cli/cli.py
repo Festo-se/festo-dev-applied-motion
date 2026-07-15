@@ -12,7 +12,7 @@ Launch via the installed entry point::
 
 Or directly::
 
-    python -m applied_motion.teach_in.cli --config gantry.json
+    python -m applied_motion.cli.cli --config gantry.json
 
 Commands
 --------
@@ -27,7 +27,7 @@ Command                                 Effect
 ``where``                               Print current axis positions
 ``home``                                Home all axes
 ``capture <label>``                     Record current position as *label*
-``teach pos <pos_id>``                  (FPosBAPI only) Send TEACH_POS to PLC
+``teach pos <pos_id>``                  (FPosBAPI only) Send TEACH_POS to PLC # TODO: INclude tool id
 ``teach tray <tray_id> <tray_pos>``     (FPosBAPI only) Send TEACH_TRAY to PLC
 ``list``                                List all captured positions
 ``save <path>``                         Write positions to a JSON file
@@ -69,12 +69,12 @@ from rich.console import Console
 from rich.table import Table, box
 
 from applied_motion.gantry import Gantry
-from applied_motion.teach_in.session import TeachSession
+from applied_motion.cli.session import TeachSession
 
 console = Console()
 logger = logging.getLogger(__name__)
 
-_STEP_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0]  # mm, cycled by +/-
+_STEP_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 25.0, 50.0]  # mm, cycled by +/-
 _DEFAULT_STEP_IDX = 2  # 1.0 mm
 
 _HELP_TEXT = """
@@ -209,8 +209,8 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
     for _k in ("left", "right", "up", "down", "pageup", "pagedown"):
 
         @kb.add(_k)
-        def _(event, __k: str = _k) -> None:
-            _do_jog(__k)
+        def _(event, k: str = _k) -> None:
+            _do_jog(k)
 
     @kb.add("+")
     def _(event) -> None:
@@ -241,7 +241,7 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
     history are provided automatically.
 
     Args:
-        session: A :class:`~applied_motion.teach_in.session.TeachSession`
+        session: A :class:`~applied_motion.cli.session.TeachSession`
             instance backed by a connected, homed gantry.  Captured
             positions accumulate in ``session.positions``.
         gantry: The connected :class:`~applied_motion.gantry.Gantry`
@@ -414,5 +414,6 @@ def main() -> None:
     run_repl(session, gantry)
 
 
+# TODO: Add hook to cli to enable/disable gantry for manual motion/teach in
 if __name__ == "__main__":
     main()
