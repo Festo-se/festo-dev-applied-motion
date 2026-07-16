@@ -47,12 +47,65 @@ class Axis(Protocol):
         """
         ...
 
+    def is_homed(self) -> bool:
+        """Return whether the gantry has been homed.
+
+        Returns:
+            ``True`` if gantry is homed/referenced; ``False`` if gantry has not been homed/referenced.
+        """
+        ...
+
     def stopped(self) -> bool:
         """Return ``True`` when the axis is not currently in motion.
 
         Returns:
             ``True`` if the axis has stopped; ``False`` if motion is ongoing.
         """
+        ...
+
+    def acknowledge_faults(self):
+        """Clear errors."""
+        # TODO: This shouldn't be exposed to end-users. This is done automatically for almost every motion task to proceed and is part of an internal interface.
+        ...
+
+    def enable_powerstage(self):
+        """Turn on torque to motor controlling this axis."""
+        # TODO: This shouldn't be exposed to end-users. This is done automatically for almost every motion task to proceed and is part of an internal interface.
+        ...
+
+    def disable_powerstage(self):
+        """Turn off torque to motor controlling this axis."""
+        ...
+
+    def current_position(self):
+        """Return current position."""
+        ...
+
+    def current_velocity(self):
+        """Return current velocity."""
+        ...
+
+    def jog_task(
+        self,
+        og_positive: bool = True,
+        jog_negative: bool = False,
+        incremental: bool = False,
+        duration: float = 0.0,
+    ) -> bool:
+        """Jog axis.
+
+        Parameters:
+            jog_positive (bool): If true, jog in positive direction.
+            jog_negative (bool): If true, jog in negative direction.
+
+            duration (float): Optional duration in seconds.
+                              A duration of 0 starts the task and returns immediately.
+
+        Returns:
+            bool: True if succesful, False otherwise
+        """
+        # TODO: Implement this functionality using corresponding FPosBAPI command
+
         ...
 
     def ready_for_motion(self) -> bool:
