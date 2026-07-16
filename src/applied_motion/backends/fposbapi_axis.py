@@ -219,6 +219,11 @@ class FPosBAxis:
         """Clear errors."""
         pass
 
+    def enable_powerstage(self):
+        """Turn on torque to motor controlling this axis."""
+        # TODO: Implement this functionality using corresponding FPosBAPI command
+        pass
+
     def disable_powerstage(self):
         """Turn off torque to motor controlling this axis."""
         # TODO: Implement this functionality using corresponding FPosBAPI command
@@ -229,7 +234,17 @@ class FPosBAxis:
         # TODO: Implement this functionality using corresponding FPosBAPI command
         pass
 
-    def jog_task(self, param1, param2, duration):
+    def current_velocity(self):
+        """Return current velocity."""
+        pass
+
+    def jog_task(
+        self,
+        og_positive: bool = True,
+        jog_negative: bool = False,
+        incremental: bool = False,
+        duration: float = 0.0,
+    ) -> bool:
         """Jog axis."""
         # TODO: Implement this functionality using corresponding FPosBAPI command
         pass

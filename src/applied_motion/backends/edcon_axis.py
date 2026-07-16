@@ -140,6 +140,8 @@ class EdconAxis(MotionHandler):
     def current_position(self):
         """Transparent wrapper around ``MotionHandler.current_position``.
 
+        # TODO: is this necessary?
+
         Returns the raw position value in the drive's **internal unit system**
         (drive units, whose scale is determined by PNU 11724 and varies by
         firmware/configuration — typically 0.001 mm per unit).  Use
@@ -226,6 +228,12 @@ class EdconAxis(MotionHandler):
         validated_position = self._check_overshoot(validated_position, absolute=positioning_type)
 
         result: bool = False
+        # TODO: Check powerstage enabled, attempt enable if not
+        # TODO:
+        # TODO: Check for CRITICAL error stages,
+        # TODO: ack faults,
+        # TODO: then move.
+        # TODO: Incorporate jog mode into this function?
         if timeout is None:
             result = self.position_task(
                 validated_position,
@@ -252,7 +260,7 @@ class EdconAxis(MotionHandler):
                 self.stop_motion_task()
                 time.sleep(0.05)
             else:
-                result = _result_box[0] if _result_box else False
+                result = _result_box[0] if _result_box else False  # TODO: AllTrue?
 
         logger.info("Axis '%s': motion task complete, result=%s", self.name, result)
         return result
