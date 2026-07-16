@@ -8,7 +8,7 @@
         "metadata": {},
         "components": {
             "gantry_1": {
-                "_comment": "Canonical instantiation parameters for EdconAxis and Gantry in the SLAS-8 pipettor configuration. IPs and axis names sourced from festo-dev-fluid-control/slas-8-config.json.",
+                "_comment": "Canonical instantiation parameters for EdconAxis and Gantry in the 8 channel pipettor + CMMT  configuration. IPs and axis names sourced from festo-dev-fluid-control/????-config.json.",
                 "component_spec_version": "2.0",
                 "component_class": "gantry",
                 "backend": "modbus",

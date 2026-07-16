@@ -51,6 +51,7 @@ Page Up / Page Down    Step axis[2] (typically Z) positive / negative
 =====================  ================================================
 """
 
+# TODO: cli tool fails with no notification why when gantry is not referenced/homed. Fix this
 import argparse
 import logging
 import sys

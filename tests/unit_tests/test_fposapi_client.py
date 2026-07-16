@@ -157,6 +157,24 @@ class TestFPosBAPIClientCollectResponse:
         with pytest.raises(FPosBAPIClientError, match="Connection closed"):
             client._collect_response()
 
+    def test_bare_intermediate_lines_collected(self, client, mocker):
+        """Bare non-protocol lines (e.g. CMD_LIST command names) must be
+        collected and reading must continue until the terminal protocol line."""
+        data = iter([
+            "1, CMD_LIST, 0, NULL, ACK",
+            "ENABLE",
+            "DISABLE",
+            "1, CMD_LIST, 0, NULL, SUCCESS",
+        ])
+        mocker.patch.object(client, "_recv_line", side_effect=lambda: next(data))
+        result = client._collect_response()
+        assert result == [
+            "1, CMD_LIST, 0, NULL, ACK",
+            "ENABLE",
+            "DISABLE",
+            "1, CMD_LIST, 0, NULL, SUCCESS",
+        ]
+
 
 # ---------------------------------------------------------------------------
 # send_command
@@ -238,10 +256,20 @@ class TestFPosBAPIClientSendCommand:
 
 class TestFPosBAPIClientListCommands:
     def test_returns_parsed_command_names(self, client, mocker):
+        # Server sends one bare command name per intermediate line, preceded by
+        # an ACK and followed by the terminal SUCCESS line.
         mocker.patch.object(
             client,
             "_collect_response",
-            return_value=["1, CMD_LIST, ENABLE, DISABLE, HOME, MOVE_AXIS, ROB_POS, 0, NULL, SUCCESS"],
+            return_value=[
+                "1, CMD_LIST, 0, NULL, ACK",
+                "ENABLE",
+                "DISABLE",
+                "HOME",
+                "MOVE_AXIS",
+                "ROB_POS",
+                "1, CMD_LIST, 0, NULL, SUCCESS",
+            ],
         )
         commands = client.list_commands()
         assert commands == ["ENABLE", "DISABLE", "HOME", "MOVE_AXIS", "ROB_POS"]
@@ -257,10 +285,11 @@ class TestFPosBAPIClientListCommands:
         assert b"CMD_LIST" in sent
 
     def test_empty_server_list_returns_empty(self, client, mocker):
+        # ACK then immediately SUCCESS — no intermediate command lines.
         mocker.patch.object(
             client,
             "_collect_response",
-            return_value=["1, CMD_LIST, 0, NULL, SUCCESS"],
+            return_value=["1, CMD_LIST, 0, NULL, ACK", "1, CMD_LIST, 0, NULL, SUCCESS"],
         )
         commands = client.list_commands()
         assert commands == []

@@ -1,6 +1,6 @@
 [project]
 name = "festo-dev-applied-motion"
-version = "0.3.4"
+version = "0.3.6"
 authors = [
     { name = "Kyle Wardlow", email = "kyle.wardlow@festo.com" }
 ]
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-applied-motion-teach = "applied_motion.teach_in.cli:main"
+applied-motion-teach = "applied_motion.cli.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Festo-se/festo-dev-applied-motion/"
@@ -19,7 +19,7 @@ Repository = "https://github.com/Festo-se/festo-dev-applied-motion.git"
 Issues = "https://github.com/Festo-se/festo-dev-applied-motion/issues"
 
 [project.optional-dependencies]
-teach-in = [
+cli = [
     "prompt-toolkit>=3.0.52",
     "rich>=14.2.0",
 ]

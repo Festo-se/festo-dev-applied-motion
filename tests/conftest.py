@@ -21,7 +21,7 @@ axis_a
     A ``EdconAxis`` connected to the first configured drive.  The IP and
     axis label are read from ``GANTRY_A_IP`` and ``GANTRY_A_NAME``
     environment variables, falling back to the defaults found in the
-    slas-8 pipettor config.  Mark any test that uses this fixture with
+    8 channel pipettor + CMMT config.  Mark any test that uses this fixture with
     ``@pytest.mark.hardware``.
 
 axis_b
@@ -76,7 +76,7 @@ def _is_reachable(ip: str, port: int = _MODBUS_PORT, timeout: float = _CONNECT_T
 
 
 # ---------------------------------------------------------------------------
-# Defaults taken from festo-dev-fluid-control/slas-8-config.json TODO
+# Defaults taken from festo-dev-fluid-control/????-config.json TODO
 # ---------------------------------------------------------------------------
 _DEFAULT_A_IP = "192.168.0.193"
 _DEFAULT_A_NAME = "X"

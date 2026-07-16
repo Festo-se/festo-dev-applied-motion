@@ -43,7 +43,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from applied_motion.gantry import AxisNotFoundError, Gantry
+from applied_motion.gantry import AxisNotFoundError, MovementError, Gantry
 from applied_motion.backends.edcon_axis import EdconAxis
 
 # ---------------------------------------------------------------------------
@@ -355,22 +355,22 @@ class TestSingleMove:
 
     def test_axis_exception_raises_axis_not_found_error(self):
         """Any exception from axis.move() must be re-raised as
-        AxisNotFoundError so the caller has a uniform error type to
+        MovementError so the caller has a uniform error type to
         catch, regardless of the underlying drive error."""
         axis = _make_stub_axis("X")
         axis.move.side_effect = RuntimeError("drive fault")
         g = Gantry(axes={"X": axis})
-        with pytest.raises(AxisNotFoundError):
+        with pytest.raises(MovementError):
             g._single_move({"X": dict(_PARAMS)})
 
     def test_axis_not_found_error_chained_from_original_exception(self):
-        """The AxisNotFoundError must chain the original exception via
+        """The MovementError must chain the original exception via
         __cause__ so the full diagnostic is available in tracebacks."""
         axis = _make_stub_axis("X")
         original = RuntimeError("drive fault")
         axis.move.side_effect = original
         g = Gantry(axes={"X": axis})
-        with pytest.raises(AxisNotFoundError) as exc_info:
+        with pytest.raises(MovementError) as exc_info:
             g._single_move({"X": dict(_PARAMS)})
         assert exc_info.value.__cause__ is original
 
@@ -389,8 +389,8 @@ class TestSingleMove:
 
     def test_missing_axis_raises_axis_not_found_error(self):
         """If the axis named in the movement is not registered in
-        self.axes, AxisNotFoundError must still be raised (via the
+        self.axes, MovementError must still be raised (via the
         general exception handler)."""
         g = Gantry(axes={})
-        with pytest.raises(AxisNotFoundError):
+        with pytest.raises(MovementError):
             g._single_move({"MISSING": dict(_PARAMS)})

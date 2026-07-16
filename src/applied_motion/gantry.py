@@ -336,10 +336,6 @@ class Gantry:
                 movements are grouped using ``concurrent_axes`` and dispatched
                 sequentially.
         """
-        # TODO: Use queue.Queue instead? deque?
-        # Queue: put, get methods
-        # deque: append, popleft methods
-
         logger.info("move_to: %d movement(s) queued, concurrent=%s, timeout=%s", len(movements), concurrent, timeout)
         # initiate move
 
