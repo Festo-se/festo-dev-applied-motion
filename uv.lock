@@ -364,7 +364,7 @@ teach = [
 
 [package.metadata]
 requires-dist = [
-    { name = "festo-edcon", specifier = ">=0.15.0" },
+    { name = "festo-edcon", specifier = ">=1.0.1" },
     { name = "prompt-toolkit", marker = "extra == 'cli'", specifier = ">=3.0.52" },
     { name = "rich", marker = "extra == 'cli'", specifier = ">=14.2.0" },
 ]
@@ -396,7 +396,7 @@ teach = [
 
 [[package]]
 name = "festo-edcon"
-version = "1.0.0"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ethernetip" },
@@ -404,7 +404,7 @@ dependencies = [
     { name = "rich" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/7a/6adcbd3779ffe35131efb2f149ed19b9692be87761f402d2178cc8032bb6/festo_edcon-1.0.0-py3-none-any.whl", hash = "sha256:b4c929f381fd345f14d87066b7d15d842127d67e17b0dc753539c38f8efcf5e6", size = 117997, upload-time = "2026-03-27T16:12:35.294Z" },
+    { url = "https://files.pythonhosted.org/packages/92/f7/a06a304f001d04b6cadca9079d140edddeb840441ce6df6a18f05e3db7d6/festo_edcon-1.0.1-py3-none-any.whl", hash = "sha256:24df36f530b52af4b78e105a5e35998aabf29b42447aad1559b2dce74f9f0856", size = 118100, upload-time = "2026-05-18T12:36:15.682Z" },
 ]
 
 [[package]]
