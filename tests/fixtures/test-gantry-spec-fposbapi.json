@@ -25,7 +25,7 @@
                 "backend": "fposbapi",
                 "interface": {
                     "type": "tcp/ip",
-                    "ip": "192.168.10.25",
+                    "ip": "192.168.0.50",
                     "port": 1234
                 },
                 "axes": {
