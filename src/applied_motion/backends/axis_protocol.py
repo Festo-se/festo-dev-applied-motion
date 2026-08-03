@@ -35,7 +35,7 @@ class Axis(Protocol):
         """
         ...
 
-    def home(self) -> None:
+    def home(self) -> bool:
         """Run the axis homing/referencing sequence."""
         ...
 
@@ -87,7 +87,7 @@ class Axis(Protocol):
 
     def jog_task(
         self,
-        og_positive: bool = True,
+        jog_positive: bool = True,
         jog_negative: bool = False,
         incremental: bool = False,
         duration: float = 0.0,
