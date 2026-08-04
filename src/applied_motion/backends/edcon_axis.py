@@ -171,7 +171,7 @@ class EdconAxis(MotionHandler):
         return hash((self.name, self.ip))
 
     # TODO: Use attrs?
-    def home(self) -> bool:
+    def home(self) -> None:
         """Home the axis by running a referencing task.
 
         Acknowledges any faults, enables the power stage, and then
@@ -181,8 +181,19 @@ class EdconAxis(MotionHandler):
         logger.info("Axis '%s': starting homing sequence", self.name)
         self.acknowledge_faults()
         self.enable_powerstage()
-        self.referencing_task(nonblocking=False)
+        res = self.referencing_task(nonblocking=False)
+
+        logger.info("Axis '%s': homing result=%s", self.name, res)
         logger.info("Axis '%s': homing complete", self.name)
+        return res
+
+    def is_homed(self) -> bool:
+        """Checks whether drive has been homed and has a valid frame of reference.
+
+        Thin wrapper for interface consistency around `MotionHandler.referenced()`.
+
+        """
+        return self.referenced()
 
     def current_position(self):
         """Transparent wrapper around ``MotionHandler.current_position``.
