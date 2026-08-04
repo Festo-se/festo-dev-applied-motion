@@ -34,6 +34,7 @@ def _make_proxy(name: str = "X", index: int = 1) -> tuple[FPosBAxis, MagicMock]:
     """Return a proxy and its mock client as a tuple."""
     client = MagicMock(spec=FPosBAPIClient)
     client.send_command.return_value = ["1, CMD, 0, NULL, SUCCESS"]
+    client.try_command.return_value = True
     return FPosBAxis(name=name, index=index, client=client), client
 
 
@@ -65,7 +66,7 @@ class TestFPosBAxisMove:
     def test_move_sends_set_par_before_move_axis(self, fposbapi_axis_mock):
         """SET_PAR 103 must be sent before MOVE_AXIS so speed is applied."""
         fposbapi_axis_mock.move(position=100.0, velocity=50.0)
-        calls = fposbapi_axis_mock._client.send_command.call_args_list
+        calls = fposbapi_axis_mock._client.try_command.call_args_list
         commands = [c[0][0] for c in calls]
         set_par_idx = commands.index("SET_PAR")
         move_axis_idx = commands.index("MOVE_AXIS")
@@ -73,34 +74,34 @@ class TestFPosBAxisMove:
 
     def test_move_set_par_uses_velocity(self, fposbapi_axis_mock):
         fposbapi_axis_mock.move(position=100.0, velocity=75.0)
-        set_par_call = fposbapi_axis_mock._client.send_command.call_args_list[0]
+        set_par_call = fposbapi_axis_mock._client.try_command.call_args_list[0]
         assert set_par_call == call("SET_PAR", 103, 75.0)
 
     def test_move_absolute_uses_rel_flag_zero(self, fposbapi_axis_mock):
         fposbapi_axis_mock.move(position=100.0, velocity=50.0, position_type="absolute")
-        move_axis_call = fposbapi_axis_mock._client.send_command.call_args_list[1]
+        move_axis_call = fposbapi_axis_mock._client.try_command.call_args_list[1]
         # args: ("MOVE_AXIS", axis_index, rel_flag, position)
         assert move_axis_call[0][2] == 0
 
     def test_move_default_is_absolute(self, fposbapi_axis_mock):
         fposbapi_axis_mock.move(position=100.0, velocity=50.0)
-        move_axis_call = fposbapi_axis_mock._client.send_command.call_args_list[1]
+        move_axis_call = fposbapi_axis_mock._client.try_command.call_args_list[1]
         assert move_axis_call[0][2] == 0
 
     def test_move_relative_uses_rel_flag_one(self, fposbapi_axis_mock):
         fposbapi_axis_mock.move(position=25.0, velocity=50.0, position_type="relative")
-        move_axis_call = fposbapi_axis_mock._client.send_command.call_args_list[1]
+        move_axis_call = fposbapi_axis_mock._client.try_command.call_args_list[1]
         assert move_axis_call[0][2] == 1
 
     def test_move_sends_correct_axis_index(self):
         proxy, client = _make_proxy(name="Y", index=2)
         proxy.move(position=50.0, velocity=30.0)
-        move_axis_call = client.send_command.call_args_list[1]
+        move_axis_call = client.try_command.call_args_list[1]
         assert move_axis_call[0][1] == 2
 
     def test_move_sends_correct_position(self, fposbapi_axis_mock):
         fposbapi_axis_mock.move(position=123.45, velocity=50.0)
-        move_axis_call = fposbapi_axis_mock._client.send_command.call_args_list[1]
+        move_axis_call = fposbapi_axis_mock._client.try_command.call_args_list[1]
         assert move_axis_call[0][3] == 123.45
 
     def test_move_returns_true_on_success(self, fposbapi_axis_mock):
@@ -108,9 +109,23 @@ class TestFPosBAxisMove:
         assert result is True
 
     def test_move_propagates_client_error(self, fposbapi_axis_mock):
-        fposbapi_axis_mock._client.send_command.side_effect = FPosBAPIClientError("drive fault")
+        fposbapi_axis_mock._client.try_command.side_effect = FPosBAPIClientError("drive fault")
         with pytest.raises(FPosBAPIClientError):
             fposbapi_axis_mock.move(position=100.0, velocity=50.0)
+
+    def test_move_returns_false_when_set_par_rejected(self, fposbapi_axis_mock):
+        fposbapi_axis_mock._client.try_command.return_value = False
+        assert fposbapi_axis_mock.move(position=100.0, velocity=50.0) is False
+
+    def test_move_aborts_after_set_par_rejection(self, fposbapi_axis_mock):
+        """MOVE_AXIS must not be issued when SET_PAR is rejected."""
+        fposbapi_axis_mock._client.try_command.return_value = False
+        fposbapi_axis_mock.move(position=100.0, velocity=50.0)
+        assert fposbapi_axis_mock._client.try_command.call_count == 1
+
+    def test_move_returns_false_when_move_axis_rejected(self, fposbapi_axis_mock):
+        fposbapi_axis_mock._client.try_command.side_effect = [True, False]
+        assert fposbapi_axis_mock.move(position=100.0, velocity=50.0) is False
 
 
 # ---------------------------------------------------------------------------
@@ -121,10 +136,18 @@ class TestFPosBAxisMove:
 class TestFPosBAxisHome:
     def test_home_sends_home_command(self, fposbapi_axis_mock):
         fposbapi_axis_mock.home()
-        fposbapi_axis_mock._client.send_command.assert_called_once_with("HOME")
+        fposbapi_axis_mock._client.try_command.assert_called_once_with("HOME", timeout=None)
+
+    def test_home_returns_true_on_success(self, fposbapi_axis_mock):
+        fposbapi_axis_mock._client.try_command.return_value = True
+        assert fposbapi_axis_mock.home() is True
+
+    def test_home_returns_false_when_rejected(self, fposbapi_axis_mock):
+        fposbapi_axis_mock._client.try_command.return_value = False
+        assert fposbapi_axis_mock.home() is False
 
     def test_home_propagates_client_error(self, fposbapi_axis_mock):
-        fposbapi_axis_mock._client.send_command.side_effect = FPosBAPIClientError("homing failed")
+        fposbapi_axis_mock._client.try_command.side_effect = FPosBAPIClientError("homing failed")
         with pytest.raises(FPosBAPIClientError):
             fposbapi_axis_mock.home()
 
