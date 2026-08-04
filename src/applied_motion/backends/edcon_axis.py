@@ -82,16 +82,6 @@ class EdconAxis(MotionHandler):
             ip: IPv4 address of the Festo drive's Modbus TCP interface.
             run_referencing: When ``True``, perform a homing (referencing)
                 sequence during construction.  Defaults to ``False``.
-            max_position: Optional max position limitation, if the drive is restricted
-                more than the internal SW limit position check. This avoids an issue where
-                traversing toward the actual endstop is interrupted because the interia of
-                the motion causes the drive to overshoot the limit position, throwing an error
-                and interrupting the power stage on state.
-            min_position: Optional min position limitation, if the drive is restricted
-                more than the internal SW limit position check. This avoids an issue where
-                traversing toward the actual endstop is interrupted because the interia of
-                the motion causes the drive to overshoot the limit position, throwing an error
-                and interrupting the power stage on state.
         """
         self.name = name
         self.ip = ip
@@ -109,11 +99,33 @@ class EdconAxis(MotionHandler):
         self.min_velocity_fas_units: int
         self.acknowledge_faults()
         # self.home()
-        logger.info("Axis '%s' homed", self.name)
+        logger.info("Axis '%s': initialized", self.name)
         self.configure_software_limit_switch(True)
-        logger.info("Software limit switch set for axis '%s'", self.name)
-        self._neg_sw_limit: int = self.com.read_pnu(11584)
-        self._pos_sw_limit: int = self.com.read_pnu(11585)
+        logger.info("Axis '%s': software limit switch configured", self.name)
+
+        self._neg_sw_limit: int = self.com.read_pnu(834)
+        self._pos_sw_limit: int = self.com.read_pnu(835)
+
+        self._min_vel: int = self.com.read_pnu(11212)
+        self._max_vel: int = self.com.read_pnu(11213)
+        self.input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
+        self.input_vel_unit = {
+            "distance": {"unit": "m", "power": 1, "power_of_ten": -3},
+            "time": {"unit": "s", "power": -1, "power_of_ten": 1},
+        }
+        self.max_position = min(
+            max_position, self._valid_position(self._pos_sw_limit, self.input_pos_unit, invert=True)
+        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
+        self.min_position = max(
+            min_position, self._valid_position(self._neg_sw_limit, self.input_pos_unit, invert=True)
+        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
+        self.max_velocity = self._valid_velocity(
+            self._max_vel, self.input_vel_unit, invert=True
+        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
+        self.min_velocity = self._valid_velocity(
+            self._min_vel, self.input_vel_unit, invert=True
+        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
+
         logger.info(
             "Axis '%s': SW limits loaded — neg=%s, pos=%s (drive units)",
             self.name,
