@@ -593,7 +593,7 @@ class Gantry:
             Mapping of axis name → current position in mm.
         """
         coordinates = {axis: self.axes[axis].get_current_axis_position() for axis in self.axes}
-        logger.debug("get_location: %s", coordinates)
+        logger.debug("Gantry.get_location: %s", coordinates)
         return coordinates
 
     def is_stopped(self) -> bool:
