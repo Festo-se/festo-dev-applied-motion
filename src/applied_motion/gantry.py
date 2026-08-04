@@ -136,203 +136,133 @@ class Gantry:
             raise ValueError("Normalized gantry config must be a dict")
         return parsed_config
 
-        Args:
-            movements_batch: List of movement dicts, each like {"axis_name": {kinematic_params}}
-            timeout: Optional timeout in seconds for each movement
-
-        Returns:
-            0 if all succeeded, 1 if any failed
-        """
-        logger.info("Executing %d concurrent movement(s)", len(movements_batch))
-        threads = []
-        results = []
-        # if len(movements_batch) > os.MAX_THREADS:
-        #     raise RuntimeError("Request thread count greater than threads available")
-
-        for movement in movements_batch:
-            axis_name, kinematic_params = list(movement.items())[0]
-            thread = Thread(
-                target=lambda a=axis_name, k=kinematic_params: results.append(
-                    self._execute_single_movement(a, k, timeout=timeout)
-                )
-            )
-            threads.append(thread)
-            thread.start()
-
-        for thread in threads:
-            thread.join()
-
-        # Check results
-        for axis_name, success, exception in results:
-            if not success:
-                logger.error("Movement failed for axis '%s': %s", axis_name, exception)
-                if isinstance(exception, AxisNotFoundError):
-                    raise exception
-                return 1
-
-        logger.info("All concurrent movements completed successfully")
-        return 0
-
-    def _move_dispatch(self, movements: deque, concurrent: bool, timeout: int | None = None):
-        """Dispatch a batch of movements either concurrently or sequentially.
+    @staticmethod
+    def _validate_axis_name_list(value: object, field_name: str) -> list[str]:
+        """Return *value* as a validated list of axis-name strings.
 
         Args:
-            movements: :class:`~collections.deque` of movement dicts to execute.
-            concurrent: When ``True``, all movements are executed in parallel
-                via :class:`~concurrent.futures.ThreadPoolExecutor`.
-                When ``False``, movements are executed one at a time.
-            timeout: Optional per-move time limit in seconds forwarded to each
-                :meth:`EdconAxis.move` call.
+            value: Value to validate.
+            field_name: Config field name used in error messages.
 
         Returns:
-            Tuple of integer result codes, one per movement dispatched.
-        """
-        if concurrent:
-            with ThreadPoolExecutor(max_workers=len(movements)) as executor:
-                move_results = executor.map(self._single_move, movements, timeout=timeout)
-                return tuple(res for res in move_results)  # TODO: Timeout result?
-        else:
-            while movements:
-                movement = movements.popleft()
-                return (self._single_move(movement=movement, timeout=timeout),)
-
-    def _single_move(self, movement: dict, timeout: int | None = None) -> int:
-        """Execute one movement dict and return an integer result code.
-
-        Pops the sole ``{axis_name: kinematic_params}`` entry from *movement*
-        and delegates to :meth:`EdconAxis.move`.
-
-        Args:
-            movement: Single-item dict mapping an axis name to its kinematic
-                parameter dict.  The dict is mutated (item is popped).
-            timeout: Optional per-move time limit in seconds forwarded to
-                :meth:`EdconAxis.move`.
-
-        Returns:
-            ``0`` on success, ``1`` on failure.
+            Validated list of axis-name strings.
 
         Raises:
-            AxisNotFoundError: If the axis name is not found in :attr:`axes`.
+            ValueError: If *value* is not a list of strings.
         """
-        axis_name, kinematic_params = movement.popitem()
-        logger.debug("_single_move: axis='%s' params=%s timeout=%s", axis_name, kinematic_params, timeout)
-        try:
-            self.axes[axis_name].move(**kinematic_params, timeout=timeout)
-            success = True  # self.axes[axis_name].wait_for_position_motion_execution()
-            move_result = int(not (success))
-            logger.debug("_single_move: axis='%s' result=%s", axis_name, move_result)
-        except Exception as e:
-            logger.error("_single_move: axis '%s' not found or raised error: %s", axis_name, e)
-            move_result = 1
-            raise MovementError(f"Axis {axis_name} move failed: {e}") from e
-        return move_result
+        if not isinstance(value, list) or not all(isinstance(axis_name, str) for axis_name in value):
+            raise ValueError(f"Gantry {field_name} must be a list of axis-name strings")
+        return cast(list[str], value)
 
-    def _get_next_moves(self, movements: deque, concurrent_axes: dict[str, Axis], timeout: int | None) -> deque:
-        """Pull the next group of movements that may run concurrently.
-
-        Consumes entries from the front of *movements* as long as they
-        belong to axes listed in *concurrent_axes*.  Returns a deque
-        containing that concurrent batch (may be a single-item deque if
-        the first movement's axis is not in *concurrent_axes*).
+    @staticmethod
+    def _validate_modbus_axes(axes_cfg: dict, axis_order: list[str]) -> None:
+        """Validate backend-specific Modbus axis config fields.
 
         Args:
-            movements: Queue of pending movement dicts.  Entries are popped
-                from the left as they are consumed.
-            concurrent_axes: Dict of axes that are permitted to move at the
-                same time.  Acts as a filter — only axes present here are
-                batched together.
-            timeout: Reserved for future use; not consumed by this method.
+            axes_cfg: Axis config mapping.
+            axis_order: Ordered list of configured axis names.
+
+        Raises:
+            ValueError: If any axis config is missing required fields.
+        """
+        for axis_name in axis_order:
+            axis_cfg = axes_cfg.get(axis_name)
+            if not isinstance(axis_cfg, dict):
+                raise ValueError(f"Axis config for {axis_name!r} must be a dict")
+            if not isinstance(axis_cfg.get("name"), str):
+                raise ValueError(f"Modbus axis {axis_name!r} must define string field 'name'")
+            if not isinstance(axis_cfg.get("ip"), str):
+                raise ValueError(f"Modbus axis {axis_name!r} must define string field 'ip'")
+
+    @staticmethod
+    def _validate_fposbapi_config(gantry_cfg: dict, axes_cfg: dict, axis_order: list[str]) -> None:
+        """Validate backend-specific FPosBAPI interface and axis fields.
+
+        Args:
+            gantry_cfg: Gantry component config.
+            axes_cfg: Axis config mapping.
+            axis_order: Ordered list of configured axis names.
+
+        Raises:
+            ValueError: If required interface or axis fields are missing or invalid.
+        """
+        interface = gantry_cfg.get("interface")
+        if not isinstance(interface, dict):
+            raise ValueError("FPosBAPI gantry config must contain an 'interface' mapping")
+        if not isinstance(interface.get("ip"), str):
+            raise ValueError("FPosBAPI interface must define string field 'ip'")
+        if "port" in interface and not isinstance(interface["port"], int):
+            raise ValueError("FPosBAPI interface 'port' must be an int")
+        if (
+            "timeout" in interface
+            and interface["timeout"] is not None
+            and not isinstance(interface["timeout"], (int, float))
+        ):
+            raise ValueError("FPosBAPI interface 'timeout' must be numeric or null")
+
+        for axis_name in axis_order:
+            axis_cfg = axes_cfg.get(axis_name)
+            if not isinstance(axis_cfg, dict):
+                raise ValueError(f"Axis config for {axis_name!r} must be a dict")
+            if not isinstance(axis_cfg.get("name"), str):
+                raise ValueError(f"FPosBAPI axis {axis_name!r} must define string field 'name'")
+            if not isinstance(axis_cfg.get("index"), int):
+                raise ValueError(f"FPosBAPI axis {axis_name!r} must define int field 'index'")
+
+    @staticmethod
+    def _validate_gantry_config(parsed_config: dict, name: str) -> tuple[dict, str, dict, list[str], list[str] | None]:
+        """Validate and extract one gantry component config.
+
+        Args:
+            parsed_config: Normalized component configuration mapping.
+            name: Component name to extract.
 
         Returns:
-            A :class:`~collections.deque` containing the next batch of
-            movements to dispatch concurrently.
+            Tuple of ``(gantry_cfg, backend, axes_cfg, axis_order, concurrent_axes)``.
+
+        Raises:
+            ValueError: If required config structure or backend-specific fields
+                are missing or invalid.
         """
-        next = deque()
-        concurrent_working_reference = concurrent_axes.copy()
-        #
-        # Filter rule is:
-        # Deep copy a temporary reference to concurrent_axes for comparison and accounting
-        # Grab Move
-        # if move axis is in temp ref,
-        #   remove axis from temp ref
-        #   while next move is (still) in (temp ref) concurrent_axes
-        #       Grab that move
-        #       Remove that axis from temporary reference dict/set of concurrent_axes (previously, deep copy?)
-        # else:
-        #   Execute grabbed moves
-        #       while move container is not empty
-        #           Assign each grabbed move to own thread
-        #       Launch threads
-        #
-        movement = movements.popleft()
-        next.append(movement)
-        while concurrent_working_reference:
-            (axis_name, kinematic_params) = movement.items()
-            if axis_name not in concurrent_working_reference:
-                return next
-            else:
-                del concurrent_working_reference[axis_name]
-                next.append(movement)
-            movement = movements.popleft()
+        components = parsed_config.get("components")
+        if not isinstance(components, dict):
+            raise ValueError("Gantry config must contain a 'components' mapping")
+        if name not in components:
+            raise ValueError(f"Gantry config does not contain component {name!r}")
 
-        return next
+        gantry_cfg = components[name]
+        if not isinstance(gantry_cfg, dict):
+            raise ValueError(f"Gantry component {name!r} must be a dict")
 
-    # movements =  {"axis_name": {"position": pos, "velocity": speed}, "axis_name": {"position": pos, "velocity": speed} }
-    # ( ""{"name": axis_name, "id" : axis_id , "position": coord, "velocity": speed})
-    def move_to(self, movements: deque, timeout: int | None = None, concurrent: bool = False) -> None:
-        """Dispatch a queue of movements to the gantry axes.
+        backend = gantry_cfg.get("backend", "modbus")
+        if backend not in {"modbus", "fposbapi"}:
+            raise ValueError(f'Unsupported backend: {backend!r}. Expected "modbus" or "fposbapi".')
 
-        Processes each movement dict in *movements*, dispatching them either
-        sequentially or concurrently according to *concurrent* and the
-        gantry's ``concurrent_axes`` configuration.
+        axes_cfg = gantry_cfg.get("axes")
+        if not isinstance(axes_cfg, dict):
+            raise ValueError(f"Gantry component {name!r} must contain an 'axes' mapping")
 
-        Args:
-            movements: A :class:`~collections.deque` of movement dicts.  Each
-                dict maps a single axis name to its kinematic parameters, e.g.
-                ``{"X": {"position": 100.0, "velocity": 50.0}}``.
-            timeout: Optional per-move time limit in seconds.  Passed through
-                to each :meth:`EdconAxis.move` call.
-            concurrent: When ``True``, all movements in the current batch are
-                dispatched in parallel threads.  When ``False`` (default),
-                movements are grouped using ``concurrent_axes`` and dispatched
-                sequentially.
-        """
-        logger.info("move_to: %d movement(s) queued, concurrent=%s, timeout=%s", len(movements), concurrent, timeout)
-        # initiate move
+        axis_order = gantry_cfg.get("axis_order", list(axes_cfg.keys()))
+        axis_order = Gantry._validate_axis_name_list(axis_order, "axis_order")
+        unknown_axis_order = [axis_name for axis_name in axis_order if axis_name not in axes_cfg]
+        if unknown_axis_order:
+            raise ValueError(f"Gantry axis_order references unknown axes: {unknown_axis_order}")
 
-        # Assign axis moves to own thread each OR filter by queue simultaneous moves.
-
-        # if concurrent:
-        #   launch all as concurrent
-        while movements:
-            if concurrent:
-                # self._move_dispatch(movements, concurrent=concurrent)
-                self._move_dispatch(movements, concurrent, timeout=timeout)
-            else:
-                concurrent_axes = self.concurrent_axes or {}
-                next_moves = self._get_next_moves(movements, concurrent_axes, timeout)
-                self._move_dispatch(next_moves, concurrent=True, timeout=timeout)
-
-        # else:
-        #   start processing movements
-        #       at least, the next movement will be dispatched
-
-    def home(self) -> None:
-        """Home all registered axes.
-
-        For the **FPosBAPI backend**, sends a single ``HOME`` command to the
-        CECC-X PLC which homes all axes in a coordinated sequence.
-
-        For the **Modbus backend**, iterates over every axis in insertion
-        order and calls :meth:`EdconAxis.home` on each one sequentially.
-        """
-        if self._client is not None:
-            logger.info("Gantry.home: sending HOME via FPosBAPI client")
-            self._client.send_command("HOME")
+        concurrent_raw = gantry_cfg.get("concurrent_axes")
+        if not concurrent_raw:
+            concurrent_axes = None
         else:
-            for axis in self.axes:
-                self.axes[axis].home()
-        logger.info("All axes homed")
+            concurrent_axes = Gantry._validate_axis_name_list(concurrent_raw, "concurrent_axes")
+            unknown_concurrent = [axis_name for axis_name in concurrent_raw if axis_name not in axes_cfg]
+            if unknown_concurrent:
+                raise ValueError(f"Gantry concurrent_axes references unknown axes: {unknown_concurrent}")
+
+        if backend == "modbus":
+            Gantry._validate_modbus_axes(axes_cfg, axis_order)
+        else:
+            Gantry._validate_fposbapi_config(gantry_cfg, axes_cfg, axis_order)
+
+        return gantry_cfg, backend, axes_cfg, axis_order, concurrent_axes
 
     @classmethod
     def from_config(cls, config: dict | Path, name: str = "gantry_1") -> "Gantry":
@@ -398,55 +328,58 @@ class Gantry:
             OSError: (FPosBAPI only) If the TCP connection to the CECC-X cannot
                 be established.
         """
-        if isinstance(config, Path):
-            with config.open() as fh:
-                config = json.load(fh)
-        logger.debug("config import: ", config)
-        # TODO: Festo config validation and config spec alignment
-        parsed_config = config.get("component_config", config)
-
-        logger.debug("parsed config scoped: ", parsed_config)
-        gantry_cfg = parsed_config["components"][name]
-        backend: str = gantry_cfg.get("backend", "modbus")
-        axes_cfg: dict = gantry_cfg["axes"]
-        axis_order: list[str] = gantry_cfg.get("axis_order", list(axes_cfg.keys()))
-        concurrent_raw: list[str] | None = gantry_cfg.get("concurrent_axes")
+        config = cls._load_config_source(config)
+        logger.debug("Gantry.from_config: loaded config source=%s", type(config).__name__)
+        parsed_config = cls._normalize_config(config)
+        logger.debug("Gantry.from_config: parsed component config")
+        gantry_cfg, backend, axes_cfg, axis_order, concurrent_raw = cls._validate_gantry_config(parsed_config, name)
 
         if backend == "modbus":
-            axes: dict[str, Axis] = {
-                name: EdconAxis(
-                    name=axes_cfg[name]["name"],
-                    ip=axes_cfg[name]["ip"],
-                    run_referencing=axes_cfg[name].get("run_referencing", False),
+            axes: AxisMap = {
+                axis_name: EdconAxis(
+                    name=axes_cfg[axis_name]["name"],
+                    ip=axes_cfg[axis_name]["ip"],
+                    run_referencing=axes_cfg[axis_name].get("run_referencing", False),
                 )
-                for name in axis_order
+                for axis_name in axis_order
             }
-            concurrent_axes: dict[str, Axis] | None = (
-                {name: axes[name] for name in concurrent_raw if name in axes} if concurrent_raw else None
+            concurrent_axes: AxisMap | None = (
+                {axis_name: axes[axis_name] for axis_name in concurrent_raw if axis_name in axes}
+                if concurrent_raw
+                else None
             )
-            logger.info("Gantry.from_config: modbus backend, axes=%s", axis_order)
+            logger.info("Gantry.from_config: backend=modbus axes=%s", axis_order)
             return cls(axes=axes, concurrent_axes=concurrent_axes)
 
         if backend == "fposbapi":
             conn = gantry_cfg["interface"]
-            client = FPosBAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
+            if "timeout" in conn:
+                client = FPosBAPIClient(
+                    ip=conn["ip"],
+                    port=conn.get("port", 1234),
+                    timeout=conn["timeout"],
+                )
+            else:
+                client = FPosBAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
             try:
                 client.send_command("ENABLE")
             except Exception:
                 client.close()
                 raise
-            fposb_axes: dict[str, Axis] = {
-                name: FPosBAxis(
-                    name=axes_cfg[name]["name"],
-                    index=axes_cfg[name]["index"],
+            fposb_axes: AxisMap = {
+                axis_name: FPosBAxis(
+                    name=axes_cfg[axis_name]["name"],
+                    index=axes_cfg[axis_name]["index"],
                     client=client,
                 )
-                for name in axis_order
+                for axis_name in axis_order
             }
             fposb_concurrent: dict[str, Axis] | None = (
-                {name: fposb_axes[name] for name in concurrent_raw if name in fposb_axes} if concurrent_raw else None
+                {axis_name: fposb_axes[axis_name] for axis_name in concurrent_raw if axis_name in fposb_axes}
+                if concurrent_raw
+                else None
             )
-            logger.info("Gantry.from_config: fposbapi backend, axes=%s", axis_order)
+            logger.info("Gantry.from_config: backend=fposbapi axes=%s", axis_order)
             return cls(axes=fposb_axes, concurrent_axes=fposb_concurrent, _client=client)
 
         raise ValueError(f'Unsupported backend: {backend!r}. Expected "modbus" or "fposbapi".')
