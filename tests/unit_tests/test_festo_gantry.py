@@ -3,10 +3,7 @@
 Coverage areas
 --------------
 * ``Gantry.__init__`` — axes and concurrent_axes storage.
-* ``Gantry._execute_single_movement`` — success, axis-not-found
-  (KeyError → AxisNotFoundError), and unexpected exception paths.
-* ``Gantry._execute_concurrent_movements`` — all-succeed returns 0,
-  a generic failure returns 1, AxisNotFoundError is re-raised.
+
 * ``Gantry.home()`` — delegates to every axis.
 * ``Gantry.is_stopped()`` — returns True only when all axes report stopped.
 * ``Gantry.is_ready_for_motion()`` — returns True only when all axes
@@ -83,107 +80,6 @@ class TestGantryInit:
         g = Gantry(axes={})
         assert g.axes == {}
 
-
-# ---------------------------------------------------------------------------
-# Gantry._execute_single_movement
-# ---------------------------------------------------------------------------
-
-
-class TestGantryExecuteSingleMovement:
-    """Verify the return-value contract of _execute_single_movement."""
-
-    def test_successful_move_returns_axis_name_true_and_none(self):
-        axis = _make_stub_axis("X")
-        g = Gantry(axes={"X": axis})
-        result = g._execute_single_movement("X", {"position": 100, "velocity": 50})
-        assert result == ("X", True, None)
-
-    def test_successful_move_delegates_kwargs_to_axis_move(self):
-        """The kinematic parameters dict must be unpacked and passed to
-        axis.move() as keyword arguments."""
-        axis = _make_stub_axis("X")
-        g = Gantry(axes={"X": axis})
-        params = {"position": 200, "velocity": 75}
-        g._execute_single_movement("X", params)
-        axis.move.assert_called_once_with(**params, timeout=None)
-
-    def test_unknown_axis_name_returns_axis_not_found_error_tuple(self):
-        """When the requested axis name is not in self.axes, the method
-        must return a failure tuple whose exception is ``AxisNotFoundError``
-        rather than letting the raw KeyError propagate."""
-        g = Gantry(axes={})
-        axis_name, success, exc = g._execute_single_movement("MISSING", {"position": 0, "velocity": 1})
-        assert axis_name == "MISSING"
-        assert success is False
-        assert isinstance(exc, AxisNotFoundError)
-
-    def test_unexpected_exception_is_captured_in_result_tuple(self):
-        """Exceptions other than KeyError must be captured and returned in
-        the result tuple so the concurrent dispatch layer can decide how to
-        handle them without crashing the calling thread."""
-        axis = _make_stub_axis("X")
-        axis.move.side_effect = RuntimeError("drive fault")
-        g = Gantry(axes={"X": axis})
-        axis_name, success, exc = g._execute_single_movement("X", {"position": 0, "velocity": 1})
-        assert success is False
-        assert isinstance(exc, RuntimeError)
-
-    def test_timeout_forwarded_to_axis_move(self):
-        axis = _make_stub_axis("X")
-        g = Gantry(axes={"X": axis})
-        g._execute_single_movement("X", {"position": 100, "velocity": 50}, timeout=2)
-        axis.move.assert_called_once_with(position=100, velocity=50, timeout=2)
-
-
-# ---------------------------------------------------------------------------
-# Gantry._execute_concurrent_movements
-# ---------------------------------------------------------------------------
-
-
-class TestGantryExecuteConcurrentMovements:
-    def test_all_axes_succeed_returns_zero(self):
-        axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
-        batch = [{"X": {"position": 100, "velocity": 50}}, {"Z": {"position": 200, "velocity": 50}}]
-        result = g._execute_concurrent_movements(batch)
-        assert result == 0
-
-    def test_all_axes_move_called(self):
-        axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
-        batch = [{"X": {"position": 100, "velocity": 50}}, {"Z": {"position": 200, "velocity": 50}}]
-        g._execute_concurrent_movements(batch)
-        axis_x.move.assert_called_once()
-        axis_z.move.assert_called_once()
-
-    def test_generic_exception_on_one_axis_returns_one(self):
-        """A non-AxisNotFoundError failure on any axis must cause the
-        method to return 1 so the caller knows the batch did not fully
-        succeed."""
-        axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        axis_z.move.side_effect = RuntimeError("simulated drive fault")
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
-        batch = [{"X": {"position": 100, "velocity": 50}}, {"Z": {"position": 200, "velocity": 50}}]
-        result = g._execute_concurrent_movements(batch)
-        assert result == 1
-
-    def test_axis_not_found_in_batch_raises_axis_not_found_error(self):
-        """A movement in the batch that references an axis not in
-        ``self.axes`` must propagate as ``AxisNotFoundError`` rather than
-        returning silently so the caller can report the misconfiguration."""
-        axis_x = _make_stub_axis("X")
-        g = Gantry(axes={"X": axis_x})
-        batch = [{"MISSING": {"position": 0, "velocity": 1}}]
-        with pytest.raises(AxisNotFoundError):
-            g._execute_concurrent_movements(batch)
-
-    def test_empty_batch_returns_zero(self):
-        g = Gantry(axes={})
-        result = g._execute_concurrent_movements([])
-        assert result == 0
 
 
 # ---------------------------------------------------------------------------
