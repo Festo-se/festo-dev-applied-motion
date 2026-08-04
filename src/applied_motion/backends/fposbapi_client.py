@@ -27,6 +27,13 @@ import threading
 logger = logging.getLogger(__name__)
 
 
+class _Unset:
+    """Sentinel type for "use client's configured timeout" in send_command."""
+
+
+_UNSET = _Unset()
+
+
 class FPosBAPIClientError(Exception):
     """Raised when the FPosBAPI server returns an error response or the connection is lost."""
 
@@ -153,7 +160,7 @@ class FPosBAPIClient:
         self._msg_id += 1
         return self._msg_id
 
-    def send_command(self, command: str, *params) -> list[str]:
+    def send_command(self, command: str, *params, timeout: float | None | _Unset = _UNSET) -> list[str]:
         """Send a command to the FPosBAPI server and return all response lines.
 
         Acquires the internal lock, increments the message ID, formats the
@@ -165,6 +172,9 @@ class FPosBAPIClient:
         Args:
             command: FPosBAPI command string, e.g. ``"ENABLE"``, ``"MOVE_AXIS"``.
             *params: Zero or more positional parameters appended to the frame.
+            timeout: Per-call socket timeout in seconds.  Pass ``None`` for
+                blocking mode (no timeout), e.g. for long-running motion
+                commands.  Omit to use the client's configured defaults.
 
         Returns:
             All response lines received before the empty terminator, in arrival
@@ -177,42 +187,52 @@ class FPosBAPIClient:
                 response is empty, or the connection is closed.
         """
         with self._lock:
+            if not isinstance(timeout, _Unset):
+                self._sock.settimeout(timeout)
             msg_id = self._next_id()
             parts = [str(msg_id), command] + [str(p) for p in params]
             raw = ", ".join(parts) + "\r\n"
-            logger.debug("    FPosBAPIClient <- %s", raw.strip())
+            logger.debug("FPosBAPIClient tx: %s", raw.strip())
             try:
                 self._sock.sendall(raw.encode("ascii"))
             except (ConnectionResetError, BrokenPipeError, OSError) as exc:
                 logger.warning("FPosBAPIClient send failed (%s); reconnecting once", exc)
                 try:
                     self._reconnect()
+                    if not isinstance(timeout, _Unset):
+                        self._sock.settimeout(timeout)
                     self._sock.sendall(raw.encode("ascii"))
                 except OSError as retry_exc:
-                    raise FPosBAPIClientError(f"Connection lost during {command!r}: {retry_exc}") from retry_exc
-            lines = self._collect_response()
-            logger.debug("    FPosBAPIClient raw response <- %s", ",\n    ".join(lines))
+                    raise FPosBAPICommunicationError(f"Connection lost during {command!r}: {retry_exc}") from retry_exc
+            try:
+                lines = self._collect_response()
+            finally:
+                if not isinstance(timeout, _Unset):
+                    self._sock.settimeout(self._timeout)
+            logger.debug("FPosBAPIClient rx: %s", ", ".join(lines))
 
             # Validate while holding the lock so subsequent send_command calls
             # see a clean socket regardless of the outcome here.
             if not lines:
                 self._drain(max_chunks=1)
-                raise FPosBAPIClientError(f"Empty response to {command!r}")
+                raise FPosBAPICommunicationError(f"Empty response to {command!r}")
 
             terminal = lines[-1]
             fields = [f.strip() for f in terminal.split(",")]
 
             if "VEAB" in command:
                 fields = self._handle_malformed_veab_output(fields, msg_id, command)
-                logger.debug("    FPosBAPIClient <- %s", ",".join(fields))
+                logger.debug("FPosBAPIClient rx-normalized: %s", ",".join(fields))
             if len(fields) < 3:
-                raise FPosBAPIClientError(f"Malformed response to {command!r}: {','.join(fields)!r}")
+                raise FPosBAPICommunicationError(f"Malformed response to {command!r}: {','.join(fields)!r}")
             if fields[0] != str(msg_id):
-                raise FPosBAPIClientError(f"MSG_ID mismatch: sent {msg_id}, got {fields[0]!r} in {terminal!r}")
+                raise FPosBAPICommunicationError(f"MSG_ID mismatch: sent {msg_id}, got {fields[0]!r} in {terminal!r}")
             if fields[1] != command:
-                raise FPosBAPIClientError(f"CMD echo mismatch: sent {command!r}, got {fields[1]!r} in {terminal!r}")
+                raise FPosBAPICommunicationError(
+                    f"CMD echo mismatch: sent {command!r}, got {fields[1]!r} in {terminal!r}"
+                )
             if fields[-1] != "SUCCESS":
-                raise FPosBAPIClientError(f"FPosBAPI error response: {terminal}")
+                raise FPosBAPICommandError(f"FPosBAPI error response: {terminal}")
 
         return lines
 
