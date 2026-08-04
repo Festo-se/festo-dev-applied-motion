@@ -18,9 +18,8 @@ Use :meth:`Gantry.from_config` to instantiate the correct backend
 automatically from a JSON configuration dict or file.
 """
 
-from typing import Iterator
+from typing import Iterator, cast
 
-import json
 import logging
 from copy import deepcopy
 
@@ -29,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from applied_motion.backends.axis_protocol import Axis
+from applied_motion.config import GantryConfig, SystemConfig
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
 from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend, GantryBackend, ModbusGantryBackend
@@ -178,70 +178,50 @@ class Gantry:
             OSError: (FPosBAPI only) If the TCP connection to the CECC-X cannot
                 be established.
         """
-        if isinstance(config, Path):
-            with config.open() as fh:
-                config = json.load(fh)
-        logger.debug("Gantry.from_config: loaded config source=%s", type(config).__name__)
-        # TODO: Festo config validation and config spec alignment
-        parsed_config = config.get("component_config", config)
+        gcfg = GantryConfig(SystemConfig(config)(), name)
 
-        logger.debug("Gantry.from_config: parsed component config")
-        gantry_cfg = parsed_config["components"][name]
-        backend: str = gantry_cfg.get("backend", "modbus")
-        axes_cfg: dict = gantry_cfg["axes"]
-        axis_order: list[str] = gantry_cfg.get("axis_order", list(axes_cfg.keys()))
-        concurrent_raw: list[str] | None = gantry_cfg.get("concurrent_axes")
-
-        if backend == "modbus":
+        if gcfg.backend == "modbus":
             axes: AxisMap = {
                 axis_name: EdconAxis(
-                    name=axes_cfg[axis_name]["name"],
-                    ip=axes_cfg[axis_name]["ip"],
-                    run_referencing=axes_cfg[axis_name].get("run_referencing", False),
+                    name=gcfg.axes_cfg[axis_name]["name"],
+                    ip=gcfg.axes_cfg[axis_name]["ip"],
+                    run_referencing=gcfg.axes_cfg[axis_name].get("run_referencing", False),
                 )
-                for axis_name in axis_order
+                for axis_name in gcfg.axis_order
             }
             concurrent_axes: AxisMap | None = (
-                {axis_name: axes[axis_name] for axis_name in concurrent_raw if axis_name in axes}
-                if concurrent_raw
+                {axis_name: axes[axis_name] for axis_name in gcfg.concurrent_raw if axis_name in axes}
+                if gcfg.concurrent_raw
                 else None
             )
-            logger.info("Gantry.from_config: backend=modbus axes=%s", axis_order)
+            logger.info("Gantry.from_config: backend=modbus axes=%s", gcfg.axis_order)
             return cls(axes=axes, concurrent_axes=concurrent_axes, _backend=ModbusGantryBackend())
 
-        if backend == "fposbapi":
-            conn = gantry_cfg["interface"]
-            if "timeout" in conn:
-                client = FPosBAPIClient(
-                    ip=conn["ip"],
-                    port=conn.get("port", 1234),
-                    timeout=conn["timeout"],
+        # fposbapi
+        conn = cast(dict, gcfg.interface)  # non-None guaranteed by GantryConfig._validate_fposbapi_config
+        client_kwargs = {"timeout": conn["timeout"]} if "timeout" in conn else {}
+        client = FPosBAPIClient(ip=conn["ip"], port=conn.get("port", 1234), **client_kwargs)
+        backend_handler = FPosBAPIGantryBackend(client)
+        try:
+            client.send_command("ENABLE")
+            fposb_axes: AxisMap = {
+                axis_name: FPosBAxis(
+                    name=gcfg.axes_cfg[axis_name]["name"],
+                    index=gcfg.axes_cfg[axis_name]["index"],
+                    client=client,
                 )
-            else:
-                client = FPosBAPIClient(ip=conn["ip"], port=conn.get("port", 1234))
-            backend_handler = FPosBAPIGantryBackend(client)
-            try:
-                client.send_command("ENABLE")
-                fposb_axes: AxisMap = {
-                    axis_name: FPosBAxis(
-                        name=axes_cfg[axis_name]["name"],
-                        index=axes_cfg[axis_name]["index"],
-                        client=client,
-                    )
-                    for axis_name in axis_order
-                }
-                fposb_concurrent: AxisMap | None = (
-                    {axis_name: fposb_axes[axis_name] for axis_name in concurrent_raw if axis_name in fposb_axes}
-                    if concurrent_raw
-                    else None
-                )
-                logger.info("Gantry.from_config: backend=fposbapi axes=%s", axis_order)
-                return cls(axes=fposb_axes, concurrent_axes=fposb_concurrent, _backend=backend_handler)
-            except Exception:
-                backend_handler.close()
-                raise
-
-        raise ValueError(f'Unsupported backend: {backend!r}. Expected "modbus" or "fposbapi".')
+                for axis_name in gcfg.axis_order
+            }
+            fposb_concurrent: AxisMap | None = (
+                {axis_name: fposb_axes[axis_name] for axis_name in gcfg.concurrent_raw if axis_name in fposb_axes}
+                if gcfg.concurrent_raw
+                else None
+            )
+            logger.info("Gantry.from_config: backend=fposbapi axes=%s", gcfg.axis_order)
+            return cls(axes=fposb_axes, concurrent_axes=fposb_concurrent, _backend=backend_handler)
+        except Exception:
+            backend_handler.close()
+            raise
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the gantry."""
@@ -302,9 +282,12 @@ class Gantry:
 
                 return executed_movements  # TODO: Timeout result?
         else:
+            placedholder = []
             while movements:
                 movement = movements.popleft()
-                return (self._single_move(movement=movement, timeout=timeout),)
+
+                placedholder.append(self._single_move(movement=movement, timeout=timeout))
+            return tuple(placedholder)
 
     def _single_move(self, movement: dict, timeout: int | None = None) -> int:
         """Execute one movement dict and return an integer result code.
@@ -324,7 +307,7 @@ class Gantry:
         Raises:
             AxisNotFoundError: If the axis name is not found in :attr:`axes`.
         """
-        axis_name, kinematic_params = movement.popitem()
+        ((axis_name, kinematic_params),) = tuple(list(movement.items()))
 
         logger.debug("Gantry._single_move: axis=%s params=%s timeout=%s", axis_name, kinematic_params, timeout)
         try:
