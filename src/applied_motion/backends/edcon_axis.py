@@ -158,7 +158,7 @@ class EdconAxis(MotionHandler):
             NotImplementedError: If *other* is not a :class:`EdconAxis`.
         """
         if not isinstance(other, EdconAxis):
-            return False
+            raise NotImplementedError("Cannot compare EdconAxis with non-EdconAxis object")
         return self.name == other.name and self.ip == other.ip
 
     def __hash__(self) -> int:
@@ -171,7 +171,7 @@ class EdconAxis(MotionHandler):
         return hash((self.name, self.ip))
 
     # TODO: Use attrs?
-    def home(self) -> None:
+    def home(self) -> bool:
         """Home the axis by running a referencing task.
 
         Acknowledges any faults, enables the power stage, and then
