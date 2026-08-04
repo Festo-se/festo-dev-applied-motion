@@ -93,18 +93,9 @@ class Gantry:
         self.axes = axes
         self.concurrent_axes = concurrent_axes
         self._client: FPosBAPIClient | None = _client
-        logger.info("Gantry initialized with axes: %s", list(axes.keys()))
+        logger.info("Gantry: initialized with axes=%s", list(axes.keys()))
         if concurrent_axes:
-            logger.debug("Concurrent axes: %s", list(concurrent_axes.keys()))
-        self.gantry = self  # Experimental
-
-    def __repr__(self) -> str:
-        """Return an unambiguous string representation of the gantry."""
-        axis_names = list(self.axes.keys())
-        return f"Gantry(axes={axis_names!r})"
-
-    def __eq__(self, other: object) -> bool:
-        """Return True when *other* has the same axes and concurrent-axis configuration.
+            logger.debug("Gantry: concurrent axes=%s", list(concurrent_axes.keys()))
 
         Args:
             other: Object to compare against.
