@@ -39,6 +39,19 @@ class FPosBAPICommandError(FPosBAPIClientError):
     """Raised when the PLC returns a structurally valid but non-SUCCESS response."""
 
 
+def _parse_response_status(terminal_line: str) -> bool:
+    """Return ``True`` if *terminal_line* ends with the ``SUCCESS`` field.
+
+    Args:
+        terminal_line: The terminal CSV response line from an FPosBAPI command.
+
+    Returns:
+        ``True`` when the last comma-delimited field is ``SUCCESS``; ``False`` otherwise.
+    """
+    fields = [f.strip() for f in terminal_line.split(",")]
+    return bool(fields) and fields[-1] == "SUCCESS"
+
+
 class FPosBAPIClient:
     """Thread-safe TCP socket client for the Festo FPosBAPI ASCII protocol.
 
