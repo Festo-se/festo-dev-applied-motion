@@ -60,13 +60,13 @@ class Gantry:
             When ``None``, no concurrent grouping is applied.
     """
 
-    axes: dict[str, Axis]
-    concurrent_axes: dict[str, Axis] | None
+    axes: AxisMap
+    concurrent_axes: AxisMap | None
 
     def __init__(
         self,
-        axes: dict[str, Axis],
-        concurrent_axes: dict[str, Axis] | None = None,
+        axes: AxisMap,
+        concurrent_axes: AxisMap | None = None,
         *,
         _client: FPosBAPIClient | None = None,
     ) -> None:
