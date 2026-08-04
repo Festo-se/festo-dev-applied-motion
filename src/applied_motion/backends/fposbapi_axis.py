@@ -91,11 +91,12 @@ class FPosBAxis:
                   ``"relative"``.
 
         Returns:
-            ``True`` when the PLC reports a successful move.
+            ``True`` when both the speed parameter and move commands succeed;
+            ``False`` if the PLC rejects either command.
 
         Raises:
-            ~applied_motion.backends.fposbapi_client.FPosBAPIClientError: If the
-                PLC returns an error response.
+            ~applied_motion.backends.fposbapi_client.FPosBAPICommunicationError: If a
+                communication or protocol failure occurs.
         """
         position_type = kwargs.get("position_type", "absolute")
         rel_flag = 0 if position_type == "absolute" else 1
