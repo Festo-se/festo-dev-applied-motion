@@ -97,77 +97,44 @@ class Gantry:
         if concurrent_axes:
             logger.debug("Gantry: concurrent axes=%s", list(concurrent_axes.keys()))
 
-        Args:
-            other: Object to compare against.
-
-        Returns:
-            ``True`` if *other* is a :class:`Gantry` with equal ``axes``
-            and ``concurrent_axes`` mappings; ``False`` otherwise.
-        """
-        if not isinstance(other, Gantry):
-            return NotImplemented
-        return self.axes == other.axes and self.concurrent_axes == other.concurrent_axes
-
-    def __hash__(self) -> int:
-        """Return a hash based on object identity.
-
-        :class:`Gantry` is mutable (axes are a mutable dict), so
-        hashing by value is not safe.  ``id(self)`` is used as a stable
-        fallback so instances remain usable in sets and as dict keys.
-        """
-        return id(self)
-
-    def __len__(self) -> int:
-        """Return the number of axes registered with this gantry."""
-        return len(self.axes)
-
-    def __iter__(self):
-        """Iterate over the axis names registered with this gantry."""
-        return iter(self.axes)
-
-    def __contains__(self, item: object) -> bool:
-        """Return True if *item* is the name of a registered axis.
+    @staticmethod
+    def _load_config_source(config: dict | Path) -> dict:
+        """Return a raw config dict loaded from *config*.
 
         Args:
-            item: Axis name to look up.
+            config: Parsed configuration dict or path to a JSON file.
 
         Returns:
-            ``True`` if *item* is a key in :attr:`axes`.
-        """
-        return item in self.axes
+            Raw configuration mapping.
 
-    def _execute_single_movement(
-        self, axis_name: str, kinematic_params: dict, timeout: int | None = None
-    ) -> tuple[str, bool, Exception | None]:
-        """Execute a single axis movement and return a structured result tuple.
+        Raises:
+            ValueError: If the loaded configuration is not a dict.
+        """
+        if isinstance(config, Path):
+            with config.open() as fh:
+                config = json.load(fh)
+        if not isinstance(config, dict):
+            raise ValueError("Gantry config must load as a dict")
+        return config
+
+    @staticmethod
+    def _normalize_config(raw_config: dict) -> dict:
+        """Return the normalized component config mapping.
 
         Args:
-            axis_name: Key into :attr:`axes` identifying the target axis.
-            kinematic_params: Dict of keyword arguments forwarded to
-                :meth:`EdconAxis.move` (e.g. ``{"position": 100.0,
-                "velocity": 50.0}``).
-            timeout: Optional per-move time limit in seconds forwarded to
-                :meth:`EdconAxis.move`.
+            raw_config: Raw configuration dict, possibly wrapped in a
+                top-level ``component_config`` key.
 
         Returns:
-            A three-tuple ``(axis_name, success, exception)`` where
-            *success* is ``True`` on a clean move, ``False`` on any failure,
-            and *exception* is the caught exception or ``None`` on success.
-        """
-        logger.debug("_execute_single_movement: axis='%s' params=%s timeout=%s", axis_name, kinematic_params, timeout)
-        try:
-            self.axes[axis_name].move(**kinematic_params, timeout=timeout)
-            logger.debug("_execute_single_movement: axis='%s' succeeded", axis_name)
-            return (axis_name, True, None)
-        except KeyError:
-            logger.error("_execute_single_movement: axis '%s' not found in gantry axes", axis_name)
-            return (axis_name, False, AxisNotFoundError(f"Axis {axis_name} not found"))
-        except Exception as e:
-            logger.error("_execute_single_movement: axis '%s' raised %s", axis_name, e)
-            return (axis_name, False, e)
+            Normalized component configuration dict.
 
-    def _execute_concurrent_movements(self, movements_batch: list[dict], timeout: int | None = None) -> int:
-        """Execute multiple movements concurrently using threads.
+        Raises:
+            ValueError: If the normalized configuration is not a dict.
+        """
+        parsed_config = raw_config.get("component_config", raw_config)
+        if not isinstance(parsed_config, dict):
+            raise ValueError("Normalized gantry config must be a dict")
+        return parsed_config
 
         Args:
             movements_batch: List of movement dicts, each like {"axis_name": {kinematic_params}}
@@ -483,6 +450,197 @@ class Gantry:
             return cls(axes=fposb_axes, concurrent_axes=fposb_concurrent, _client=client)
 
         raise ValueError(f'Unsupported backend: {backend!r}. Expected "modbus" or "fposbapi".')
+
+    def __eq__(self, other: object) -> bool:
+        """Return True when *other* has the same axes and concurrent-axis configuration.
+
+        Args:
+            other: Object to compare against.
+
+        Returns:
+            ``True`` if *other* is a :class:`Gantry` with equal ``axes``
+            and ``concurrent_axes`` mappings; ``False`` otherwise.
+        """
+        if not isinstance(other, Gantry):
+            return NotImplemented
+        return self.axes == other.axes and self.concurrent_axes == other.concurrent_axes
+
+    def __len__(self) -> int:
+        """Return the number of axes registered with this gantry."""
+        return len(self.axes)
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over the axis names registered with this gantry."""
+        return iter(self.axes)
+
+    def __contains__(self, item: object) -> bool:
+        """Return True if *item* is the name of a registered axis.
+
+        Args:
+            item: Axis name to look up.
+
+        Returns:
+            ``True`` if *item* is a key in :attr:`axes`.
+        """
+        return item in self.axes
+
+    def _move_dispatch(self, movements: deque, concurrent: bool, timeout: int | None = None):
+        """Dispatch a batch of movements either concurrently or sequentially.
+
+        Args:
+            movements: :class:`~collections.deque` of movement dicts to execute.
+            concurrent: When ``True``, all movements are executed in parallel
+                via :class:`~concurrent.futures.ThreadPoolExecutor`.
+                When ``False``, movements are executed one at a time.
+            timeout: Optional per-move time limit in seconds forwarded to each
+                :meth:`EdconAxis.move` call.
+
+        Returns:
+            Tuple of integer result codes, one per movement dispatched.
+        """
+        if concurrent:
+            with ThreadPoolExecutor(max_workers=len(movements)) as executor:
+                move_results = executor.map(lambda x: self._single_move(x, timeout=timeout), movements, timeout=timeout)
+                executed_movements = tuple(res for res in move_results)  # TODO: Timeout result?
+
+                return executed_movements  # TODO: Timeout result?
+        else:
+            placedholder = []
+            while movements:
+                movement = movements.popleft()
+
+                placedholder.append(self._single_move(movement=movement, timeout=timeout))
+            return tuple(placedholder)
+
+    def _single_move(self, movement: dict[str, dict["str", int | float]], timeout: int | None = None) -> int:
+        """Execute one movement dict and return an integer result code.
+
+        Pops the sole ``{axis_name: kinematic_params}`` entry from *movement*
+        and delegates to :meth:`EdconAxis.move`.
+
+        Args:
+            movement: Single-item dict mapping an axis name to its kinematic
+                parameter dict.  The dict is mutated (item is popped).
+            timeout: Optional per-move time limit in seconds forwarded to
+                :meth:`EdconAxis.move`.
+
+        Returns:
+            ``0`` on success, ``1`` on failure.
+
+        Raises:
+            AxisNotFoundError: If the axis name is not found in :attr:`axes`.
+        """
+        ((axis_name, kinematic_params),) = tuple(list(movement.items()))
+
+        logger.debug("Gantry._single_move: axis=%s params=%s timeout=%s", axis_name, kinematic_params, timeout)
+        try:
+            self.axes[axis_name].move(**kinematic_params, timeout=timeout)
+            success = True  # self.axes[axis_name].wait_for_position_motion_execution()
+            move_result = int(not (success))
+            logger.debug("Gantry._single_move: axis=%s result=%s", axis_name, move_result)
+        except KeyError as e:
+            logger.error("Gantry._single_move: axis=%s not found in gantry axes", axis_name)
+            move_result = 1
+            raise AxisNotFoundError(f"Axis {axis_name} not found") from e
+        except Exception as e:
+            logger.exception("Gantry._single_move: axis=%s move failed", axis_name)
+            move_result = 1
+            raise MovementError(f"Axis {axis_name} move failed: {e}") from e
+
+        return move_result
+
+    def _get_next_moves(
+        self,
+        movements: deque,
+        concurrent_axes: AxisMap,
+    ) -> deque:
+        """Pull the next group of movements that may run concurrently.
+
+        Consumes entries from the front of *movements* as long as they
+        belong to axes listed in *concurrent_axes*.  Returns a deque
+        containing that concurrent batch (may be a single-item deque if
+        the first movement's axis is not in *concurrent_axes*).
+
+        Args:
+            movements: Queue of pending movement dicts.  Entries are popped
+                from the left as they are consumed.
+            concurrent_axes: Dict of axes that are permitted to move at the
+                same time.  Acts as a filter — only axes present here are
+                batched together.
+            timeout: Reserved for future use; not consumed by this method.
+
+        Returns:
+            A :class:`~collections.deque` containing the next batch of
+            movements to dispatch concurrently.
+        """
+        next_batch = deque()
+        concurrent_working_reference = deepcopy(concurrent_axes)
+
+        movement = movements.popleft()
+        next_batch.append(movement)
+        ((axis_name, kinematic_params),) = tuple(movement.items())
+        if axis_name not in concurrent_working_reference:
+            return next_batch
+        del concurrent_working_reference[axis_name]
+
+        while concurrent_working_reference:
+            movement = movements.popleft()
+            ((axis_name, (kinematic_params)),) = tuple(movement.items())
+
+            if axis_name not in concurrent_working_reference:
+                return next_batch
+            else:
+                del concurrent_working_reference[axis_name]
+
+            next_batch.append(movement)
+
+        return next_batch
+
+    def move_to(self, movements: deque, timeout: int | None = None, concurrent: bool = False) -> None:
+        """Dispatch a queue of movements to the gantry axes.
+
+        Processes each movement dict in *movements*, dispatching them either
+        sequentially or concurrently according to *concurrent* and the
+        gantry's ``concurrent_axes`` configuration.
+
+        Args:
+            movements: A :class:`~collections.deque` of movement dicts.  Each
+                dict maps a single axis name to its kinematic parameters, e.g.
+                ``{"X": {"position": 100.0, "velocity": 50.0, "id" : 1 ???}}``.
+            timeout: Optional per-move time limit in seconds.  Passed through
+                to each :meth:`EdconAxis.move` call.
+            concurrent: When ``True``, all movements in the current batch are
+                dispatched in parallel threads.  When ``False`` (default),
+                movements are grouped using ``concurrent_axes`` and dispatched
+                sequentially.
+        """
+        logger.info("Gantry.move_to: queued=%d concurrent=%s timeout=%s", len(movements), concurrent, timeout)
+
+        if concurrent:
+            self._move_dispatch(movements, concurrent=concurrent, timeout=timeout)
+            return
+        else:
+            while movements:
+                concurrent_axes = self.concurrent_axes or {}
+                next_moves = self._get_next_moves(movements, concurrent_axes)
+                self._move_dispatch(next_moves, concurrent=True, timeout=timeout)
+
+    def home(self) -> None:
+        """Home all registered axes.
+
+        For the **FPosBAPI backend**, sends a single ``HOME`` command to the
+        CECC-X PLC which homes all axes in a coordinated sequence.
+
+        For the **Modbus backend**, iterates over every axis in insertion
+        order and calls :meth:`EdconAxis.home` on each one sequentially.
+        """
+        if self._client is not None:
+            logger.info("Gantry.home: issuing HOME via FPosBAPI client")
+            self._client.send_command("HOME", timeout=None)
+        else:
+            for axis in self.axes.values():
+                axis.home()
+        logger.info("Gantry.home: complete")
 
     def get_status(self) -> None:
         """Return the current status of the gantry.
