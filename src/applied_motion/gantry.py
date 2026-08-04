@@ -61,9 +61,6 @@ class Gantry:
             When ``None``, no concurrent grouping is applied.
     """
 
-    axes: AxisMap
-    concurrent_axes: AxisMap | None
-
     def __init__(
         self,
         axes: AxisMap,
@@ -275,10 +272,12 @@ class Gantry:
         Returns:
             Tuple of integer result codes, one per movement dispatched.
         """
+        logger.debug("Gantry._move_dispatch: batch=%d concurrent=%s timeout=%s", len(movements), concurrent, timeout)
         if concurrent:
             with ThreadPoolExecutor(max_workers=len(movements)) as executor:
                 move_results = executor.map(lambda x: self._single_move(x, timeout=timeout), movements, timeout=timeout)
                 executed_movements = tuple(res for res in move_results)  # TODO: Timeout result?
+                logger.debug("Gantry._move_dispatch: concurrent results=%s", executed_movements)
 
                 return executed_movements  # TODO: Timeout result?
         else:
@@ -287,6 +286,7 @@ class Gantry:
                 movement = movements.popleft()
 
                 placedholder.append(self._single_move(movement=movement, timeout=timeout))
+            logger.debug("Gantry._move_dispatch: sequential results=%s", tuple(placedholder))
             return tuple(placedholder)
 
     def _single_move(self, movement: dict, timeout: int | None = None) -> int:
@@ -344,7 +344,6 @@ class Gantry:
             concurrent_axes: Dict of axes that are permitted to move at the
                 same time.  Acts as a filter — only axes present here are
                 batched together.
-            timeout: Reserved for future use; not consumed by this method.
 
         Returns:
             A :class:`~collections.deque` containing the next batch of
@@ -352,21 +351,7 @@ class Gantry:
         """
         next_batch = deque()
         concurrent_working_reference = deepcopy(concurrent_axes)
-        #
-        # Filter rule is:
-        # Deep copy a temporary reference to concurrent_axes for comparison and accounting
-        # Grab Move
-        # if move axis is in temp ref,
-        #   remove axis from temp ref
-        #   while next move is (still) in (temp ref) concurrent_axes
-        #       Grab that move
-        #       Remove that axis from temporary reference dict/set of concurrent_axes (previously, deep copy?)
-        # else:
-        #   Execute grabbed moves
-        #       while move container is not empty
-        #           Assign each grabbed move to own thread
-        #       Launch threads
-        #
+
         movement = movements.popleft()
         next_batch.append(movement)
         ((axis_name, kinematic_params),) = tuple(movement.items())
@@ -387,8 +372,6 @@ class Gantry:
 
         return next_batch
 
-    # movements =  {"axis_name": {"position": pos, "velocity": speed}, "axis_name": {"position": pos, "velocity": speed} }
-    # ( ""{"name": axis_name, "id" : axis_id , "position": coord, "velocity": speed})
     def move_to(self, movements: deque, timeout: int | None = None, concurrent: bool = False) -> None:
         """Dispatch a queue of movements to the gantry axes.
 
@@ -408,12 +391,7 @@ class Gantry:
                 sequentially.
         """
         logger.info("Gantry.move_to: queued=%d concurrent=%s timeout=%s", len(movements), concurrent, timeout)
-        # initiate move
 
-        # Assign axis moves to own thread each OR filter by queue simultaneous moves.
-
-        # if concurrent:
-        #   launch all as concurrent
         if concurrent:
             self._move_dispatch(movements, concurrent=concurrent, timeout=timeout)
             return
