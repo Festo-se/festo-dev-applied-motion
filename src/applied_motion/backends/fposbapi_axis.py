@@ -107,15 +107,17 @@ class FPosBAxis:
             velocity,
             rel_flag,
         )
-        self._client.send_command("SET_PAR", 103, velocity)
-        self._client.send_command("MOVE_AXIS", self.index, rel_flag, position)
-        logger.info(
-            "FPosBAxis '%s': move complete (position=%s mm, velocity=%s mm/s)",
-            self.name,
-            position,
-            velocity,
-        )
-        return True
+        if not self._client.try_command("SET_PAR", 103, velocity):
+            return False
+        result = self._client.try_command("MOVE_AXIS", self.index, rel_flag, position, timeout=timeout)
+        if result:
+            logger.info(
+                "FPosBAxis '%s': move complete (position=%s mm, velocity=%s mm/s)",
+                self.name,
+                position,
+                velocity,
+            )
+        return result
 
     def home(self) -> None:
         """Issue the ``HOME`` command, homing all axes together.
