@@ -21,6 +21,7 @@ with the FPosBAPI backend instead.
 
 import logging
 import time
+from math import inf
 
 from threading import Thread
 
