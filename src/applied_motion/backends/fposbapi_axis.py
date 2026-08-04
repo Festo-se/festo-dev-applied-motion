@@ -171,7 +171,7 @@ class FPosBAxis:
         try:
             value = float(fields[position_field_index])
         except (IndexError, ValueError) as exc:
-            logger.exception(
+            logger.error(
                 "FPosBAxis '%s': cannot parse ROB_POS response — %s",
                 self.name,
                 response,
@@ -247,14 +247,14 @@ class FPosBAxis:
 
     def jog_task(
         self,
-        og_positive: bool = True,
+        jog_positive: bool = True,
         jog_negative: bool = False,
         incremental: bool = False,
         duration: float = 0.0,
     ) -> bool:
         """Jog axis."""
         # TODO: Implement this functionality using corresponding FPosBAPI command
-        pass
+        return True
 
     def ready_for_motion(self) -> bool:
         """Return whether the gantry drives are enabled via ``IS_ENBL``.
