@@ -82,6 +82,16 @@ class EdconAxis(MotionHandler):
             ip: IPv4 address of the Festo drive's Modbus TCP interface.
             run_referencing: When ``True``, perform a homing (referencing)
                 sequence during construction.  Defaults to ``False``.
+            max_position: Optional max position limitation, if the drive is restricted
+                more than the internal SW limit position check. This avoids an issue where
+                traversing toward the actual endstop is interrupted because the interia of
+                the motion causes the drive to overshoot the limit position, throwing an error
+                and interrupting the power stage on state.
+            min_position: Optional min position limitation, if the drive is restricted
+                more than the internal SW limit position check. This avoids an issue where
+                traversing toward the actual endstop is interrupted because the interia of
+                the motion causes the drive to overshoot the limit position, throwing an error
+                and interrupting the power stage on state.
         """
         self.name = name
         self.ip = ip
