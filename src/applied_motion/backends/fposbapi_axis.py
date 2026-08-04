@@ -119,7 +119,7 @@ class FPosBAxis:
             )
         return result
 
-    def home(self) -> None:
+    def home(self) -> bool:
         """Issue the ``HOME`` command, homing all axes together.
 
         The FPosBAPI ``HOME`` command references every axis simultaneously —
@@ -131,12 +131,16 @@ class FPosBAxis:
             ``HOME`` command at the gantry level and does not call this method
             on each proxy individually, avoiding duplicate ``HOME`` requests.
 
+        Returns:
+            ``True`` when the PLC reports the HOME command succeeded; ``False``
+            if the PLC rejects it.
+
         Raises:
-            ~applied_motion.backends.fposbapi_client.FPosBAPIClientError: If the
-                PLC returns an error response.
+            ~applied_motion.backends.fposbapi_client.FPosBAPICommunicationError: If a
+                communication or protocol failure occurs.
         """
         logger.info("FPosBAxis '%s': issuing HOME command (homes all axes)", self.name)
-        self._client.send_command("HOME")
+        return self._client.try_command("HOME", timeout=None)
 
     def get_current_axis_position(self) -> float:
         """Return this axis's current position in mm via ``ROB_POS``.
