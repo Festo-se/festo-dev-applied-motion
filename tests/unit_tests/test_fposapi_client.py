@@ -21,7 +21,14 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from applied_motion.backends.fposbapi_client import FPosBAPIClient, FPosBAPIClientError
+from applied_motion.backends.fposbapi_client import (
+    FPosBAPIClient,
+    FPosBAPIClientError,
+    FPosBAPICommunicationError,
+    FPosBAPICommandError,
+    _parse_response_status,
+    _UNSET,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -230,22 +237,22 @@ class TestFPosBAPIClientSendCommand:
 
     def test_raises_on_empty_response(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=[])
-        with pytest.raises(FPosBAPIClientError, match="Empty response"):
+        with pytest.raises(FPosBAPICommunicationError, match="Empty response"):
             client.send_command("HOME")
 
     def test_raises_on_error_status(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=["1, HOME, 42, FAULT, AXIS_ERROR"])
-        with pytest.raises(FPosBAPIClientError, match="FPosBAPI error response"):
+        with pytest.raises(FPosBAPICommandError, match="FPosBAPI error response"):
             client.send_command("HOME")
 
     def test_raises_on_msg_id_mismatch(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=["99, HOME, 0, NULL, SUCCESS"])
-        with pytest.raises(FPosBAPIClientError, match="MSG_ID mismatch"):
+        with pytest.raises(FPosBAPICommunicationError, match="MSG_ID mismatch"):
             client.send_command("HOME")
 
     def test_raises_on_cmd_echo_mismatch(self, client, mocker):
         mocker.patch.object(client, "_collect_response", return_value=["1, WRONG_CMD, 0, NULL, SUCCESS"])
-        with pytest.raises(FPosBAPIClientError, match="CMD echo mismatch"):
+        with pytest.raises(FPosBAPICommunicationError, match="CMD echo mismatch"):
             client.send_command("HOME")
 
 
@@ -358,3 +365,62 @@ class TestFPosBAPIClientIdentity:
     def test_hash_usable_in_set(self, client):
         s = {client}
         assert client in s
+
+
+# ---------------------------------------------------------------------------
+# _parse_response_status
+# ---------------------------------------------------------------------------
+
+
+class TestParseResponseStatus:
+    def test_success_terminal_returns_true(self):
+        assert _parse_response_status("1, HOME, 0, NULL, SUCCESS") is True
+
+    def test_error_terminal_returns_false(self):
+        assert _parse_response_status("1, HOME, 42, FAULT, AXIS_ERROR") is False
+
+    def test_empty_string_returns_false(self):
+        assert _parse_response_status("") is False
+
+    def test_single_success_field_returns_true(self):
+        assert _parse_response_status("SUCCESS") is True
+
+    def test_whitespace_around_fields_is_stripped(self):
+        assert _parse_response_status("1, HOME, 0, NULL,  SUCCESS ") is True
+
+
+# ---------------------------------------------------------------------------
+# try_command
+# ---------------------------------------------------------------------------
+
+
+class TestFPosBAPIClientTryCommand:
+    def test_returns_true_on_success(self, client, mocker):
+        mocker.patch.object(client, "send_command", return_value=["1, HOME, 0, NULL, SUCCESS"])
+        assert client.try_command("HOME") is True
+
+    def test_returns_false_on_command_rejection(self, client, mocker):
+        mocker.patch.object(client, "send_command", side_effect=FPosBAPICommandError("drive fault"))
+        assert client.try_command("HOME") is False
+
+    def test_propagates_comm_error(self, client, mocker):
+        mocker.patch.object(client, "send_command", side_effect=FPosBAPICommunicationError("connection lost"))
+        with pytest.raises(FPosBAPICommunicationError):
+            client.try_command("HOME")
+
+    def test_passes_params_to_send_command(self, client, mocker):
+        mock_send = mocker.patch.object(
+            client, "send_command", return_value=["1, MOVE_AXIS, 0, NULL, SUCCESS"]
+        )
+        client.try_command("MOVE_AXIS", 1, 0, 150.0)
+        mock_send.assert_called_once_with("MOVE_AXIS", 1, 0, 150.0, timeout=_UNSET)
+
+    def test_command_rejection_is_subclass_of_client_error(self):
+        """FPosBAPICommandError must be catchable as FPosBAPIClientError."""
+        with pytest.raises(FPosBAPIClientError):
+            raise FPosBAPICommandError("rejected")
+
+    def test_comm_error_is_subclass_of_client_error(self):
+        """FPosBAPICommunicationError must be catchable as FPosBAPIClientError."""
+        with pytest.raises(FPosBAPIClientError):
+            raise FPosBAPICommunicationError("lost")
