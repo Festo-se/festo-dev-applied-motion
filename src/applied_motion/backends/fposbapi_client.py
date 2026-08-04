@@ -236,6 +236,29 @@ class FPosBAPIClient:
 
         return lines
 
+    def try_command(self, command: str, *params, timeout: float | None | _Unset = _UNSET) -> bool:
+        """Send a command; raise on communication failure, return bool for PLC result.
+
+        Args:
+            command: FPosBAPI command string, e.g. ``"HOME"``, ``"MOVE_AXIS"``.
+            *params: Zero or more positional parameters.
+            timeout: Per-call socket timeout forwarded to :meth:`send_command`.
+                Pass ``None`` for blocking mode on long-running motion commands.
+
+        Returns:
+            ``True`` when the PLC reports ``SUCCESS``; ``False`` when the PLC
+            returns a valid but non-SUCCESS response.
+
+        Raises:
+            FPosBAPICommunicationError: If a transport or protocol-level failure occurs.
+        """
+        try:
+            self.send_command(command, *params, timeout=timeout)
+            return True
+        except FPosBAPICommandError:
+            logger.warning("FPosBAPIClient: command %r rejected by PLC", command)
+            return False
+
     def _handle_malformed_veab_output(self, fields: list[str], msg_id: int, command: str):
         """Fix malformed VEAB hook output.
 
@@ -284,9 +307,9 @@ class FPosBAPIClient:
             try:
                 ch = self._sock.recv(1)
             except OSError as exc:
-                raise FPosBAPIClientError(f"Connection lost: {exc}") from exc
+                raise FPosBAPICommunicationError(f"Connection lost: {exc}") from exc
             if not ch:
-                raise FPosBAPIClientError("Connection closed by remote host")
+                raise FPosBAPICommunicationError("Connection closed by remote host")
             buf += ch
             if ch == b"\n":
                 line = buf.decode("ascii").strip()
@@ -370,7 +393,7 @@ class FPosBAPIClient:
         # lines[0] is the ACK, lines[1:-1] are the bare command names,
         # lines[-1] is the terminal SUCCESS line.
         commands = [line.strip() for line in lines[1:-1] if line.strip()]
-        logger.debug("CMD_LIST returned %d command(s): %s", len(commands), commands)
+        logger.debug("FPosBAPIClient: CMD_LIST returned %d command(s): %s", len(commands), commands)
         return commands
 
     # ------------------------------------------------------------------
