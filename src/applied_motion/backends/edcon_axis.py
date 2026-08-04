@@ -82,21 +82,23 @@ class EdconAxis(MotionHandler):
             ip: IPv4 address of the Festo drive's Modbus TCP interface.
             run_referencing: When ``True``, perform a homing (referencing)
                 sequence during construction.  Defaults to ``False``.
+            max_position: Optional max position limitation, if the drive is restricted
+                more than the internal SW limit position check. This avoids an issue where
+                traversing toward the actual endstop is interrupted because the interia of
+                the motion causes the drive to overshoot the limit position, throwing an error
+                and interrupting the power stage on state.
+            min_position: Optional min position limitation, if the drive is restricted
+                more than the internal SW limit position check. This avoids an issue where
+                traversing toward the actual endstop is interrupted because the interia of
+                the motion causes the drive to overshoot the limit position, throwing an error
+                and interrupting the power stage on state.
         """
         self.name = name
         self.ip = ip
         self.com = ComModbus(self.ip)
         super().__init__(self.com)
         self.acknowledge_faults()
-        self.max_position: float
-        self.min_position: float
-        self.max_velocity: float
-        self.min_velocity: float
-        self.max_speed = max(abs(self.min_velocity), abs(self.max_velocity))
-        self.max_position_fas_units: int
-        self.min_position_fas_units: int
-        self.max_velocity_fas_units: int
-        self.min_velocity_fas_units: int
+
         self.acknowledge_faults()
         # self.home()
         logger.info("Axis '%s': initialized", self.name)
