@@ -21,7 +21,6 @@ with the FPosBAPI backend instead.
 
 import logging
 import time
-from math import inf
 
 from threading import Thread
 
@@ -135,11 +134,19 @@ class EdconAxis(MotionHandler):
             self._neg_sw_limit,
             self._pos_sw_limit,
         )
+        logger.info(
+            "Axis '%s': SW limits loaded — neg=%s, pos=%s (standard units)",
+            self.name,
+            self.min_position,
+            self.max_position,
+        )
 
         if self.fault_present():
             logger.warning("Axis '%s': fault present on init", self.name)
         logger.debug("Axis '%s' fault string: %s", self.name, self.fault_string())
         logger.debug("Axis '%s' current fault code: %s", self.name, self.current_fault_code())
+        self.acknowledge_faults()
+        self.enable_powerstage()
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the axis."""
