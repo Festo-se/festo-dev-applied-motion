@@ -167,7 +167,7 @@ class EdconAxis(MotionHandler):
             NotImplementedError: If *other* is not a :class:`EdconAxis`.
         """
         if not isinstance(other, EdconAxis):
-            raise NotImplementedError("Cannot compare EdconAxis with non-EdconAxis object")
+            return False
         return self.name == other.name and self.ip == other.ip
 
     def __hash__(self) -> int:
@@ -180,7 +180,7 @@ class EdconAxis(MotionHandler):
         return hash((self.name, self.ip))
 
     # TODO: Use attrs?
-    def home(self) -> None:
+    def home(self) -> bool:
         """Home the axis by running a referencing task.
 
         Acknowledges any faults, enables the power stage, and then
@@ -223,6 +223,10 @@ class EdconAxis(MotionHandler):
         )
         return super().current_position()
 
+    @property
+    def max_speed(self) -> float:
+        return max(abs(self.min_velocity), abs(self.max_velocity))
+
     def get_current_axis_position(self) -> float:
         """Return the current axis position in the library's canonical output unit (mm).
 
@@ -264,24 +268,41 @@ class EdconAxis(MotionHandler):
         # if not valid, raise exception
         positioning_type = kwargs.get("position_type", "absolute") == "absolute"
 
-        input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
-        input_vel_unit = {
-            "distance": {"unit": "m", "power": 1, "power_of_ten": -3},
-            "time": {"unit": "s", "power": -1, "power_of_ten": 1},
-        }
+        def clamped_target(position, positioning_type):
+            if positioning_type:
+                target = position
+            else:
+                target = self.get_current_axis_position() + position
+
+            # target is in mm here; compare against configured mm limits.
+            if self.min_position <= target <= self.max_position:
+                return target  # already in range, no change needed
+            clamped_target = max(self.min_position, min(self.max_position, target))
+
+            if positioning_type:
+                return clamped_target
+            else:
+                # Convert clamped absolute target back to a relative delta
+                return clamped_target - self.get_current_axis_position()
+
+        position = clamped_target(position, positioning_type)
+
         try:
-            validated_position = int(self._valid_position(position, input_pos_unit))
-        except Exception as e:
-            logger.error("Axis '%s': failed to validate position — %s", self.name, e)
+            validated_position = int(self._valid_position(position, self.input_pos_unit))
+        except Exception:
+            logger.exception("Axis '%s': failed to validate position", self.name)
             validated_position = -5
 
         try:
-            validated_velocity = int(self._valid_velocity(velocity, input_vel_unit))
-        except Exception as e:
-            logger.error("Axis '%s': failed to validate velocity — %s", self.name, e)
+            validated_velocity = int(self._valid_velocity(velocity, self.input_vel_unit))
+        except Exception:
+            logger.exception("Axis '%s': failed to validate velocity", self.name)
             validated_velocity = 5
         logger.debug(
-            "Axis '%s': entering move — position=%s  velocity=%s", self.name, validated_position, validated_velocity
+            "Axis '%s': entering move — validated_position=%s  validated_velocity=%s",
+            self.name,
+            validated_position,
+            validated_velocity,
         )
         # self.configure_continuous_update(True) # continous update so that new position tasks can be started while still in motion
         #
@@ -293,7 +314,9 @@ class EdconAxis(MotionHandler):
             "Axis '%s': fault_string=%s  fault_code=%s", self.name, self.fault_string(), self.current_fault_code()
         )
         validated_position = self._check_overshoot(validated_position, absolute=positioning_type)
-
+        logger.debug(
+            "Axis '%s': clamped_position=%s  validated_velocity=%s", self.name, validated_position, validated_velocity
+        )
         result: bool = False
         # TODO: Check powerstage enabled, attempt enable if not
         # TODO:
@@ -301,6 +324,8 @@ class EdconAxis(MotionHandler):
         # TODO: ack faults,
         # TODO: then move.
         # TODO: Incorporate jog mode into this function?
+        self.acknowledge_faults()
+        self.enable_powerstage()
         if timeout is None:
             result = self.position_task(
                 validated_position,
@@ -332,21 +357,6 @@ class EdconAxis(MotionHandler):
         logger.info("Axis '%s': motion task complete, result=%s", self.name, result)
         return result
 
-        # working stroke: P1.1196.0.0, PNU 11298.0
-        # negative limit position: P1.4629.0.0, PNU 11584.0
-        # positive limit position: P1.4630.0.0, PNU 11585.0
-        # Parameters with units m or mm in FAS Config sets
-        # Max Search Stroke in positive direction: P1.8412.0.0, PNU 11730.0
-        # Max Search Stroke in negative direction: P1.8413.0.0, PNU 11731.0
-        # Axis zero point offset: P1.8416.0.0, PNU 11734.0
-        # Offset position relative: P1.102222.0.0,PNU 13072.0
-        # Limit value remaining distance: P1.4685.0.0, PNU 11627.0
-        # Limit value following error:
-        # Stroke limit positive for detecting fixed stop:
-        # Stroke limit negative for detecting fixed stop:
-        # Hysteresis:
-        #
-
     def _check_overshoot(self, validated_position: int, absolute: bool) -> int:
         """Clamp *validated_position* to the device's stored SW limits.
 
@@ -369,21 +379,36 @@ class EdconAxis(MotionHandler):
             (relative) that is guaranteed to keep the axis within the stored
             software limits.
         """
+        configured_neg_limit = int(self._valid_position(self.min_position, self.input_pos_unit))
+        configured_pos_limit = int(self._valid_position(self.max_position, self.input_pos_unit))
+
         if absolute:
             target = validated_position
         else:
-            target = self.current_position() + validated_position
+            target = super().current_position() + validated_position
 
-        if self._neg_sw_limit <= target <= self._pos_sw_limit:
-            return validated_position  # already in range, no change needed
+        if configured_neg_limit <= target <= configured_pos_limit:
+            return target  # already in range, no change needed
 
-        clamped_target = max(self._neg_sw_limit, min(self._pos_sw_limit, target))
+        clamped_target = max(configured_neg_limit, min(configured_pos_limit, target))
+        scaled_target = self._valid_position(target, self.input_pos_unit, invert=True)
+        scaled_clamped_target = self._valid_position(clamped_target, self.input_pos_unit, invert=True)
         logger.warning(
-            "Axis '%s': requested target %s is outside SW limits [%s, %s] — clamping to %s",
+            "Axis '%s': requested target %s mm is outside configured limits [%s mm, %s mm] — clamping to %s mm",  # TODO: make mm unit here not hard stringed
             self.name,
-            target,
+            scaled_target,
+            self.min_position,
+            self.max_position,
+            scaled_clamped_target,
+        )
+        logger.debug(
+            "Axis '%s': clamp diagnostics — configured(mm)=[%s, %s], drive_raw=[%s, %s], target_raw=%s, clamped_raw=%s",
+            self.name,
+            self.min_position,
+            self.max_position,
             self._neg_sw_limit,
             self._pos_sw_limit,
+            target,
             clamped_target,
         )
 
@@ -391,7 +416,7 @@ class EdconAxis(MotionHandler):
             return clamped_target
         else:
             # Convert clamped absolute target back to a relative delta
-            return clamped_target - self.current_position()
+            return clamped_target - super().current_position()
 
     def _valid_position(self, position: int | float, input_unit: dict, invert: bool = False) -> float:
         """Convert *position* between the caller's unit system and the drive's unit system.
