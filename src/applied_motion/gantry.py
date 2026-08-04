@@ -18,14 +18,15 @@ Use :meth:`Gantry.from_config` to instantiate the correct backend
 automatically from a JSON configuration dict or file.
 """
 
+from typing import Iterator, cast
+
 import json
 import logging
-import time
+from copy import deepcopy
 
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from threading import Thread
 
 from applied_motion.backends.axis_protocol import Axis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
@@ -34,6 +35,8 @@ from applied_motion.backends.edcon_axis import EdconAxis
 
 
 logger = logging.getLogger(__name__)
+
+AxisMap = dict[str, Axis]
 
 
 class MovementError(Exception):
