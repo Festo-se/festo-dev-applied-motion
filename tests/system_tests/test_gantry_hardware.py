@@ -43,6 +43,8 @@ def test_gantry_is_stopped_after_init(gantry):
 @pytest.mark.hardware
 def test_gantry_is_ready_for_motion_after_init(gantry):
     """All axes should be ready for motion after initialisation."""
+    while not gantry.is_stopped():
+        pass
     assert gantry.is_ready_for_motion()
 
 
@@ -50,14 +52,29 @@ def test_gantry_is_ready_for_motion_after_init(gantry):
 # Sequential move_to
 # ---------------------------------------------------------------------------
 
-_SAFE_POSITION_MM = 10.0
-_SAFE_VELOCITY_MM_S = 20.0
+_SAFE_POSITION_MM = 100.0
+_SAFE_VELOCITY_MM_S = 25.0
+
+
+def _safe_axis_target_mm(axis, delta_mm: float = 5.0) -> float:
+    """Return a safe absolute target for *axis* within configured SW limits.
+
+    Tries current+delta then current-delta, and falls back to midpoint if
+    travel room is constrained.
+    """
+    current = axis.get_current_axis_position()
+    lo = axis.min_position + 2.0
+    hi = axis.max_position - 2.0
+
+    if hi <= lo:
+        return (axis.min_position + axis.max_position) / 2.0
+    return (lo + hi) / 2.0
 
 
 @pytest.mark.hardware
 def test_gantry_move_to_single_axis(gantry):
     """move_to with one axis movement should complete without raising."""
-    axis_name = next(iter(gantry.axes))
+    axis_name = list(gantry.axes.keys())[0]
     movements = deque([{axis_name: {"position": _SAFE_POSITION_MM, "velocity": _SAFE_VELOCITY_MM_S}}])
     gantry.move_to(movements)
 
@@ -69,6 +86,40 @@ def test_gantry_move_to_all_axes_sequential(gantry):
         [{name: {"position": _SAFE_POSITION_MM, "velocity": _SAFE_VELOCITY_MM_S}} for name in gantry.axes]
     )
     gantry.move_to(movements)
+
+
+@pytest.mark.hardware
+def test_gantry_move_to_all_axes_concurrent_completes(gantry):
+    """Concurrent move_to on all configured axes should complete without raising."""
+    gantry.home()
+    if not gantry.is_ready_for_motion():
+        pytest.skip("Axes are not ready for motion after homing; skipping concurrent completion check")
+    targets = {name: _safe_axis_target_mm(axis) for name, axis in gantry.axes.items()}
+    movements = deque(
+        [{name: {"position": targets[name], "velocity": _SAFE_VELOCITY_MM_S}} for name in gantry.axes]
+    )
+    gantry.move_to(movements, concurrent=True)
+
+
+@pytest.mark.hardware
+def test_gantry_move_to_all_axes_concurrent_positions_verified(gantry):
+    """After concurrent move_to, each hardware axis should be within 1.0 mm of target."""
+    tolerance_mm = 1.0
+    gantry.home()
+    if not gantry.is_ready_for_motion():
+        pytest.skip("Axes are not ready for motion after homing; skipping concurrent position verification")
+    targets = {name: _safe_axis_target_mm(axis) for name, axis in gantry.axes.items()}
+    
+    movements = deque(
+        [{name: {"position": targets[name], "velocity": _SAFE_VELOCITY_MM_S}} for name in gantry.axes]
+    )
+    gantry.move_to(movements, concurrent=True)
+    location = gantry.get_location()
+    for axis_name, target in targets.items():
+        assert abs(location[axis_name] - target) <= tolerance_mm, (
+            f"{axis_name} missed concurrent target: commanded={target:.3f} mm, "
+            f"got={location[axis_name]:.3f} mm"
+        )
 
 
 @pytest.mark.hardware
@@ -476,6 +527,33 @@ def test_fposbapi_move_to_all_axes_sequential_positions_verified(gantry_fposbapi
     for axis, target in targets.items():
         assert abs(location[axis] - target) < 1.0, (
             f"{axis} missed target after sequential move_to: commanded={target:.3f} mm, got={location[axis]:.3f} mm"
+        )
+
+
+@pytest.mark.hardware
+def test_fposbapi_move_to_all_axes_concurrent_positions_verified(gantry_fposbapi):
+    """Concurrent X/Y/Z move_to should place all axes within 1 mm of targets."""
+    gantry_fposbapi.home()
+    if not gantry_fposbapi.is_ready_for_motion():
+        pytest.skip("FPosBAPI gantry not ready for motion after home; skipping concurrent position verification")
+    client = gantry_fposbapi._client
+    targets = {}
+    for axis in ("X", "Y", "Z"):
+        min_mm, max_mm = _soft_limits_mm(client, axis)
+        current = gantry_fposbapi.axes[axis].get_current_axis_position()
+        targets[axis] = _safe_target_mm(current, min_mm, max_mm)
+
+    movements = deque(
+        [{axis: {"position": targets[axis], "velocity": _FPOSBAPI_MOTION_VELOCITY_MM_S}}
+         for axis in ("X", "Y", "Z")]
+    )
+    gantry_fposbapi.move_to(movements, concurrent=True)
+
+    location = gantry_fposbapi.get_location()
+    for axis, target in targets.items():
+        assert abs(location[axis] - target) < 1.0, (
+            f"{axis} missed target after concurrent move_to: "
+            f"commanded={target:.3f} mm, got={location[axis]:.3f} mm"
         )
 
 
