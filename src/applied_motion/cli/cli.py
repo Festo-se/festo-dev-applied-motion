@@ -324,18 +324,18 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
                 console.print(f"[green]✓[/] Captured [bold]{label!r}[/]")
 
             elif cmd == "teach":
-                if gantry._client is None:
+                if not gantry.supports_teach():
                     console.print(
                         "[yellow]![/] [dim]Modbus backend — no PLC teach command available.[/]\n"
                         "    Use [green]capture[/] to save positions to JSON instead."
                     )
                 elif len(parts) >= 3 and parts[1] == "pos":
                     pos_id = int(parts[2])
-                    gantry._client.teach_pos(pos_id=pos_id)
+                    gantry.teach_pos(pos_id=pos_id)
                     console.print(f"[green]✓[/] TEACH_POS sent ([cyan]pos_id={pos_id}[/])")
                 elif len(parts) >= 4 and parts[1] == "tray":
                     tray_id, tray_pos = int(parts[2]), int(parts[3])
-                    gantry._client.teach_tray(tray_id=tray_id, tray_pos=tray_pos)
+                    gantry.teach_tray(tray_id=tray_id, tray_pos=tray_pos)
                     console.print(
                         f"[green]✓[/] TEACH_TRAY sent ([cyan]tray_id={tray_id}[/], [cyan]tray_pos={tray_pos}[/])"
                     )
@@ -407,18 +407,19 @@ def main() -> None:
         console.print(f"[red]✗[/] Failed to connect: {exc}")
         sys.exit(1)
 
-    console.print(f"[green]✓[/] Connected: [bold]{gantry!r}[/]")
+    with gantry:
+        console.print(f"[green]✓[/] Connected: [bold]{gantry!r}[/]")
 
-    # Wire FPosBAPI hook: after every capture, remind the operator to
-    # optionally commit the position to the PLC with 'teach pos'.
-    on_capture = None
-    if gantry._client is not None:
+        # Wire FPosBAPI hook: after every capture, remind the operator to
+        # optionally commit the position to the PLC with 'teach pos'.
+        on_capture = None
+        if gantry.supports_teach():
 
-        def on_capture(label: str, pos: dict[str, float]) -> None:
-            console.print(f"  [dim]Tip: run [green]teach pos <id>[/] to commit [bold]{label!r}[/] to the PLC.[/]")
+            def on_capture(label: str, pos: dict[str, float]) -> None:
+                console.print(f"  [dim]Tip: run [green]teach pos <id>[/] to commit [bold]{label!r}[/] to the PLC.[/]")
 
-    session = TeachSession(gantry, on_capture=on_capture)
-    run_repl(session, gantry)
+        session = TeachSession(gantry, on_capture=on_capture)
+        run_repl(session, gantry)
 
 
 # TODO: Add hook to cli to enable/disable gantry for manual motion/teach in

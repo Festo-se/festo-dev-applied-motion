@@ -312,5 +312,4 @@ def gantry_fposbapi():
     except FPosBAPIClientError as exc:
         pytest.skip(f"FPosBAPI PLC at {ip}:{port} accepted connection but did not respond: {exc}")
     yield gantry
-    if gantry._client is not None:
-        gantry._client.close()
+    gantry.close()

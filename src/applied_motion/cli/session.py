@@ -67,7 +67,7 @@ class TeachSession:
 
         # FPosBAPI: wire a hook that commits positions to the PLC
         def plc_hook(label, pos):
-            gantry._client.teach_pos(pos_id=label_to_id[label])
+            gantry.teach_pos(pos_id=label_to_id[label])
 
         session = TeachSession(gantry, on_capture=plc_hook)
         session.jog("X", "+", 5.0)

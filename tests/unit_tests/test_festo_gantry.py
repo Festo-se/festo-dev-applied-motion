@@ -16,7 +16,6 @@ No hardware or network connection required.  All tests use either the
 for Gantry itself) or construct their own stub axes inline.
 """
 
-from collections import deque
 from unittest.mock import MagicMock
 
 import pytest
@@ -32,7 +31,8 @@ from applied_motion.backends.edcon_axis import EdconAxis
 
 def _make_stub_axis(name: str, *, move_return=True) -> EdconAxis:
     """Return a bare EdconAxis with every method that Gantry calls
-    replaced by a ``MagicMock``."""
+    replaced by a ``MagicMock``.
+    """
     axis = object.__new__(EdconAxis)
     axis.name = name
     axis.move = MagicMock(return_value=move_return)
@@ -76,7 +76,8 @@ class TestGantryInit:
 
     def test_accepts_empty_axes_dict(self):
         """Gantry must not raise when initialised with zero axes, as
-        callers may build the gantry incrementally or in a disabled state."""
+        callers may build the gantry incrementally or in a disabled state.
+        """
         g = Gantry(axes={})
         assert g.axes == {}
 
@@ -153,7 +154,8 @@ class TestGantryGetLocation:
     def test_location_values_come_from_get_current_axis_position(self, gantry_mock):
         """get_location must delegate to get_current_axis_position on each
         axis so the unit conversion is always encapsulated in EdconAxis and
-        not duplicated in Gantry."""
+        not duplicated in Gantry.
+        """
         for axis in gantry_mock._stub_axes.values():
             axis.get_current_axis_position.return_value = 123.456
         location = gantry_mock.get_location()
@@ -162,14 +164,16 @@ class TestGantryGetLocation:
 
     def test_get_current_axis_position_called_for_every_axis(self, gantry_mock):
         """get_location must call get_current_axis_position on every axis
-        rather than caching a stale value."""
+        rather than caching a stale value.
+        """
         gantry_mock.get_location()
         for axis in gantry_mock._stub_axes.values():
             axis.get_current_axis_position.assert_called_once()
 
     def test_get_location_independent_values_per_axis(self):
         """Each axis must contribute its own position to the returned dict
-        so mixed-position states are represented faithfully."""
+        so mixed-position states are represented faithfully.
+        """
         axis_x = _make_stub_axis("X")
         axis_z = _make_stub_axis("Z")
         axis_x.get_current_axis_position.return_value = 1.0
@@ -188,7 +192,8 @@ class TestGantryGetLocation:
 class TestErrorHierarchy:
     """Verify that the custom exception classes satisfy the expected
     inheritance contract so downstream callers can catch them at the
-    appropriate level of specificity."""
+    appropriate level of specificity.
+    """
 
     def test_axis_not_found_error_is_movement_error(self):
         assert issubclass(AxisNotFoundError, MovementError)
@@ -243,7 +248,8 @@ class TestGantryEquality:
 
     def test_comparison_with_non_gantry_returns_not_implemented(self):
         """Comparing against a non-Gantry object should return
-        NotImplemented, which Python translates to False/TypeError."""
+        NotImplemented, which Python translates to False/TypeError.
+        """
         g = Gantry(axes={})
         result = g.__eq__("not a gantry")
         assert result is NotImplemented
@@ -312,3 +318,40 @@ class TestGantryCollectionProtocol:
     def test_contains_false_for_empty_gantry(self):
         g = Gantry(axes={})
         assert "X" not in g
+
+
+# ---------------------------------------------------------------------------
+# Gantry teach/capability and lifecycle APIs
+# ---------------------------------------------------------------------------
+
+
+class TestGantryTeachCapability:
+    """Verify backend capability API behavior exposed by Gantry."""
+
+    def test_modbus_supports_teach_false(self):
+        g = Gantry(axes={"X": _make_stub_axis("X")})
+        assert g.supports_teach() is False
+
+    def test_modbus_teach_pos_raises_not_implemented(self):
+        g = Gantry(axes={"X": _make_stub_axis("X")})
+        with pytest.raises(NotImplementedError):
+            g.teach_pos(1)
+
+    def test_modbus_teach_tray_raises_not_implemented(self):
+        g = Gantry(axes={"X": _make_stub_axis("X")})
+        with pytest.raises(NotImplementedError):
+            g.teach_tray(1, 1)
+
+
+class TestGantryLifecycle:
+    """Verify Gantry close/context manager behavior."""
+
+    def test_close_noop_for_modbus_backend(self):
+        g = Gantry(axes={"X": _make_stub_axis("X")})
+        g.close()
+        g.close()
+
+    def test_context_manager_returns_self_for_modbus(self):
+        g = Gantry(axes={"X": _make_stub_axis("X")})
+        with g as managed:
+            assert managed is g
