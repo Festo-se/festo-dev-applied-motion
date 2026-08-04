@@ -29,7 +29,19 @@ from edcon.edrive.motion_handler import MotionHandler
 
 logger = logging.getLogger(__name__)
 
+# Drive parameter (PNU) reference — useful when extending move()/limit handling:
+#   working stroke: P1.1196.0.0, PNU 11298.0
+#   negative limit position: P1.4629.0.0, PNU 11584.0
+#   positive limit position: P1.4630.0.0, PNU 11585.0
+#   Parameters with units m or mm in FAS Config sets
+#   Max Search Stroke in positive direction: P1.8412.0.0, PNU 11730.0
+#   Max Search Stroke in negative direction: P1.8413.0.0, PNU 11731.0
+#   Axis zero point offset: P1.8416.0.0, PNU 11734.0
+#   Offset position relative: P1.102222.0.0, PNU 13072.0
+#   Limit value remaining distance: P1.4685.0.0, PNU 11627.0
 
+
+# TODO: Process Data communnication failed error on exiting a running program where drive is connected
 class EdconAxis(MotionHandler):
     """Modbus TCP axis: direct festo-edcon ``MotionHandler`` connection to one drive.
 
