@@ -31,6 +31,14 @@ class FPosBAPIClientError(Exception):
     """Raised when the FPosBAPI server returns an error response or the connection is lost."""
 
 
+class FPosBAPICommunicationError(FPosBAPIClientError):
+    """Raised when a transport or protocol-level failure occurs (socket, framing, ID mismatch)."""
+
+
+class FPosBAPICommandError(FPosBAPIClientError):
+    """Raised when the PLC returns a structurally valid but non-SUCCESS response."""
+
+
 class FPosBAPIClient:
     """Thread-safe TCP socket client for the Festo FPosBAPI ASCII protocol.
 
