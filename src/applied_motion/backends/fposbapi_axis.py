@@ -171,7 +171,7 @@ class FPosBAxis:
         try:
             value = float(fields[position_field_index])
         except (IndexError, ValueError) as exc:
-            logger.error(
+            logger.exception(
                 "FPosBAxis '%s': cannot parse ROB_POS response — %s",
                 self.name,
                 response,
