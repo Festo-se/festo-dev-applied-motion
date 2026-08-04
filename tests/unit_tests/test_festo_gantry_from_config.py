@@ -24,7 +24,7 @@ constructors are patched so no TCP or Modbus connections are attempted.
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -197,6 +197,29 @@ class TestFromConfigModbus:
         assert "X" in g.axes
         assert g._client is None
 
+    def test_explicit_gantry_name_selects_requested_component(self, patched_festo_axis):
+        """Regression for #7: explicit name=... must select that component
+        even when multiple gantries are defined in the config.
+        """
+        import copy
+
+        config = copy.deepcopy(_MODBUS_CONFIG)
+        config["component_config"]["components"]["gantry_2"] = {
+            "backend": "modbus",
+            "axes": {
+                "Y": {"name": "Y", "ip": "192.168.0.201"},
+                "W": {"name": "W", "ip": "192.168.0.202"},
+            },
+            "axis_order": ["Y", "W"],
+            "concurrent_axes": ["Y"],
+        }
+
+        g = Gantry.from_config(config, name="gantry_2")
+
+        assert list(g.axes.keys()) == ["Y", "W"]
+        assert g.concurrent_axes is not None
+        assert set(g.concurrent_axes.keys()) == {"Y"}
+
 
 # ---------------------------------------------------------------------------
 # FPosBAPI backend
@@ -286,7 +309,7 @@ class TestFromConfigPath:
     def test_loads_canonical_fposbapi_fixture(self, patched_fposbapi_client):
         """The checked-in test-gantry-spec-fposapi.json must parse without error."""
         _, _ = patched_fposbapi_client
-        fixture = Path(__file__).parent.parent / "fixtures" / "test-gantry-spec-fposapi.json"
+        fixture = Path(__file__).parent.parent / "fixtures" / "test-gantry-spec-fposbapi.json"
         g = Gantry.from_config(fixture)
         assert len(g.axes) == 3
 
@@ -312,6 +335,49 @@ class TestFromConfigInvalidBackend:
             Gantry.from_config(config)
 
 
+class TestFromConfigValidation:
+    def test_missing_components_mapping_raises_value_error(self):
+        config = {"component_config": {"metadata": {}}}
+        with pytest.raises(ValueError, match="components"):
+            Gantry.from_config(config)
+
+    def test_missing_named_component_raises_value_error(self):
+        with pytest.raises(ValueError, match="gantry_2"):
+            Gantry.from_config(_MODBUS_CONFIG, name="gantry_2")
+
+    def test_axis_order_unknown_axis_raises_value_error(self):
+        import copy
+
+        config = copy.deepcopy(_MODBUS_CONFIG)
+        config["component_config"]["components"]["gantry_1"]["axis_order"] = ["X", "MISSING"]
+        with pytest.raises(ValueError, match="axis_order"):
+            Gantry.from_config(config)
+
+    def test_concurrent_axes_unknown_axis_raises_value_error(self):
+        import copy
+
+        config = copy.deepcopy(_MODBUS_CONFIG)
+        config["component_config"]["components"]["gantry_1"]["concurrent_axes"] = ["MISSING"]
+        with pytest.raises(ValueError, match="concurrent_axes"):
+            Gantry.from_config(config)
+
+    def test_fposbapi_missing_interface_raises_value_error(self):
+        import copy
+
+        config = copy.deepcopy(_FPOSBAPI_CONFIG)
+        del config["component_config"]["components"]["gantry_1"]["interface"]
+        with pytest.raises(ValueError, match="interface"):
+            Gantry.from_config(config)
+
+    def test_fposbapi_timeout_must_be_numeric(self):
+        import copy
+
+        config = copy.deepcopy(_FPOSBAPI_CONFIG)
+        config["component_config"]["components"]["gantry_1"]["interface"]["timeout"] = "slow"
+        with pytest.raises(ValueError, match="timeout"):
+            Gantry.from_config(config)
+
+
 # ---------------------------------------------------------------------------
 # Gantry.home — backend dispatch
 # ---------------------------------------------------------------------------
@@ -320,13 +386,15 @@ class TestFromConfigInvalidBackend:
 class TestGantryHomeBackendDispatch:
     def test_fposbapi_home_sends_single_home_command(self, gantry_fposbapi_mock):
         """For FPosBAPI backend, one HOME command must be sent via the client,
-        not one per axis."""
+        not one per axis.
+        """
         gantry_fposbapi_mock.home()
         gantry_fposbapi_mock._client.send_command.assert_called_once_with("HOME")
 
     def test_fposbapi_home_does_not_call_axis_home(self, gantry_fposbapi_mock):
         """FPosBAPI home must NOT call home() on individual axis proxies since
-        the controller homes all axes together via a single command."""
+        the controller homes all axes together via a single command.
+        """
         # Patch each proxy's home method to detect spurious calls
         for axis in gantry_fposbapi_mock._stub_axes.values():
             axis.home = MagicMock()
