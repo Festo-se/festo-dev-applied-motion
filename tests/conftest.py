@@ -19,14 +19,14 @@ gantry_mock
 
 axis_a
     A ``EdconAxis`` connected to the first configured drive.  The IP and
-    axis label are read from ``GANTRY_A_IP`` and ``GANTRY_A_NAME``
+    axis label are read from ``AXIS_A_IP`` and ``AXIS_A_NAME``
     environment variables, falling back to the defaults found in the
     8 channel pipettor + CMMT config.  Mark any test that uses this fixture with
     ``@pytest.mark.hardware``.
 
 axis_b
     A ``EdconAxis`` connected to the second configured drive.  Uses
-    ``GANTRY_B_IP`` and ``GANTRY_B_NAME``, with matching defaults.
+    ``AXIS_B_IP`` and ``GANTRY_B_NAME``, with matching defaults.
 
 gantry
     A ``Gantry`` built from ``axis_a`` and ``axis_b``.  Mark any
@@ -42,7 +42,7 @@ Skip hardware tests (CI default)::
 
 Override connection details at runtime::
 
-    GANTRY_A_IP=10.0.0.5 GANTRY_A_NAME=X GANTRY_B_IP=10.0.0.6 GANTRY_B_NAME=Z uv run pytest -m hardware
+    AXIS_A_IP=192.168.0.100 AXIS_A_NAME=X AXIS_B_IP=192.168.0.101 GANTRY_B_NAME=Y uv run pytest -m hardware
 """
 
 import json
@@ -50,6 +50,7 @@ import socket
 from os import getenv
 from pathlib import Path
 from unittest.mock import MagicMock
+import logging
 
 import pytest
 
@@ -78,16 +79,18 @@ def _is_reachable(ip: str, port: int = _MODBUS_PORT, timeout: float = _CONNECT_T
 # ---------------------------------------------------------------------------
 # Defaults taken from festo-dev-fluid-control/????-config.json TODO
 # ---------------------------------------------------------------------------
-_DEFAULT_A_IP = "192.168.0.193"
+_DEFAULT_A_IP = "192.168.0.100"
 _DEFAULT_A_NAME = "X"
-_DEFAULT_B_IP = "192.168.0.32"
-_DEFAULT_B_NAME = "Z"
-_DEFAULT_FPOSBAPI_IP = "192.168.10.25"
+_DEFAULT_B_IP = "192.168.0.101"
+_DEFAULT_B_NAME = "Y"
+_DEFAULT_FPOSBAPI_IP = "192.168.0.50"
 _DEFAULT_FPOSBAPI_PORT = 1234
+_DEFAULT_FPOSBAPI_TIMEOUT_S = 5.0
 
 # PNU addresses used by EdconAxis during construction and unit-conversion
 _PNU_NEG_SW_LIMIT = 11584
 _PNU_POS_SW_LIMIT = 11585
+#TODO: Update?
 _PNU_POS_UNIT_SCALE = 11724
 _PNU_VEL_UNIT_SCALE = 11725
 
@@ -98,9 +101,21 @@ _MOCK_POS_SW_LIMIT = 300_000
 # Velocity bounds that MotionHandler would normally supply.
 # Velocity unit scale is -3 (1 mm/s per drive unit); ±500 mm/s is a
 # representative gantry top speed.
-_MOCK_MIN_VELOCITY = -500.0
-_MOCK_MAX_VELOCITY = 500.0
+_MOCK_MIN_VELOCITY = -50.0
+_MOCK_MAX_VELOCITY = 50.0
 
+
+# ---------------------------------------------------------------------------
+# Set Log level to debug
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def set_log_levels():
+    # Suppress noisy third-party loggers
+    logging.getLogger("pymodbus").setLevel(logging.WARNING)
+    logging.getLogger("applied_motion").setLevel(logging.DEBUG)
+    logging.getLogger("edcon").setLevel(logging.WARNING)
+    yield
 
 # ---------------------------------------------------------------------------
 # Mock fixtures — no hardware required
@@ -194,6 +209,7 @@ def fposbapi_client_mock(mocker):
     client.ip = "192.168.10.10"
     client.port = 1234
     client.send_command.return_value = ["1, CMD, 0, NULL, SUCCESS"]
+    client.try_command.return_value = True
     return client
 
 
@@ -237,11 +253,11 @@ def axis_a():
 
     Skips immediately (rather than hanging) when the drive is not reachable.
     """
-    ip = getenv("GANTRY_A_IP", _DEFAULT_A_IP)
-    name = getenv("GANTRY_A_NAME", _DEFAULT_A_NAME)
+    ip = getenv("AXIS_A_IP", _DEFAULT_A_IP)
+    name = getenv("AXIS_A_NAME", _DEFAULT_A_NAME)
     if not _is_reachable(ip):
         pytest.skip(f"Hardware axis A not reachable at {ip}:{_MODBUS_PORT}")
-    return EdconAxis(name=name, ip=ip)
+    return EdconAxis(name=name, ip=ip, max_position= 500.0, min_position = 0.0)
 
 
 @pytest.fixture(scope="module")
@@ -250,11 +266,11 @@ def axis_b():
 
     Skips immediately (rather than hanging) when the drive is not reachable.
     """
-    ip = getenv("GANTRY_B_IP", _DEFAULT_B_IP)
+    ip = getenv("AXIS_B_IP", _DEFAULT_B_IP)
     name = getenv("GANTRY_B_NAME", _DEFAULT_B_NAME)
     if not _is_reachable(ip):
         pytest.skip(f"Hardware axis B not reachable at {ip}:{_MODBUS_PORT}")
-    return EdconAxis(name=name, ip=ip)
+    return EdconAxis(name=name, ip=ip, max_position= 500.0, min_position = 0.0)
 
 
 @pytest.fixture(scope="module")
@@ -278,17 +294,23 @@ def gantry_fposbapi():
     """
     ip = getenv("FPOSBAPI_IP", _DEFAULT_FPOSBAPI_IP)
     port = int(getenv("FPOSBAPI_PORT", str(_DEFAULT_FPOSBAPI_PORT)))
+    timeout_s = float(getenv("FPOSBAPI_TIMEOUT_S", str(_DEFAULT_FPOSBAPI_TIMEOUT_S)))
     fixture_path = Path(__file__).parent / "fixtures" / "test-gantry-spec-fposbapi.json"
     with fixture_path.open() as fh:
         cfg = json.load(fh)
     # cfg["interface"]["type"]="tcp/ip"
-    cfg["interface"]["ip"] = ip
-    cfg["interface"]["port"] = port
+    fposb_gantry_config = cfg["component_config"]["components"]["gantry_1"]
+    fposb_gantry_config["interface"]["ip"] = ip
+    fposb_gantry_config["interface"]["port"] = port
+    fposb_gantry_config["interface"]["timeout"] = timeout_s
 
     if not _is_reachable(ip, port):
         pytest.skip(f"FPosBAPI PLC not reachable at {ip}:{port}")
 
-    gantry = Gantry.from_config(cfg)
+    try:
+        gantry = Gantry.from_config(cfg)
+    except FPosBAPIClientError as exc:
+        pytest.skip(f"FPosBAPI PLC at {ip}:{port} accepted connection but did not respond: {exc}")
     yield gantry
     if gantry._client is not None:
         gantry._client.close()
