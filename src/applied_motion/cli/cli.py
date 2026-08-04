@@ -204,7 +204,7 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
         except (ValueError, KeyError) as exc:
             state["status"] = ("fg:red", f"Limit / config error: {exc}")
         except Exception as exc:
-            logger.debug("jog error", exc_info=True)
+            logger.exception("CLI jog mode: jog failed axis=%s direction=%s step=%s", axis, direction, step)
             state["status"] = ("fg:red", f"Error: {exc}")
 
     for _k in ("left", "right", "up", "down", "pageup", "pagedown"):
@@ -306,7 +306,13 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
                     except (ValueError, KeyError) as exc:
                         console.print(f"[red]✗[/] {exc}")
                     except Exception as exc:
-                        logger.debug("jog error", exc_info=True)
+                        logger.exception(
+                            "CLI command 'jog': failed axis=%s direction=%s step=%s vel=%s",
+                            axis,
+                            direction,
+                            step,
+                            vel,
+                        )
                         console.print(f"[red]✗[/] Move rejected by axis: {exc}")
 
             elif cmd == "capture":

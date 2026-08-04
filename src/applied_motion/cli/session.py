@@ -84,7 +84,7 @@ class TeachSession:
         self.on_capture = on_capture
         self.positions: dict[str, dict[str, float]] = {}
         logger.debug(
-            "TeachSession created for gantry %r, hook=%s",
+            "TeachSession: created for gantry=%r hook=%s",
             gantry,
             getattr(on_capture, "__name__", repr(on_capture)) if on_capture is not None else "None",
         )
@@ -140,7 +140,7 @@ class TeachSession:
         target = current + delta
 
         logger.info(
-            "jog: axis=%s %s%.3fmm  %.3f → %.3f mm  vel=%.1f mm/s  timeout=%ss",
+            "TeachSession.jog: axis=%s %s%.3fmm %.3f→%.3f mm vel=%.1f mm/s timeout=%ss",
             axis_name,
             direction,
             step_mm,
@@ -154,7 +154,7 @@ class TeachSession:
             timeout=timeout,
         )
         location = self.gantry.get_location()
-        logger.debug("jog: post-move location=%s", location)
+        logger.debug("TeachSession.jog: post-move location=%s", location)
         return location
 
     # ------------------------------------------------------------------
@@ -180,7 +180,7 @@ class TeachSession:
         """
         position = self.gantry.get_location()
         self.positions[label] = position
-        logger.info("capture: %r → %s", label, position)
+        logger.info("TeachSession.capture: label=%r position=%s", label, position)
         if self.on_capture is not None:
             self.on_capture(label, position)
         return position
@@ -201,7 +201,7 @@ class TeachSession:
         path = Path(path)
         with path.open("w") as fh:
             json.dump(self.positions, fh, indent=2)
-        logger.info("save: %d position(s) written to %s", len(self.positions), path)
+        logger.info("TeachSession.save: wrote %d position(s) to %s", len(self.positions), path)
 
     def load(self, path: Path | str) -> None:
         """Merge positions from a JSON file into :attr:`positions`.
@@ -220,4 +220,4 @@ class TeachSession:
         with path.open() as fh:
             loaded: dict[str, dict[str, float]] = json.load(fh)
         self.positions.update(loaded)
-        logger.info("load: %d position(s) read from %s", len(loaded), path)
+        logger.info("TeachSession.load: read %d position(s) from %s", len(loaded), path)
