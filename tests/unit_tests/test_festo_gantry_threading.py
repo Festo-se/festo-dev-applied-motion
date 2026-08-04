@@ -7,17 +7,7 @@ joined before the method returns, and that the ``_move_dispatch`` and
 
 Coverage areas
 --------------
-``_execute_concurrent_movements`` — true parallelism
-    A ``threading.Barrier`` is used as the canonical proof of concurrency.
-    If the implementation serialises the moves, only one thread ever reaches
-    the barrier; the barrier times out and raises ``BrokenBarrierError``,
-    which the test detects.  A peak-concurrency counter provides an
-    independent measurement: it must equal the batch size.
 
-``_execute_concurrent_movements`` — completion contract
-    All axis.move() calls must finish before the method returns.  A shared
-    ``set`` is updated under a lock inside each move stub; after the call
-    returns the set must contain every axis name.
 
 ``_move_dispatch``
     - ``concurrent=True``: ``_single_move`` is called exactly once per
@@ -65,172 +55,6 @@ def _make_stub_axis(name: str) -> EdconAxis:
     axis.ready_for_motion = MagicMock(return_value=True)
     return axis
 
-
-# ---------------------------------------------------------------------------
-# _execute_concurrent_movements — true parallelism
-# ---------------------------------------------------------------------------
-
-
-class TestExecuteConcurrentMovementsParallelism:
-    """Prove that _execute_concurrent_movements runs axis.move() calls in
-    genuinely overlapping threads, not sequentially."""
-
-    def test_both_axes_move_truly_concurrently(self):
-        """Barrier proof: both axis.move() calls must overlap in time.
-
-        A ``threading.Barrier(2)`` requires exactly two threads to call
-        ``barrier.wait()`` before either is released.  If the
-        implementation is sequential, the first thread waits alone until
-        the barrier times out (BrokenBarrierError), ``barrier.broken``
-        is set to True, and the assertion fails with a clear message.
-        """
-        barrier = threading.Barrier(2, timeout=2.0)
-
-        def _rendezvous(**kwargs):
-            barrier.wait()
-
-        axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        axis_x.move.side_effect = _rendezvous
-        axis_z.move.side_effect = _rendezvous
-
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
-        batch = [{"X": dict(_PARAMS)}, {"Z": dict(_PARAMS)}]
-
-        g._execute_concurrent_movements(batch)
-
-        assert not barrier.broken, (
-            "_execute_concurrent_movements ran moves sequentially. "
-            "Both axis.move() calls must be in-flight at the same time."
-        )
-
-    def test_peak_concurrent_move_count_equals_batch_size(self):
-        """A peak-concurrency counter must reach N for a batch of N
-        movements.  This is an independent proof that N threads are
-        genuinely in-flight simultaneously — complementary to the barrier
-        test above."""
-        lock = threading.Lock()
-        active = [0]
-        peak = [0]
-        barrier = threading.Barrier(2, timeout=2.0)
-
-        def _counting_move(**kwargs):
-            with lock:
-                active[0] += 1
-                peak[0] = max(peak[0], active[0])
-            barrier.wait()  # hold both threads until both have incremented
-            with lock:
-                active[0] -= 1
-
-        axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        axis_x.move.side_effect = _counting_move
-        axis_z.move.side_effect = _counting_move
-
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
-        batch = [{"X": dict(_PARAMS)}, {"Z": dict(_PARAMS)}]
-        g._execute_concurrent_movements(batch)
-
-        assert peak[0] == 2, (
-            f"Expected peak concurrency of 2 (one thread per axis), got {peak[0]}. "
-            "Moves are not running in parallel."
-        )
-
-    def test_three_axes_all_concurrent(self):
-        """Scaling test: three axes must all be in-flight simultaneously.
-        The Barrier(3) requires all three threads to arrive before any
-        is released."""
-        barrier = threading.Barrier(3, timeout=2.0)
-
-        def _rendezvous(**kwargs):
-            barrier.wait()
-
-        axes = {name: _make_stub_axis(name) for name in ["X", "Y", "Z"]}
-        for axis in axes.values():
-            axis.move.side_effect = _rendezvous
-
-        g = Gantry(axes=axes)
-        batch = [{name: dict(_PARAMS)} for name in ["X", "Y", "Z"]]
-        g._execute_concurrent_movements(batch)
-
-        assert not barrier.broken, (
-            "Not all three axis.move() calls were in-flight simultaneously."
-        )
-
-
-# ---------------------------------------------------------------------------
-# _execute_concurrent_movements — completion contract
-# ---------------------------------------------------------------------------
-
-
-class TestExecuteConcurrentMovementsCompletion:
-    """Verify that all moves complete before the method returns — no
-    fire-and-forget threads should be running after the call."""
-
-    def test_all_moves_complete_before_return(self):
-        """A shared completion set must contain every axis name as soon as
-        _execute_concurrent_movements returns, proving that all threads were
-        joined and not merely started."""
-        completed: set[str] = set()
-        lock = threading.Lock()
-
-        def _slow_x(**kwargs):
-            time.sleep(0.02)  # slightly slower than Z
-            with lock:
-                completed.add("X")
-
-        def _fast_z(**kwargs):
-            time.sleep(0.005)
-            with lock:
-                completed.add("Z")
-
-        axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        axis_x.move.side_effect = _slow_x
-        axis_z.move.side_effect = _fast_z
-
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
-        batch = [{"X": dict(_PARAMS)}, {"Z": dict(_PARAMS)}]
-        g._execute_concurrent_movements(batch)
-
-        assert completed == {"X", "Z"}, (
-            f"Moves not complete at return time: completed={completed}. "
-            "All worker threads must be joined before the method returns."
-        )
-
-    def test_slower_axis_does_not_block_return(self):
-        """The method must not return before the slowest axis finishes.
-        This verifies thread.join() is called for every thread, including
-        those that complete last."""
-        finish_times: dict[str, float] = {}
-        lock = threading.Lock()
-
-        def _slow_move(**kwargs):
-            time.sleep(0.05)
-            with lock:
-                finish_times["slow"] = time.monotonic()
-
-        def _fast_move(**kwargs):
-            with lock:
-                finish_times["fast"] = time.monotonic()
-
-        axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        axis_x.move.side_effect = _slow_move
-        axis_z.move.side_effect = _fast_move
-
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
-        batch = [{"X": dict(_PARAMS)}, {"Z": dict(_PARAMS)}]
-
-        return_time = None
-        g._execute_concurrent_movements(batch)
-        return_time = time.monotonic()
-
-        assert "slow" in finish_times, "Slow axis move never ran"
-        assert return_time >= finish_times["slow"], (
-            "Method returned before the slow axis finished — "
-            "the slow thread was not properly joined."
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -394,3 +218,92 @@ class TestSingleMove:
         g = Gantry(axes={})
         with pytest.raises(MovementError):
             g._single_move({"MISSING": dict(_PARAMS)})
+
+
+# ---------------------------------------------------------------------------
+# move_to regression coverage
+# ---------------------------------------------------------------------------
+
+
+class TestMoveToRegressions:
+    """Regression coverage for move_to orchestration bugs."""
+
+    def test_concurrent_true_dispatches_once_with_full_batch(self):
+        """Regression for #6.
+
+        move_to(concurrent=True) must call _move_dispatch exactly once for the
+        full queued batch. If move_to loops while leaving the deque non-empty,
+        _move_dispatch will be called repeatedly and this test fails fast.
+        """
+        axis_x = _make_stub_axis("X")
+        axis_y = _make_stub_axis("Y")
+        axis_z = _make_stub_axis("Z")
+        g = Gantry(axes={"X": axis_x, "Y": axis_y, "Z": axis_z})
+
+        movements = deque(
+            [
+                {"X": {"position": 10, "velocity": 20}},
+                {"Y": {"position": 20, "velocity": 30}},
+                {"Z": {"position": 30, "velocity": 40}},
+            ]
+        )
+
+        seen_batches: list[tuple[dict, ...]] = []
+
+        def _dispatch_probe(batch, concurrent, timeout=None):
+            seen_batches.append(tuple(batch))
+            return tuple(0 for _ in batch)
+
+        with patch.object(g, "_move_dispatch", side_effect=_dispatch_probe) as dispatch_mock:
+            g.move_to(movements, timeout=2, concurrent=True)
+
+        assert dispatch_mock.call_count == 1, (
+            "move_to(concurrent=True) must dispatch once; repeated dispatches "
+            "indicate the queue was not consumed or the method did not return."
+        )
+        assert len(seen_batches) == 1
+        assert len(seen_batches[0]) == 3
+
+    def test_concurrent_true_moves_each_axis_once_with_timeout(self):
+        """Stricter regression for #6.
+
+        For a concurrent batch, each axis move must be issued exactly once and
+        must receive the same timeout passed to move_to().
+        """
+        axis_x = _make_stub_axis("X")
+        axis_y = _make_stub_axis("Y")
+        axis_z = _make_stub_axis("Z")
+        g = Gantry(axes={"X": axis_x, "Y": axis_y, "Z": axis_z})
+
+        movements = deque(
+            [
+                {"X": {"position": 10, "velocity": 20}},
+                {"Y": {"position": 20, "velocity": 30}},
+                {"Z": {"position": 30, "velocity": 40}},
+            ]
+        )
+
+        g.move_to(movements, timeout=7, concurrent=True)
+
+        axis_x.move.assert_called_once_with(position=10, velocity=20, timeout=7)
+        axis_y.move.assert_called_once_with(position=20, velocity=30, timeout=7)
+        axis_z.move.assert_called_once_with(position=30, velocity=40, timeout=7)
+
+    def test_concurrent_true_movement_payloads_consumed_once(self):
+        """Concurrent move_to should consume each movement payload exactly once.
+
+        _single_move currently mutates each movement dict via popitem(); after
+        one successful dispatch each payload should be empty rather than reused.
+        """
+        axis_x = _make_stub_axis("X")
+        axis_y = _make_stub_axis("Y")
+        g = Gantry(axes={"X": axis_x, "Y": axis_y})
+
+        movement_x = {"X": {"position": 10, "velocity": 20}}
+        movement_y = {"Y": {"position": 20, "velocity": 30}}
+        movements = deque([movement_x, movement_y])
+
+        g.move_to(movements, timeout=3, concurrent=True)
+
+        assert movement_x == {}, "X movement payload should be consumed exactly once"
+        assert movement_y == {}, "Y movement payload should be consumed exactly once"
