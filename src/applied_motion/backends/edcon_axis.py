@@ -58,7 +58,18 @@ class EdconAxis(MotionHandler):
         min_position: Minimum achievable position in mm.
     """
 
-    def __init__(self, name: str, ip: str, run_referencing: bool = False) -> None:
+    max_position: float
+    min_position: float
+    max_velocity: float
+    min_velocity: float
+    max_position_fas_units: int
+    min_position_fas_units: int
+    max_velocity_fas_units: int
+    min_velocity_fas_units: int
+
+    def __init__(
+        self, name: str, ip: str, run_referencing: bool = False, max_position: float = inf, min_position: float = -inf
+    ) -> None:
         """Initialise the axis and establish a Modbus connection.
 
         Creates the :class:`~edcon.edrive.com_modbus.ComModbus` connection,
