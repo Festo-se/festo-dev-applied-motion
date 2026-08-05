@@ -10,7 +10,7 @@ Use :meth:`Gantry.from_config` to instantiate the correct backend
 automatically from a JSON configuration dict or file.
 """
 
-from typing import Iterator, TypedDict
+from typing import Iterator, TypedDict, TypeAlias
 
 import logging
 from copy import deepcopy
@@ -26,7 +26,24 @@ from applied_motion.gantry_factory import build_gantry_from_config
 
 logger = logging.getLogger(__name__)
 
-AxisMap = dict[str, Axis]
+AxisMap: TypeAlias = dict[str, Axis]
+
+
+class _OptionalKinematicParams(TypedDict, total=False):
+    """Optional kinematic parameters accepted by :meth:`Axis.move`."""
+
+    position_type: str
+
+
+class KinematicParams(_OptionalKinematicParams):
+    """Kinematic parameters accepted by :meth:`Axis.move`."""
+
+    position: float
+    velocity: float
+
+
+Movement: TypeAlias = dict[str, KinematicParams]
+MovementBatch: TypeAlias = deque[Movement]
 
 
 class AxisStatus(TypedDict):
@@ -214,7 +231,12 @@ class Gantry:
         """
         return item in self.axes
 
-    def _move_dispatch(self, movements: deque, concurrent: bool, timeout: int | None = None):
+    def _move_dispatch(
+        self,
+        movements: MovementBatch,
+        concurrent: bool,
+        timeout: int | None = None,
+    ) -> tuple[int, ...]:
         """Dispatch a batch of movements either concurrently or sequentially.
 
         Args:
@@ -245,7 +267,7 @@ class Gantry:
             logger.debug("Gantry._move_dispatch: sequential results=%s", tuple(placedholder))
             return tuple(placedholder)
 
-    def _single_move(self, movement: dict, timeout: int | None = None) -> int:
+    def _single_move(self, movement: Movement, timeout: int | None = None) -> int:
         """Execute one movement dict and return an integer result code.
 
         Extracts the sole ``{axis_name: kinematic_params}`` entry from
@@ -283,9 +305,9 @@ class Gantry:
 
     def _get_next_moves(
         self,
-        movements: deque,
+        movements: MovementBatch,
         concurrent_axes: AxisMap,
-    ) -> deque:
+    ) -> MovementBatch:
         """Pull the next group of movements that may run concurrently.
 
         Consumes entries from the front of *movements* as long as they
@@ -304,7 +326,7 @@ class Gantry:
             A :class:`~collections.deque` containing the next batch of
             movements to dispatch concurrently.
         """
-        next_batch = deque()
+        next_batch: MovementBatch = deque()
         concurrent_working_reference = deepcopy(concurrent_axes)
 
         movement = movements.popleft()
@@ -327,7 +349,12 @@ class Gantry:
 
         return next_batch
 
-    def move_to(self, movements: deque, timeout: int | None = None, concurrent: bool = False) -> None:
+    def move_to(
+        self,
+        movements: MovementBatch,
+        timeout: int | None = None,
+        concurrent: bool = False,
+    ) -> None:
         """Dispatch a queue of movements to the gantry axes.
 
         Processes each movement dict in *movements*, dispatching them either
