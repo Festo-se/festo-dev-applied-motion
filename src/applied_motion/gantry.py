@@ -13,7 +13,6 @@ automatically from a JSON configuration dict or file.
 from typing import Iterator, TypedDict, TypeAlias
 
 import logging
-from copy import deepcopy
 
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -363,14 +362,14 @@ class Gantry:
             movements to dispatch concurrently.
         """
         next_batch: MovementBatch = deque()
-        concurrent_working_reference = deepcopy(concurrent_axes)
+        concurrent_working_reference = set(concurrent_axes.keys())
 
         movement = movements.popleft()
         next_batch.append(movement)
         ((axis_name, kinematic_params),) = tuple(movement.items())
         if axis_name not in concurrent_working_reference:
             return next_batch
-        del concurrent_working_reference[axis_name]
+        concurrent_working_reference.remove(axis_name)
 
         while concurrent_working_reference:
             movement = movements.popleft()
@@ -379,7 +378,7 @@ class Gantry:
             if axis_name not in concurrent_working_reference:
                 return next_batch
             else:
-                del concurrent_working_reference[axis_name]
+                concurrent_working_reference.remove(axis_name)
 
             next_batch.append(movement)
 
