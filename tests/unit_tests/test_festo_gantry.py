@@ -22,6 +22,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from applied_motion.backends.fposbapi_axis import FPosBAxis
+from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend
 from applied_motion.gantry import AxisNotFoundError, Gantry, MovementError
 from applied_motion.backends.edcon_axis import EdconAxis
 
@@ -335,6 +337,44 @@ class TestGantryEquality:
         g1 = Gantry(axes={"X": axis_x}, concurrent_axes=None)
         g2 = Gantry(axes={"X": axis_x}, concurrent_axes={"Z": axis_z})
         assert g1 != g2
+
+    def test_same_fposb_axes_different_controller_endpoints_are_not_equal(self):
+        client_a = MagicMock()
+        client_a.ip = "192.168.10.10"
+        client_a.port = 1234
+        client_b = MagicMock()
+        client_b.ip = "192.168.10.11"
+        client_b.port = 1234
+
+        g1 = Gantry(
+            axes={"X": FPosBAxis(name="X", index=1, client=client_a)},
+            _backend=FPosBAPIGantryBackend(client_a, owns_client=False),
+        )
+        g2 = Gantry(
+            axes={"X": FPosBAxis(name="X", index=1, client=client_b)},
+            _backend=FPosBAPIGantryBackend(client_b, owns_client=False),
+        )
+
+        assert g1 != g2
+
+    def test_same_fposb_axes_same_controller_endpoint_are_equal(self):
+        client_a = MagicMock()
+        client_a.ip = "192.168.10.10"
+        client_a.port = 1234
+        client_b = MagicMock()
+        client_b.ip = "192.168.10.10"
+        client_b.port = 1234
+
+        g1 = Gantry(
+            axes={"X": FPosBAxis(name="X", index=1, client=client_a)},
+            _backend=FPosBAPIGantryBackend(client_a, owns_client=False),
+        )
+        g2 = Gantry(
+            axes={"X": FPosBAxis(name="X", index=1, client=client_b)},
+            _backend=FPosBAPIGantryBackend(client_b, owns_client=False),
+        )
+
+        assert g1 == g2
 
 
 # ---------------------------------------------------------------------------
