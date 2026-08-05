@@ -163,7 +163,7 @@ class TestFromConfigModbus:
 
     def test_client_is_none_for_modbus_backend(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
-        assert g._client is None
+        assert not hasattr(g, "_client")
 
     def test_supports_teach_false_for_modbus_backend(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
@@ -199,7 +199,7 @@ class TestFromConfigModbus:
         }
         g = Gantry.from_config(config)
         assert "X" in g.axes
-        assert g._client is None
+        assert not hasattr(g, "_client")
 
     def test_explicit_gantry_name_selects_requested_component(self, patched_festo_axis):
         """Regression for #7: explicit name=... must select that component
@@ -264,10 +264,9 @@ class TestFromConfigFPosBAPI:
         assert g.axes["Z"].name == "Z"
 
     def test_gantry_client_is_shared_instance(self, patched_fposbapi_client):
-        """The gantry's _client and all proxy _client refs must be the same object."""
+        """All FPosBAxis proxies must share one injected client instance."""
         _, mock_client = patched_fposbapi_client
         g = Gantry.from_config(_FPOSBAPI_CONFIG)
-        assert g._client is mock_client
         for axis in g.axes.values():
             assert axis._client is mock_client
 
@@ -386,7 +385,7 @@ class TestGantryHomeBackendDispatch:
         not one per axis.
         """
         gantry_fposbapi_mock.home()
-        gantry_fposbapi_mock._client.send_command.assert_called_with("HOME")
+        gantry_fposbapi_mock._stub_client.send_command.assert_called_with("HOME")
 
     def test_fposbapi_home_does_not_call_axis_home(self, gantry_fposbapi_mock):
         """FPosBAPI home must NOT call home() on individual axis proxies since
@@ -400,7 +399,7 @@ class TestGantryHomeBackendDispatch:
             axis.home.assert_not_called()
 
     def test_modbus_home_calls_home_on_every_axis(self, gantry_mock):
-        """For Modbus backend (_client is None), home must delegate to each axis."""
+        """For Modbus backend, home must delegate to each axis."""
         gantry_mock.home()
         for axis in gantry_mock._stub_axes.values():
             axis.home.assert_called_once()

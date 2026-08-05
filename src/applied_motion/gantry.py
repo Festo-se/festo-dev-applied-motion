@@ -67,7 +67,6 @@ class Gantry:
         concurrent_axes: AxisMap | None = None,
         *,
         _backend: GantryBackend | None = None,
-        _client: FPosBAPIClient | None = None,
     ) -> None:
         """Initialise the gantry with the provided axis mapping.
 
@@ -86,30 +85,13 @@ class Gantry:
                 grouping.
             _backend: Internal backend strategy object that owns backend-
                 specific gantry behavior.
-            _client: Deprecated internal compatibility argument.  When passed
-                without *_backend*, a FPosBAPI backend wrapper is created.
         """
         self.axes = axes
         self.concurrent_axes = concurrent_axes
-        if _backend is None:
-            if _client is None:
-                self._backend = ModbusGantryBackend()
-            else:
-                self._backend = FPosBAPIGantryBackend(_client, owns_client=False)
-        else:
-            self._backend = _backend
+        self._backend = _backend or ModbusGantryBackend()
         logger.info("Gantry: initialized with axes=%s", list(axes.keys()))
         if concurrent_axes:
             logger.debug("Gantry: concurrent axes=%s", list(concurrent_axes.keys()))
-
-    @property
-    def _client(self) -> FPosBAPIClient | None:
-        """Deprecated compatibility shim for older callers.
-
-        Returns:
-            Shared FPosBAPI client when backend is PLC-based, else ``None``.
-        """
-        return self._backend.client
 
     @classmethod
     def from_config(cls, config: dict | Path, name: str = "gantry_1") -> "Gantry":

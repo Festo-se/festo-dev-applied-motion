@@ -1,6 +1,6 @@
 [project]
 name = "festo-dev-applied-motion"
-version = "0.4.0"
+version = "0.5.0"
 authors = [
     { name = "Kyle Wardlow", email = "kyle.wardlow@festo.com" }
 ]

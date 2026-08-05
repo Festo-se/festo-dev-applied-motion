@@ -15,6 +15,11 @@ import pytest
 from applied_motion.backends.fposbapi_client import FPosBAPIClientError
 
 
+def _client_from_fposbapi_gantry(gantry_fposbapi):
+    """Return the shared FPosBAPI client from one axis proxy on the gantry."""
+    return next(iter(gantry_fposbapi.axes.values()))._client
+
+
 # ---------------------------------------------------------------------------
 # State queries
 # ---------------------------------------------------------------------------
@@ -191,21 +196,21 @@ def test_fposbapi_gantry_is_ready_for_motion_after_connect(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_sys_status_responds(gantry_fposbapi):
     """SYS_STATUS should return a SUCCESS response."""
-    response = gantry_fposbapi._client.send_command("SYS_STATUS")
+    response = _client_from_fposbapi_gantry(gantry_fposbapi).send_command("SYS_STATUS")
     assert "SUCCESS" in response[-1], f"Unexpected SYS_STATUS response: {response!r}"
 
 
 @pytest.mark.hardware
 def test_fposbapi_is_homed_responds(gantry_fposbapi):
     """IS_HOME should return a SUCCESS response and expose the homed state."""
-    response = gantry_fposbapi._client.send_command("IS_HOME")
+    response = _client_from_fposbapi_gantry(gantry_fposbapi).send_command("IS_HOME")
     assert "SUCCESS" in response[-1], f"Unexpected IS_HOME response: {response!r}"
 
 
 @pytest.mark.hardware
 def test_fposbapi_fpb_error_is_clear(gantry_fposbapi):
     """FPB_ERROR should return SUCCESS with no active fieldbus errors."""
-    response = gantry_fposbapi._client.send_command("FPB_ERROR")
+    response = _client_from_fposbapi_gantry(gantry_fposbapi).send_command("FPB_ERROR")
     assert "SUCCESS" in response[-1], f"Unexpected FPB_ERROR response: {response!r}"
 
 
@@ -256,35 +261,35 @@ def _safe_target_mm(current_mm: float, min_mm: float, max_mm: float, delta_mm: f
 @pytest.mark.hardware
 def test_fposbapi_get_par_x_soft_limits_valid(gantry_fposbapi):
     """GET_PAR should return valid (min < max) soft limits for X axis."""
-    min_mm, max_mm = _soft_limits_mm(gantry_fposbapi._client, "X")
+    min_mm, max_mm = _soft_limits_mm(_client_from_fposbapi_gantry(gantry_fposbapi), "X")
     assert max_mm > min_mm, f"X soft limits invalid: min={min_mm:.3f} mm, max={max_mm:.3f} mm"
 
 
 @pytest.mark.hardware
 def test_fposbapi_get_par_y_soft_limits_valid(gantry_fposbapi):
     """GET_PAR should return valid (min < max) soft limits for Y axis."""
-    min_mm, max_mm = _soft_limits_mm(gantry_fposbapi._client, "Y")
+    min_mm, max_mm = _soft_limits_mm(_client_from_fposbapi_gantry(gantry_fposbapi), "Y")
     assert max_mm > min_mm, f"Y soft limits invalid: min={min_mm:.3f} mm, max={max_mm:.3f} mm"
 
 
 @pytest.mark.hardware
 def test_fposbapi_get_par_z_soft_limits_valid(gantry_fposbapi):
     """GET_PAR should return valid (min < max) soft limits for Z axis."""
-    min_mm, max_mm = _soft_limits_mm(gantry_fposbapi._client, "Z")
+    min_mm, max_mm = _soft_limits_mm(_client_from_fposbapi_gantry(gantry_fposbapi), "Z")
     assert max_mm > min_mm, f"Z soft limits invalid: min={min_mm:.3f} mm, max={max_mm:.3f} mm"
 
 
 @pytest.mark.hardware
 def test_fposbapi_get_par_gantry_speed_is_positive(gantry_fposbapi):
     """GET_PAR 103 (gantry speed) should return a positive value in mm/s."""
-    speed = _get_par_value(gantry_fposbapi._client, 103)
+    speed = _get_par_value(_client_from_fposbapi_gantry(gantry_fposbapi), 103)
     assert speed > 0, f"Gantry speed (param 103) is not positive: {speed}"
 
 
 @pytest.mark.hardware
 def test_fposbapi_is_enbl_responds(gantry_fposbapi):
     """IS_ENBL should return a SUCCESS response confirming drive enable state."""
-    response = gantry_fposbapi._client.send_command("IS_ENBL")
+    response = _client_from_fposbapi_gantry(gantry_fposbapi).send_command("IS_ENBL")
     assert "SUCCESS" in response[-1], f"Unexpected IS_ENBL response: {response!r}"
 
 
@@ -296,7 +301,7 @@ def test_fposbapi_is_enbl_responds(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_x_axis_completes(gantry_fposbapi):
     """gantry.move_to() on X axis should complete without raising."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     current = gantry_fposbapi.axes["X"].get_current_axis_position()
     target = _safe_target_mm(current, min_mm, max_mm)
@@ -307,7 +312,7 @@ def test_fposbapi_move_to_x_axis_completes(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_x_axis_reaches_target(gantry_fposbapi):
     """After gantry.move_to(), X axis position should be within 1 mm of the commanded target."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     target = (min_mm + max_mm) / 2.0
     movements = deque([{"X": {"position": target, "velocity": _FPOSBAPI_MOTION_VELOCITY_MM_S}}])
@@ -319,7 +324,7 @@ def test_fposbapi_move_to_x_axis_reaches_target(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_z_axis_completes(gantry_fposbapi):
     """gantry.move_to() on Z axis should complete without raising."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "Z")
     current = gantry_fposbapi.axes["Z"].get_current_axis_position()
     target = _safe_target_mm(current, min_mm, max_mm)
@@ -330,7 +335,7 @@ def test_fposbapi_move_to_z_axis_completes(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_z_axis_reaches_target(gantry_fposbapi):
     """After gantry.move_to(), Z axis position should be within 1 mm of the commanded target."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "Z")
     target = (min_mm + max_mm) / 2.0
     movements = deque([{"Z": {"position": target, "velocity": _FPOSBAPI_MOTION_VELOCITY_MM_S}}])
@@ -342,7 +347,7 @@ def test_fposbapi_move_to_z_axis_reaches_target(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_is_stopped_after_move_to(gantry_fposbapi):
     """is_stopped() should return True after a completed gantry.move_to()."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     current = gantry_fposbapi.axes["X"].get_current_axis_position()
     target = _safe_target_mm(current, min_mm, max_mm)
@@ -354,7 +359,7 @@ def test_fposbapi_is_stopped_after_move_to(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_relative_x(gantry_fposbapi):
     """A relative move via gantry.move_to() should displace X by the commanded delta."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     current = gantry_fposbapi.axes["X"].get_current_axis_position()
     margin = 2.0
@@ -378,7 +383,7 @@ def test_fposbapi_move_to_relative_x(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_axis_command_absolute(gantry_fposbapi):
     """Direct MOVE_AXIS command (absolute, MOVE_TYP=0) should return SUCCESS."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     current = gantry_fposbapi.axes["X"].get_current_axis_position()
     target = _safe_target_mm(current, min_mm, max_mm)
@@ -391,7 +396,7 @@ def test_fposbapi_move_axis_command_absolute(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_axis_absolute_position_echoed_in_response(gantry_fposbapi):
     """MOVE_AXIS response should echo ABS_POS matching the commanded target within 1 mm."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     target = (min_mm + max_mm) / 2.0
     client.send_command("SET_PAR", 103, _FPOSBAPI_MOTION_VELOCITY_MM_S)
@@ -405,7 +410,7 @@ def test_fposbapi_move_axis_absolute_position_echoed_in_response(gantry_fposbapi
 @pytest.mark.hardware
 def test_fposbapi_move_axis_command_relative(gantry_fposbapi):
     """Direct MOVE_AXIS command (relative, MOVE_TYP=1) should return SUCCESS."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     current = gantry_fposbapi.axes["X"].get_current_axis_position()
     margin = 2.0
@@ -428,7 +433,7 @@ def test_fposbapi_move_axis_command_relative(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_loc_all_axes_completes(gantry_fposbapi):
     """MOVE_LOC should move all three axes to explicit coordinates and return SUCCESS."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     x_min, x_max = _soft_limits_mm(client, "X")
     y_min, y_max = _soft_limits_mm(client, "Y")
     z_min, z_max = _soft_limits_mm(client, "Z")
@@ -445,7 +450,7 @@ def test_fposbapi_move_loc_all_axes_completes(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_loc_all_axes_position_verified(gantry_fposbapi):
     """After MOVE_LOC, ROB_POS should show all three axes within 1 mm of commanded targets."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     x_min, x_max = _soft_limits_mm(client, "X")
     y_min, y_max = _soft_limits_mm(client, "Y")
     z_min, z_max = _soft_limits_mm(client, "Z")
@@ -469,7 +474,7 @@ def test_fposbapi_move_loc_all_axes_position_verified(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_y_axis_completes(gantry_fposbapi):
     """gantry.move_to() on Y axis should complete without raising."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "Y")
     current = gantry_fposbapi.axes["Y"].get_current_axis_position()
     target = _safe_target_mm(current, min_mm, max_mm)
@@ -480,7 +485,7 @@ def test_fposbapi_move_to_y_axis_completes(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_y_axis_reaches_target(gantry_fposbapi):
     """After gantry.move_to(), Y axis position should be within 1 mm of the commanded target."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "Y")
     target = (min_mm + max_mm) / 2.0
     movements = deque([{"Y": {"position": target, "velocity": _FPOSBAPI_MOTION_VELOCITY_MM_S}}])
@@ -497,7 +502,7 @@ def test_fposbapi_move_to_y_axis_reaches_target(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_all_axes_sequential_completes(gantry_fposbapi):
     """Queuing X, Y, Z as separate deque entries through gantry.move_to() should complete."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     targets = {}
     for axis in ("X", "Y", "Z"):
         min_mm, max_mm = _soft_limits_mm(client, axis)
@@ -513,7 +518,7 @@ def test_fposbapi_move_to_all_axes_sequential_completes(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_move_to_all_axes_sequential_positions_verified(gantry_fposbapi):
     """After sequential X → Y → Z move_to(), all axes should be within 1 mm of their targets."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     targets = {}
     for axis in ("X", "Y", "Z"):
         min_mm, max_mm = _soft_limits_mm(client, axis)
@@ -536,7 +541,7 @@ def test_fposbapi_move_to_all_axes_concurrent_positions_verified(gantry_fposbapi
     gantry_fposbapi.home()
     if not gantry_fposbapi.is_ready_for_motion():
         pytest.skip("FPosBAPI gantry not ready for motion after home; skipping concurrent position verification")
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     targets = {}
     for axis in ("X", "Y", "Z"):
         min_mm, max_mm = _soft_limits_mm(client, axis)
@@ -572,7 +577,7 @@ def test_fposbapi_axis_is_homed_returns_bool(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_axis_is_homed_true_after_home(gantry_fposbapi):
     """FPosBAxis.is_homed() should return True after the gantry has been homed."""
-    gantry_fposbapi._client.send_command("HOME")
+    _client_from_fposbapi_gantry(gantry_fposbapi).send_command("HOME")
     assert gantry_fposbapi.axes["X"].is_homed(), (
         "FPosBAxis.is_homed() returned False immediately after issuing HOME"
     )
@@ -611,15 +616,15 @@ def test_fposbapi_all_axes_ready_for_motion(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_get_par_gantry_accel_is_nonzero(gantry_fposbapi):
     """GET_PAR 102 (gantry acceleration) should return a non-zero value in mm/s²."""
-    accel = _get_par_value(gantry_fposbapi._client, 102)
-    assert accel != 0, f"Gantry acceleration (param 102) is zero — drive may not be configured"
+    accel = _get_par_value(_client_from_fposbapi_gantry(gantry_fposbapi), 102)
+    assert accel != 0, "Gantry acceleration (param 102) is zero — drive may not be configured"
 
 
 @pytest.mark.hardware
 def test_fposbapi_get_par_gantry_decel_is_nonzero(gantry_fposbapi):
     """GET_PAR 104 (gantry deceleration) should return a non-zero value in mm/s²."""
-    decel = _get_par_value(gantry_fposbapi._client, 104)
-    assert decel != 0, f"Gantry deceleration (param 104) is zero — drive may not be configured"
+    decel = _get_par_value(_client_from_fposbapi_gantry(gantry_fposbapi), 104)
+    assert decel != 0, "Gantry deceleration (param 104) is zero — drive may not be configured"
 
 
 # ---------------------------------------------------------------------------
@@ -632,7 +637,7 @@ _REPEATABILITY_TOLERANCE_MM = 0.5
 @pytest.mark.hardware
 def test_fposbapi_x_axis_position_repeatability(gantry_fposbapi):
     """Moving X to the same absolute target twice should land within 0.5 mm both times."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "X")
     target = (min_mm + max_mm) / 2.0
     away = _safe_target_mm(target, min_mm, max_mm, delta_mm=10.0)
@@ -661,7 +666,7 @@ def test_fposbapi_x_axis_position_repeatability(gantry_fposbapi):
 @pytest.mark.hardware
 def test_fposbapi_y_axis_position_repeatability(gantry_fposbapi):
     """Moving Y to the same absolute target twice should land within 0.5 mm both times."""
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     min_mm, max_mm = _soft_limits_mm(client, "Y")
     target = (min_mm + max_mm) / 2.0
     away = _safe_target_mm(target, min_mm, max_mm, delta_mm=10.0)
@@ -704,7 +709,7 @@ def test_fposbapi_xyz_forward_and_back_cycle(gantry_fposbapi):
         "Z": (0.25, 0.10),
     }
 
-    client = gantry_fposbapi._client
+    client = _client_from_fposbapi_gantry(gantry_fposbapi)
     targets: dict[str, tuple[float, float]] = {}
     for axis in ("X", "Y", "Z"):
         min_mm, max_mm = _soft_limits_mm(client, axis)
@@ -757,7 +762,7 @@ _REQUIRED_COMMANDS = {"HOME", "MOVE_AXIS", "ROB_POS", "IS_HOME", "IS_ENBL", "IS_
 def test_fposbapi_list_commands_returns_nonempty_list(gantry_fposbapi):
     """list_commands() should return a non-empty list of command name strings."""
     try:
-        commands = gantry_fposbapi._client.list_commands()
+        commands = _client_from_fposbapi_gantry(gantry_fposbapi).list_commands()
     except FPosBAPIClientError as exc:
         pytest.skip(f"CMD_LIST not supported by this firmware: {exc}")
     assert isinstance(commands, list)
@@ -768,7 +773,7 @@ def test_fposbapi_list_commands_returns_nonempty_list(gantry_fposbapi):
 def test_fposbapi_list_commands_contains_core_commands(gantry_fposbapi):
     """list_commands() should include the core commands that every firmware version supports."""
     try:
-        commands = set(gantry_fposbapi._client.list_commands())
+        commands = set(_client_from_fposbapi_gantry(gantry_fposbapi).list_commands())
     except FPosBAPIClientError as exc:
         pytest.skip(f"CMD_LIST not supported by this firmware: {exc}")
     missing = _REQUIRED_COMMANDS - commands
@@ -782,7 +787,7 @@ def test_fposbapi_list_commands_contains_core_commands(gantry_fposbapi):
 def test_fposbapi_list_commands_all_strings(gantry_fposbapi):
     """Every entry returned by list_commands() should be a non-empty string."""
     try:
-        commands = gantry_fposbapi._client.list_commands()
+        commands = _client_from_fposbapi_gantry(gantry_fposbapi).list_commands()
     except FPosBAPIClientError as exc:
         pytest.skip(f"CMD_LIST not supported by this firmware: {exc}")
     for cmd in commands:
@@ -799,7 +804,7 @@ def test_fposbapi_list_commands_all_strings(gantry_fposbapi):
 def test_fposbapi_is_error_clear_at_session_start(gantry_fposbapi):
     """IS_ERROR should report no active error at the start of a healthy session."""
     try:
-        response = gantry_fposbapi._client.send_command("IS_ERROR")
+        response = _client_from_fposbapi_gantry(gantry_fposbapi).send_command("IS_ERROR")
     except FPosBAPIClientError as exc:
         pytest.skip(f"IS_ERROR not supported by this firmware: {exc}")
     fields = [f.strip() for f in response[-1].split(",")]
@@ -814,7 +819,7 @@ def test_fposbapi_is_error_clear_at_session_start(gantry_fposbapi):
 def test_fposbapi_read_err_responds(gantry_fposbapi):
     """READ_ERR should return a SUCCESS response."""
     try:
-        response = gantry_fposbapi._client.send_command("READ_ERR")
+        response = _client_from_fposbapi_gantry(gantry_fposbapi).send_command("READ_ERR")
     except FPosBAPIClientError as exc:
         pytest.skip(f"READ_ERR not supported by this firmware: {exc}")
     assert "SUCCESS" in response[-1], f"Unexpected READ_ERR response: {response!r}"

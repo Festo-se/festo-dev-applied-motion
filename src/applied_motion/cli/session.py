@@ -8,7 +8,7 @@ installed, as long as :func:`applied_motion.cli` (the package guard)
 is not triggered first.
 
 The :class:`TeachSession` class deliberately avoids calling any private
-attributes of :class:`~applied_motion.gantry.Gantry` (such as ``_client``).
+attributes of :class:`~applied_motion.gantry.Gantry`.
 PLC-specific actions (``TEACH_POS``, ``TEACH_TRAY``) are delegated to the
 caller via the ``on_capture`` hook, keeping this class backend-agnostic and
 independently unit-testable.

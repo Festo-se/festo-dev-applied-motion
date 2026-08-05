@@ -60,6 +60,7 @@ from applied_motion.gantry import Gantry
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient, FPosBAPIClientError
+from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend
 
 # ---------------------------------------------------------------------------
 # Hardware reachability probe
@@ -231,14 +232,15 @@ def gantry_fposbapi_mock(fposbapi_client_mock):
     Axes X (index 1), Y (index 2), Z (index 3) are backed by
     ``fposbapi_client_mock``.  The proxy instances are accessible as
     ``gantry_fposbapi_mock._stub_axes`` and the shared client as
-    ``gantry_fposbapi_mock._client``.
+    ``gantry_fposbapi_mock._stub_client``.
     """
     axis_x = FPosBAxis(name="X", index=1, client=fposbapi_client_mock)
     axis_y = FPosBAxis(name="Y", index=2, client=fposbapi_client_mock)
     axis_z = FPosBAxis(name="Z", index=3, client=fposbapi_client_mock)
     axes = {"X": axis_x, "Y": axis_y, "Z": axis_z}
-    g = Gantry(axes=axes, _client=fposbapi_client_mock)
+    g = Gantry(axes=axes, _backend=FPosBAPIGantryBackend(fposbapi_client_mock, owns_client=False))
     g._stub_axes = axes
+    g._stub_client = fposbapi_client_mock
     return g
 
 
