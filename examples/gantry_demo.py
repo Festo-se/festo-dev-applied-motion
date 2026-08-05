@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
 # SPDX-License-Identifier: MIT
 
-"""Manual hardware demo for the Modbus (EDCON) gantry backend.
+"""Manual hardware demo for the Modbus (festo-edcon) gantry backend.
 
 This is a standalone example script — not part of the importable library.
 It connects to real Festo CMMT drives at hardcoded IP addresses, issues a
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Run the interactive EDCON gantry demo."""
+    """Run the interactive festo-edcon gantry demo."""
     logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
