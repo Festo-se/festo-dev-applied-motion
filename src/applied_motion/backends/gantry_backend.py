@@ -7,10 +7,20 @@ This module centralizes backend-specific operations that are not purely
 per-axis concerns (for example a single HOME command for all FPosB axes).
 """
 
-from typing import Protocol
+from typing import Protocol, TypedDict
 
 from applied_motion.backends.axis_protocol import Axis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
+
+
+class ControllerDiagnostics(TypedDict):
+    """Controller diagnostics payload returned by gantry backends."""
+
+    sys_status: str | None
+    is_error: bool | None
+    fpb_error: str | None
+    read_err: str | None
+    error: str | None
 
 
 class GantryBackend(Protocol):
@@ -23,6 +33,14 @@ class GantryBackend(Protocol):
     @property
     def client(self) -> FPosBAPIClient | None:
         """Return the shared FPosBAPI client if this backend uses one."""
+        ...
+
+    def backend_identity(self) -> tuple[type[object], tuple[str, int] | None]:
+        """Return stable backend identity fields used for equality/hash."""
+        ...
+
+    def controller_diagnostics(self) -> ControllerDiagnostics | None:
+        """Return controller diagnostics for status reporting, if available."""
         ...
 
     def home(self, axes: dict[str, Axis]) -> None:
@@ -59,6 +77,14 @@ class ModbusGantryBackend:
     @property
     def client(self) -> FPosBAPIClient | None:
         """Modbus backend has no shared FPosBAPI client."""
+        return None
+
+    def backend_identity(self) -> tuple[type[object], tuple[str, int] | None]:
+        """Return Modbus backend identity."""
+        return type(self), None
+
+    def controller_diagnostics(self) -> ControllerDiagnostics | None:
+        """Modbus backend has no shared controller diagnostics."""
         return None
 
     def home(self, axes: dict[str, Axis]) -> None:
@@ -107,6 +133,29 @@ class FPosBAPIGantryBackend:
     def client(self) -> FPosBAPIClient | None:
         """Return the shared FPosBAPI client."""
         return self._client
+
+    def backend_identity(self) -> tuple[type[object], tuple[str, int] | None]:
+        """Return FPosBAPI backend identity including endpoint."""
+        return type(self), (self._client.ip, self._client.port)
+
+    def controller_diagnostics(self) -> ControllerDiagnostics | None:
+        """Return controller diagnostics from shared client."""
+        try:
+            return {
+                "sys_status": self._client.sys_status(),
+                "is_error": self._client.is_error(),
+                "fpb_error": self._client.fpb_error(),
+                "read_err": self._client.read_err(),
+                "error": None,
+            }
+        except Exception as exc:
+            return {
+                "sys_status": None,
+                "is_error": None,
+                "fpb_error": None,
+                "read_err": None,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
 
     def home(self, axes: dict[str, Axis]) -> None:
         """Home all axes through one PLC HOME command."""

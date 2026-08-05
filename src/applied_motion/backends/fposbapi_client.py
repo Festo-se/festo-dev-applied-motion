@@ -193,9 +193,7 @@ class FPosBAPIClient:
         if fields[0] != str(msg_id):
             raise FPosBAPICommunicationError(f"MSG_ID mismatch: sent {msg_id}, got {fields[0]!r} in {terminal!r}")
         if fields[1] != command:
-            raise FPosBAPICommunicationError(
-                f"CMD echo mismatch: sent {command!r}, got {fields[1]!r} in {terminal!r}"
-            )
+            raise FPosBAPICommunicationError(f"CMD echo mismatch: sent {command!r}, got {fields[1]!r} in {terminal!r}")
         if fields[-1] != "SUCCESS":
             raise FPosBAPICommandError(f"FPosBAPI error response: {terminal}")
 

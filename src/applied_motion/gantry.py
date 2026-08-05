@@ -4,21 +4,13 @@
 """Festo gantry axis and multi-axis gantry abstractions.
 
 This module provides :class:`Gantry`, which coordinates one or more axes
-for sequential or concurrent positioning, and re-exports the axis backends for
-convenience.
-
-Two axis backends are available:
-
-* :class:`~applied_motion.backends.edcon_axis.EdconAxis` — direct Modbus TCP
-  connection to an individual CMMT/CMMT-ST drive via ``festo-edcon``.
-* :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` — TCP socket
-  connection to a CECC-X PLC running the FPosBAPI CoDeSys server.
+for sequential or concurrent positioning.
 
 Use :meth:`Gantry.from_config` to instantiate the correct backend
 automatically from a JSON configuration dict or file.
 """
 
-from typing import Iterator, TypedDict, cast
+from typing import Iterator, TypedDict
 
 import logging
 from copy import deepcopy
@@ -28,11 +20,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from applied_motion.backends.axis_protocol import Axis
-from applied_motion.config import GantryConfig, SystemConfig
-from applied_motion.backends.fposbapi_axis import FPosBAxis
-from applied_motion.backends.fposbapi_client import FPosBAPIClient
-from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend, GantryBackend, ModbusGantryBackend
-from applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.gantry_backend import ControllerDiagnostics, GantryBackend
+from applied_motion.gantry_factory import build_gantry_from_config
 
 
 logger = logging.getLogger(__name__)
@@ -104,9 +93,11 @@ class Gantry:
 
     def __init__(
         self,
-        axes: AxisMap,
+        axes: AxisMap | None = None,
         concurrent_axes: AxisMap | None = None,
         *,
+        config: dict | str | Path | None = None,
+        name: str = "gantry_1",
         _backend: GantryBackend | None = None,
     ) -> None:
         """Initialise the gantry with the provided axis mapping.
@@ -124,127 +115,43 @@ class Gantry:
             concurrent_axes: Optional dict of axes that are allowed to move
                 simultaneously.  Pass ``None`` (default) to disable concurrent
                 grouping.
+            config: Optional configuration dict or JSON file path. When
+                provided, the gantry builds axes and backend from config and
+                ignores ``axes`` / ``concurrent_axes``.
+            name: Gantry component name to load from ``config``.
             _backend: Internal backend strategy object that owns backend-
                 specific gantry behavior.
         """
+        if config is not None:
+            if axes is not None or concurrent_axes is not None or _backend is not None:
+                raise ValueError("Pass either config or axes/concurrent_axes, not both")
+            build = build_gantry_from_config(config, name)
+            axes = build.axes
+            concurrent_axes = build.concurrent_axes
+            _backend = build.backend
+
+        if axes is None:
+            raise ValueError("axes must be provided when config is not supplied")
+
         self.axes = axes
         self.concurrent_axes = concurrent_axes
-        self._backend = _backend or ModbusGantryBackend()
+        self._backend = _backend
         logger.info("Gantry: initialized with axes=%s", list(axes.keys()))
         if concurrent_axes:
             logger.debug("Gantry: concurrent axes=%s", list(concurrent_axes.keys()))
 
     @classmethod
-    def from_config(cls, config: dict | Path, name: str = "gantry_1") -> "Gantry":
+    def from_config(cls, config: dict | str | Path, name: str = "gantry_1") -> "Gantry":
         """Instantiate a :class:`Gantry` from a configuration dict or JSON file.
 
-        Reads the ``backend`` key (defaults to ``"modbus"`` when absent for
-        backward compatibility with spec version 1.0 configs) and creates the
-        appropriate axis instances:
-
-        * ``"modbus"`` — creates :class:`EdconAxis` instances, one per axis
-          entry, using the ``ip`` field from each axis config.
-        * ``"fposbapi"`` — creates one shared
-          :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient` from the
-                    component ``interface`` block, then creates
-          :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` instances
-          using the ``index`` field from each axis config.
-
-        Config schema (JSON):
-
-        .. code-block:: json
-
-            {
-                "components": {
-                    "gantry_1": {
-                        "backend": "modbus",
-                        "axes": {
-                            "X": {"name": "X", "ip": "192.168.0.193"}
-                        },
-                        "axis_order": ["X"],
-                        "concurrent_axes": null
-                    }
-                }
-            }
-
-        FPosBAPI variant:
-
-        .. code-block:: json
-
-            {
-                "components": {
-                    "gantry_1": {
-                        "backend": "fposbapi",
-                        "interface": {"type":"tcp/ip","ip": "192.168.10.10", "port": 1234},
-                        "axes": {
-                            "X": {"name": "X", "index": 1},
-                            "Y": {"name": "Y", "index": 2},
-                            "Z": {"name": "Z", "index": 3}
-                        },
-                        "axis_order": ["X", "Y", "Z"],
-                        "concurrent_axes": null
-                    }
-                }
-            }
-
         Args:
-            config: Either a :class:`dict` containing the parsed configuration,
-                or a :class:`~pathlib.Path` to a JSON file on disk.
-            name: Unique key/name of gantry in config file. Used to select intended gantry.
+            config: Parsed configuration mapping or JSON file path.
+            name: Component name to load from config.
 
         Returns:
-            A fully initialised :class:`Gantry` with axes created for the
-            specified backend.
-
-        Raises:
-            ValueError: If ``backend`` is set to an unrecognised value.
-            OSError: (FPosBAPI only) If the TCP connection to the CECC-X cannot
-                be established.
+            Initialised :class:`Gantry` instance.
         """
-        gcfg = GantryConfig(SystemConfig(config)(), name)
-
-        if gcfg.backend == "modbus":
-            axes: AxisMap = {
-                axis_name: EdconAxis(
-                    name=gcfg.axes_cfg[axis_name]["name"],
-                    ip=gcfg.axes_cfg[axis_name]["ip"],
-                    run_referencing=gcfg.axes_cfg[axis_name].get("run_referencing", False),
-                )
-                for axis_name in gcfg.axis_order
-            }
-            concurrent_axes: AxisMap | None = (
-                {axis_name: axes[axis_name] for axis_name in gcfg.concurrent_raw if axis_name in axes}
-                if gcfg.concurrent_raw
-                else None
-            )
-            logger.info("Gantry.from_config: backend=modbus axes=%s", gcfg.axis_order)
-            return cls(axes=axes, concurrent_axes=concurrent_axes, _backend=ModbusGantryBackend())
-
-        # fposbapi
-        conn = cast(dict, gcfg.interface)  # non-None guaranteed by GantryConfig._validate_fposbapi_config
-        client_kwargs = {"timeout": conn["timeout"]} if "timeout" in conn else {}
-        client = FPosBAPIClient(ip=conn["ip"], port=conn.get("port", 1234), **client_kwargs)
-        backend_handler = FPosBAPIGantryBackend(client)
-        try:
-            client.send_command("ENABLE")
-            fposb_axes: AxisMap = {
-                axis_name: FPosBAxis(
-                    name=gcfg.axes_cfg[axis_name]["name"],
-                    index=gcfg.axes_cfg[axis_name]["index"],
-                    client=client,
-                )
-                for axis_name in gcfg.axis_order
-            }
-            fposb_concurrent: AxisMap | None = (
-                {axis_name: fposb_axes[axis_name] for axis_name in gcfg.concurrent_raw if axis_name in fposb_axes}
-                if gcfg.concurrent_raw
-                else None
-            )
-            logger.info("Gantry.from_config: backend=fposbapi axes=%s", gcfg.axis_order)
-            return cls(axes=fposb_axes, concurrent_axes=fposb_concurrent, _backend=backend_handler)
-        except Exception:
-            backend_handler.close()
-            raise
+        return cls(config=config, name=name)
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the gantry."""
@@ -271,22 +178,22 @@ class Gantry:
             and self._backend_identity() == other._backend_identity()
         )
 
-    def _backend_identity(self) -> tuple[type[GantryBackend], tuple[str, int] | None]:
-        """Return stable backend identity fields used by :meth:`__eq__`.
+    def __hash__(self) -> int:
+        """Return a hash derived from gantry identity fields."""
+        axis_identity = tuple(self.axes.keys())
+        concurrent_identity = tuple(self.concurrent_axes.keys()) if self.concurrent_axes is not None else None
+        return hash((axis_identity, concurrent_identity, self._backend_identity()))
 
-        For Modbus backends, identity is simply the backend type.
-        For FPosBAPI backends, identity also includes the controller endpoint
-        ``(ip, port)`` so gantries targeting different PLCs are not considered
-        equal even when axis mappings match.
+    def _backend_identity(self) -> tuple[type[object], tuple[str, int] | None]:
+        """Return stable backend identity fields used by :meth:`__eq__`.
 
         Returns:
             Tuple of backend type and optional ``(ip, port)`` endpoint.
         """
-        client = self._backend.client
-        endpoint: tuple[str, int] | None = None
-        if client is not None:
-            endpoint = (client.ip, client.port)
-        return type(self._backend), endpoint
+        if self._backend is None:
+            return type(None), None
+
+        return self._backend.backend_identity()
 
     def __len__(self) -> int:
         """Return the number of axes registered with this gantry."""
@@ -458,7 +365,11 @@ class Gantry:
         For the **Modbus backend**, iterates over every axis in insertion
         order and calls :meth:`Axis.home` on each one sequentially.
         """
-        self._backend.home(self.axes)
+        if self._backend is None:
+            for axis in self.axes.values():
+                axis.home()
+        else:
+            self._backend.home(self.axes)
         logger.info("Gantry.home: complete")
 
     def close(self) -> None:
@@ -466,7 +377,8 @@ class Gantry:
 
         Safe to call multiple times.
         """
-        self._backend.close()
+        if self._backend is not None:
+            self._backend.close()
 
     def __enter__(self) -> "Gantry":
         """Return self for context-manager support."""
@@ -478,6 +390,8 @@ class Gantry:
 
     def supports_teach(self) -> bool:
         """Return whether PLC teaching commands are supported by this backend."""
+        if self._backend is None:
+            return False
         return self._backend.supports_teach()
 
     def teach_pos(self, pos_id: int) -> None:
@@ -489,6 +403,8 @@ class Gantry:
         Raises:
             NotImplementedError: If backend does not support PLC teaching.
         """
+        if self._backend is None:
+            raise NotImplementedError("teach_pos is only available for FPosBAPI backend")
         self._backend.teach_pos(pos_id)
 
     def teach_tray(self, tray_id: int, tray_pos: int) -> None:
@@ -501,10 +417,14 @@ class Gantry:
         Raises:
             NotImplementedError: If backend does not support PLC teaching.
         """
+        if self._backend is None:
+            raise NotImplementedError("teach_tray is only available for FPosBAPI backend")
         self._backend.teach_tray(tray_id, tray_pos)
 
     def list_commands(self) -> list[str]:
         """Return backend command list when available."""
+        if self._backend is None:
+            return []
         return self._backend.list_commands()
 
     def _collect_axis_status(self, axis_name: str, axis: Axis) -> AxisStatus:
@@ -548,18 +468,20 @@ class Gantry:
             "read_err": None,
             "error": None,
         }
-        client = self._backend.client
-        if client is None:
+        if self._backend is None:
             return controller_status
 
-        try:
-            controller_status["sys_status"] = client.sys_status()
-            controller_status["is_error"] = client.is_error()
-            controller_status["fpb_error"] = client.fpb_error()
-            controller_status["read_err"] = client.read_err()
-        except Exception as exc:
-            controller_status["error"] = f"{type(exc).__name__}: {exc}"
-            logger.exception("Gantry.get_status: failed to query controller diagnostics")
+        backend_diagnostics: ControllerDiagnostics | None = self._backend.controller_diagnostics()
+        if backend_diagnostics is None:
+            return controller_status
+
+        controller_status["sys_status"] = backend_diagnostics["sys_status"]
+        controller_status["is_error"] = backend_diagnostics["is_error"]
+        controller_status["fpb_error"] = backend_diagnostics["fpb_error"]
+        controller_status["read_err"] = backend_diagnostics["read_err"]
+        controller_status["error"] = backend_diagnostics["error"]
+        if controller_status["error"] is not None:
+            logger.error("Gantry.get_status: backend controller diagnostics failed: %s", controller_status["error"])
         return controller_status
 
     def _build_status_summary(
@@ -617,7 +539,7 @@ class Gantry:
         summary = self._build_status_summary(axis_statuses, controller_status)
 
         status: GantryStatus = {
-            "backend": type(self._backend).__name__,
+            "backend": "ModbusGantryBackend" if self._backend is None else type(self._backend).__name__,
             "supports_teach": self.supports_teach(),
             "axes": axis_statuses,
             "summary": summary,
