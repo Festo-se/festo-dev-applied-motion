@@ -18,7 +18,7 @@ Use :meth:`Gantry.from_config` to instantiate the correct backend
 automatically from a JSON configuration dict or file.
 """
 
-from typing import Iterator, cast
+from typing import Iterator, TypedDict, cast
 
 import logging
 from copy import deepcopy
@@ -38,6 +38,47 @@ from applied_motion.backends.edcon_axis import EdconAxis
 logger = logging.getLogger(__name__)
 
 AxisMap = dict[str, Axis]
+
+
+class AxisStatus(TypedDict):
+    """Per-axis status payload returned by :meth:`Gantry.get_status`."""
+
+    position_mm: float | None
+    is_homed: bool | None
+    is_stopped: bool | None
+    ready_for_motion: bool | None
+    error: str | None
+
+
+class ControllerStatus(TypedDict):
+    """Controller diagnostics payload returned by :meth:`Gantry.get_status`."""
+
+    sys_status: str | None
+    is_error: bool | None
+    fpb_error: str | None
+    read_err: str | None
+    error: str | None
+
+
+class GantryStatusSummary(TypedDict):
+    """Aggregate gantry health values returned by :meth:`Gantry.get_status`."""
+
+    axis_count: int
+    all_homed: bool
+    all_stopped: bool
+    all_ready_for_motion: bool
+    healthy: bool
+    axis_errors: dict[str, str]
+
+
+class GantryStatus(TypedDict):
+    """Top-level status payload returned by :meth:`Gantry.get_status`."""
+
+    backend: str
+    supports_teach: bool
+    axes: dict[str, AxisStatus]
+    summary: GantryStatusSummary
+    controller: ControllerStatus
 
 
 class MovementError(Exception):
@@ -441,7 +482,7 @@ class Gantry:
         """Return backend command list when available."""
         return self._backend.list_commands()
 
-    def _collect_axis_status(self, axis_name: str, axis: Axis) -> dict[str, object]:
+    def _collect_axis_status(self, axis_name: str, axis: Axis) -> AxisStatus:
         """Return status details for one axis.
 
         Args:
@@ -451,7 +492,7 @@ class Gantry:
         Returns:
             Mapping with position, homing/motion flags, and optional error.
         """
-        axis_state: dict[str, object] = {
+        axis_state: AxisStatus = {
             "position_mm": None,
             "is_homed": None,
             "is_stopped": None,
@@ -468,14 +509,14 @@ class Gantry:
             logger.exception("Gantry.get_status: failed to query axis '%s'", axis_name)
         return axis_state
 
-    def _collect_controller_status(self) -> dict[str, object]:
+    def _collect_controller_status(self) -> ControllerStatus:
         """Return backend controller diagnostics when available.
 
         Returns:
             Mapping with PLC diagnostics fields. For backends without a
             shared controller client, all diagnostic fields remain ``None``.
         """
-        controller_status: dict[str, object] = {
+        controller_status: ControllerStatus = {
             "sys_status": None,
             "is_error": None,
             "fpb_error": None,
@@ -498,9 +539,9 @@ class Gantry:
 
     def _build_status_summary(
         self,
-        axis_statuses: dict[str, dict[str, object]],
-        controller_status: dict[str, object],
-    ) -> dict[str, object]:
+        axis_statuses: dict[str, AxisStatus],
+        controller_status: ControllerStatus,
+    ) -> GantryStatusSummary:
         """Build aggregate gantry health values from axis/controller status.
 
         Args:
@@ -530,7 +571,7 @@ class Gantry:
             "axis_errors": axis_errors,
         }
 
-    def get_status(self) -> dict[str, object]:
+    def get_status(self) -> GantryStatus:
         """Return a comprehensive status snapshot for the gantry.
 
         The returned mapping combines per-axis health, aggregate summary
@@ -553,7 +594,7 @@ class Gantry:
         controller_status = self._collect_controller_status()
         summary = self._build_status_summary(axis_statuses, controller_status)
 
-        status: dict[str, object] = {
+        status: GantryStatus = {
             "backend": type(self._backend).__name__,
             "supports_teach": self.supports_teach(),
             "axes": axis_statuses,
