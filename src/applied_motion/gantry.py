@@ -90,14 +90,14 @@ class AxisNotFoundError(MovementError):
 
 
 class Gantry:
-    """Coordinate multiple :class:`EdconAxis` objects as a single gantry.
+    """Coordinate multiple axis objects as a single gantry.
 
     Dispatches sequential or concurrent move commands to the individual
     axes and provides convenience methods for homing, status queries, and
     position readback.
 
     Attributes:
-        axes: Mapping of axis name → :class:`EdconAxis` for all registered axes.
+        axes: Mapping of axis name → axis instance for all registered axes.
         concurrent_axes: Optional mapping of axes that may move simultaneously.
             When ``None``, no concurrent grouping is applied.
     """
@@ -146,7 +146,7 @@ class Gantry:
           entry, using the ``ip`` field from each axis config.
         * ``"fposbapi"`` — creates one shared
           :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient` from the
-          top-level ``connection`` block, then creates
+                    component ``interface`` block, then creates
           :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` instances
           using the ``index`` field from each axis config.
 
@@ -155,13 +155,15 @@ class Gantry:
         .. code-block:: json
 
             {
-                "backend": "modbus",
-                "axes": {
-                    "X": {"name": "X", "ip": "192.168.0.193"}
-                },
-                "gantry": {
-                    "axis_order": ["X"],
-                    "concurrent_axes": null
+                "components": {
+                    "gantry_1": {
+                        "backend": "modbus",
+                        "axes": {
+                            "X": {"name": "X", "ip": "192.168.0.193"}
+                        },
+                        "axis_order": ["X"],
+                        "concurrent_axes": null
+                    }
                 }
             }
 
@@ -170,16 +172,18 @@ class Gantry:
         .. code-block:: json
 
             {
-                "backend": "fposbapi",
-                "interface": {"type":"tcp/ip","ip": "192.168.10.10", "port": 1234},
-                "axes": {
-                    "X": {"name": "X", "index": 1},
-                    "Y": {"name": "Y", "index": 2},
-                    "Z": {"name": "Z", "index": 3}
-                },
-                "gantry": {
-                    "axis_order": ["X", "Y", "Z"],
-                    "concurrent_axes": null
+                "components": {
+                    "gantry_1": {
+                        "backend": "fposbapi",
+                        "interface": {"type":"tcp/ip","ip": "192.168.10.10", "port": 1234},
+                        "axes": {
+                            "X": {"name": "X", "index": 1},
+                            "Y": {"name": "Y", "index": 2},
+                            "Z": {"name": "Z", "index": 3}
+                        },
+                        "axis_order": ["X", "Y", "Z"],
+                        "concurrent_axes": null
+                    }
                 }
             }
 
@@ -194,7 +198,6 @@ class Gantry:
 
         Raises:
             ValueError: If ``backend`` is set to an unrecognised value.
-            KeyError: If required config fields are missing.
             OSError: (FPosBAPI only) If the TCP connection to the CECC-X cannot
                 be established.
         """
@@ -249,18 +252,41 @@ class Gantry:
         return f"Gantry({axis_names!r})"
 
     def __eq__(self, other: object) -> bool:
-        """Return True when *other* has the same axes and concurrent-axis configuration.
+        """Return True when *other* represents the same gantry identity.
 
         Args:
             other: Object to compare against.
 
         Returns:
             ``True`` if *other* is a :class:`Gantry` with equal ``axes``
-            and ``concurrent_axes`` mappings; ``False`` otherwise.
+            and ``concurrent_axes`` mappings *and* the same backend/controller
+            identity; ``False`` otherwise.
         """
         if not isinstance(other, Gantry):
             return NotImplemented
-        return self.axes == other.axes and self.concurrent_axes == other.concurrent_axes
+
+        return (
+            self.axes == other.axes
+            and self.concurrent_axes == other.concurrent_axes
+            and self._backend_identity() == other._backend_identity()
+        )
+
+    def _backend_identity(self) -> tuple[type[GantryBackend], tuple[str, int] | None]:
+        """Return stable backend identity fields used by :meth:`__eq__`.
+
+        For Modbus backends, identity is simply the backend type.
+        For FPosBAPI backends, identity also includes the controller endpoint
+        ``(ip, port)`` so gantries targeting different PLCs are not considered
+        equal even when axis mappings match.
+
+        Returns:
+            Tuple of backend type and optional ``(ip, port)`` endpoint.
+        """
+        client = self._backend.client
+        endpoint: tuple[str, int] | None = None
+        if client is not None:
+            endpoint = (client.ip, client.port)
+        return type(self._backend), endpoint
 
     def __len__(self) -> int:
         """Return the number of axes registered with this gantry."""
@@ -315,14 +341,14 @@ class Gantry:
     def _single_move(self, movement: dict, timeout: int | None = None) -> int:
         """Execute one movement dict and return an integer result code.
 
-        Pops the sole ``{axis_name: kinematic_params}`` entry from *movement*
-        and delegates to :meth:`EdconAxis.move`.
+        Extracts the sole ``{axis_name: kinematic_params}`` entry from
+        *movement* and delegates to :meth:`Axis.move`.
 
         Args:
             movement: Single-item dict mapping an axis name to its kinematic
-                parameter dict.  The dict is mutated (item is popped).
+                parameter dict.
             timeout: Optional per-move time limit in seconds forwarded to
-                :meth:`EdconAxis.move`.
+                :meth:`Axis.move`.
 
         Returns:
             ``0`` on success, ``1`` on failure.
@@ -334,9 +360,8 @@ class Gantry:
 
         logger.debug("Gantry._single_move: axis=%s params=%s timeout=%s", axis_name, kinematic_params, timeout)
         try:
-            self.axes[axis_name].move(**kinematic_params, timeout=timeout)
-            success = True  # self.axes[axis_name].wait_for_position_motion_execution()
-            move_result = int(not (success))
+            success = self.axes[axis_name].move(**kinematic_params, timeout=timeout)
+            move_result = int(not success)
             logger.debug("Gantry._single_move: axis=%s result=%s", axis_name, move_result)
         except KeyError as e:
             logger.error("Gantry._single_move: axis=%s not found in gantry axes", axis_name)
@@ -431,7 +456,7 @@ class Gantry:
         CECC-X PLC which homes all axes in a coordinated sequence.
 
         For the **Modbus backend**, iterates over every axis in insertion
-        order and calls :meth:`EdconAxis.home` on each one sequentially.
+        order and calls :meth:`Axis.home` on each one sequentially.
         """
         self._backend.home(self.axes)
         logger.info("Gantry.home: complete")
@@ -587,10 +612,7 @@ class Gantry:
             - ``summary``: Aggregate booleans and counts.
             - ``controller``: PLC/controller diagnostics (for FPosBAPI).
         """
-        axis_statuses = {
-            axis_name: self._collect_axis_status(axis_name, axis)
-            for axis_name, axis in self.axes.items()
-        }
+        axis_statuses = {axis_name: self._collect_axis_status(axis_name, axis) for axis_name, axis in self.axes.items()}
         controller_status = self._collect_controller_status()
         summary = self._build_status_summary(axis_statuses, controller_status)
 
