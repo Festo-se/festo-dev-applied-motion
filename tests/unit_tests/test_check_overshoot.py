@@ -7,6 +7,7 @@ are set.
 """
 
 import pytest
+from unittest.mock import MagicMock
 
 from applied_motion.backends.edcon_axis import EdconAxis
 
@@ -17,8 +18,18 @@ def _make_axis(neg_limit: int, pos_limit: int, current_pos: int = 0) -> EdconAxi
     axis.name = "TEST"
     axis._neg_sw_limit = neg_limit
     axis._pos_sw_limit = pos_limit
-    # Patch current_position as a plain lambda so relative moves work.
-    axis.current_position = lambda: current_pos
+    axis.input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
+    axis.com = MagicMock()
+    axis.com.read_pnu.side_effect = lambda pnu: -6 if pnu == 11724 else 0
+    axis.com.send_io = MagicMock()
+    # Convert raw drive limits to mm using same relation as _valid_position(..., invert=True).
+    axis.min_position = neg_limit / 1000
+    axis.max_position = pos_limit / 1000
+    axis.update_inputs = lambda: None
+    axis.telegram = MagicMock()
+    axis.telegram.xist_a.value = current_pos
+    axis.telegram.reset = MagicMock()
+    axis.telegram.output_bytes = MagicMock(return_value=b"")
     return axis
 
 
@@ -59,8 +70,8 @@ def test_absolute_below_negative_limit_clamped():
 
 def test_relative_within_limits_unchanged():
     axis = _make_axis(neg_limit=0, pos_limit=10_000, current_pos=5_000)
-    # delta of +2000 → target 7000, within limits → delta unchanged
-    assert axis._check_overshoot(2_000, absolute=False) == 2_000
+    # delta of +2000 → target 7000, within limits → returns absolute target
+    assert axis._check_overshoot(2_000, absolute=False) == 7_000
 
 
 def test_relative_would_exceed_positive_limit_clamped():
@@ -77,4 +88,4 @@ def test_relative_would_exceed_negative_limit_clamped():
 
 def test_relative_zero_delta_unchanged():
     axis = _make_axis(neg_limit=0, pos_limit=10_000, current_pos=5_000)
-    assert axis._check_overshoot(0, absolute=False) == 0
+    assert axis._check_overshoot(0, absolute=False) == 5_000

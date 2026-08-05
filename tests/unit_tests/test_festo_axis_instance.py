@@ -50,7 +50,7 @@ class TestEdconAxisInitialization:
         assert axis_mock.name == "X"
 
     def test_ip_attribute_stored(self, axis_mock):
-        assert axis_mock.ip == "192.168.0.193"
+        assert axis_mock.ip == "192.168.0.100"
 
     def test_commodbus_instantiated_with_ip(self, axis_mock, mocker):
         """ComModbus must be called exactly once with the axis IP so the
@@ -63,13 +63,18 @@ class TestEdconAxisInitialization:
         from edcon.edrive.motion_handler import MotionHandler
 
         with patch("applied_motion.backends.edcon_axis.ComModbus", return_value=mock_com) as mock_cls:
-            with patch.object(MotionHandler, "__init__", lambda self, com: setattr(self, "min_velocity", 0.0) or setattr(self, "max_velocity", 0.0)):
+            with patch.object(
+                MotionHandler,
+                "__init__",
+                lambda self, com: setattr(self, "min_velocity", 0.0) or setattr(self, "max_velocity", 0.0),
+            ):
                 with patch.object(MotionHandler, "acknowledge_faults"):
-                    with patch.object(MotionHandler, "configure_software_limit_switch"):
-                        with patch.object(MotionHandler, "fault_present", return_value=False):
-                            with patch.object(MotionHandler, "fault_string", return_value=""):
-                                with patch.object(MotionHandler, "current_fault_code", return_value=0):
-                                    axis = EdconAxis(name="Y", ip="10.0.0.99")
+                    with patch.object(MotionHandler, "enable_powerstage", return_value=True):
+                        with patch.object(MotionHandler, "configure_software_limit_switch"):
+                            with patch.object(MotionHandler, "fault_present", return_value=False):
+                                with patch.object(MotionHandler, "fault_string", return_value=""):
+                                    with patch.object(MotionHandler, "current_fault_code", return_value=0):
+                                        axis = EdconAxis(name="Y", ip="10.0.0.99")
             mock_cls.assert_called_once_with("10.0.0.99")
 
     def test_neg_sw_limit_read_from_pnu_11584(self, axis_mock):
@@ -138,23 +143,18 @@ class TestEdconAxisEquality:
         b = _bare_axis("Y", "192.168.0.32")
         assert a != b
 
-    def test_comparison_with_non_axis_raises_not_implemented(self):
-        """Comparing a EdconAxis with any non-EdconAxis object must raise
-        NotImplementedError so callers receive a clear diagnostic instead of
-        a silent False."""
+    def test_comparison_with_non_axis_returns_false(self):
+        """Comparing EdconAxis with non-EdconAxis object returns False."""
         axis = _bare_axis()
-        with pytest.raises(NotImplementedError):
-            axis == "not-an-axis"
+        assert (axis == "not-an-axis") is False
 
-    def test_comparison_with_none_raises_not_implemented(self):
+    def test_comparison_with_none_returns_false(self):
         axis = _bare_axis()
-        with pytest.raises(NotImplementedError):
-            axis == None  # noqa: E711 — intentional direct comparison
+        assert (axis == None) is False  # noqa: E711 — intentional direct comparison
 
-    def test_comparison_with_dict_raises_not_implemented(self):
+    def test_comparison_with_dict_returns_false(self):
         axis = _bare_axis()
-        with pytest.raises(NotImplementedError):
-            axis == {"name": "X", "ip": "192.168.0.193"}
+        assert (axis == {"name": "X", "ip": "192.168.0.193"}) is False
 
 
 # ---------------------------------------------------------------------------

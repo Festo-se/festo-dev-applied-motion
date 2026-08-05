@@ -89,9 +89,10 @@ _DEFAULT_FPOSBAPI_PORT = 1234
 _DEFAULT_FPOSBAPI_TIMEOUT_S = 5.0
 
 # PNU addresses used by EdconAxis during construction and unit-conversion
-_PNU_NEG_SW_LIMIT = 11584
-_PNU_POS_SW_LIMIT = 11585
-#TODO: Update?
+_PNU_NEG_SW_LIMIT = 834
+_PNU_POS_SW_LIMIT = 835
+_PNU_MIN_VEL = 11212
+_PNU_MAX_VEL = 11213
 _PNU_POS_UNIT_SCALE = 11724
 _PNU_VEL_UNIT_SCALE = 11725
 
@@ -144,6 +145,8 @@ def axis_mock(mocker):
     mock_com.read_pnu.side_effect = lambda pnu: {
         _PNU_NEG_SW_LIMIT: _MOCK_NEG_SW_LIMIT,
         _PNU_POS_SW_LIMIT: _MOCK_POS_SW_LIMIT,
+        _PNU_MIN_VEL: _MOCK_MIN_VELOCITY,
+        _PNU_MAX_VEL: _MOCK_MAX_VELOCITY,
         _PNU_POS_UNIT_SCALE: -6,
         _PNU_VEL_UNIT_SCALE: -3,
     }.get(pnu, 0)
@@ -158,6 +161,7 @@ def axis_mock(mocker):
 
     mocker.patch.object(MotionHandler, "__init__", _fake_mh_init)
     mocker.patch.object(MotionHandler, "acknowledge_faults")
+    mocker.patch.object(MotionHandler, "enable_powerstage", return_value=True)
     mocker.patch.object(MotionHandler, "configure_software_limit_switch")
     mocker.patch.object(MotionHandler, "fault_present", return_value=False)
     mocker.patch.object(MotionHandler, "fault_string", return_value="OK")

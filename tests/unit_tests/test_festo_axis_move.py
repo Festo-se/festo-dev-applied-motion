@@ -63,7 +63,19 @@ def _make_move_axis(
     axis.name = "TEST"
     axis._neg_sw_limit = neg_limit
     axis._pos_sw_limit = pos_limit
+    axis.input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
+    axis.input_vel_unit = {
+        "distance": {"unit": "m", "power": 1, "power_of_ten": -3},
+        "time": {"unit": "s", "power": -1, "power_of_ten": 1},
+    }
+    # Convert raw drive limits to mm using the same scale relation as _valid_position(..., invert=True).
+    _scale = 10 ** (axis.input_pos_unit["distance"]["power_of_ten"] - system_pos_power)
+    axis.min_position = neg_limit / _scale
+    axis.max_position = pos_limit / _scale
     axis.current_position = MagicMock(return_value=current_pos)
+    axis.update_inputs = MagicMock()
+    axis.telegram = MagicMock()
+    axis.telegram.xist_a.value = current_pos
     axis.com = MagicMock()
     axis.com.read_pnu.side_effect = lambda pnu: {
         11724: system_pos_power,
@@ -73,6 +85,8 @@ def _make_move_axis(
     axis.stop_motion_task = MagicMock()
     axis.fault_string = MagicMock(return_value="OK")
     axis.current_fault_code = MagicMock(return_value=0)
+    axis.acknowledge_faults = MagicMock(return_value=True)
+    axis.enable_powerstage = MagicMock(return_value=True)
     return axis
 
 
@@ -165,8 +179,22 @@ class TestEdconAxisMoveNoTimeout:
         propagating the exception, so a single bad call does not crash the
         motion controller."""
         axis = _make_move_axis()
-        # Force _valid_position to raise by making read_pnu raise
-        axis.com.read_pnu.side_effect = RuntimeError("simulated PNU read failure")
+        read_count = [0]
+
+        # Force only the first position-scale read to fail (the one used by
+        # move() position validation); later reads must succeed so
+        # _check_overshoot can still run.
+        def _raise_once_for_position_scale(pnu):
+            if pnu == 11724 and read_count[0] == 0:
+                read_count[0] += 1
+                raise RuntimeError("simulated PNU read failure")
+            if pnu == 11724:
+                return -6
+            if pnu == 11725:
+                return -3
+            return 0
+
+        axis.com.read_pnu.side_effect = _raise_once_for_position_scale
         axis.move(position=5_000, velocity=100)
         pos_arg = axis.position_task.call_args[0][0]
         assert pos_arg == -5

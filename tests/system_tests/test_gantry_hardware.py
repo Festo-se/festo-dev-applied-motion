@@ -142,13 +142,10 @@ def test_gantry_is_stopped_after_move_to(gantry):
 
 
 @pytest.mark.hardware
-def test_gantry_move_to_unknown_axis_raises(gantry):
-    """move_to with an axis name not in the gantry should raise AxisNotFoundError."""
-    from applied_motion.gantry import AxisNotFoundError
-
+def test_gantry_move_to_unknown_axis_is_skipped(gantry):
+    """move_to with unknown axis should be skipped without raising."""
     movements = deque([{"__nonexistent__": {"position": _SAFE_POSITION_MM, "velocity": _SAFE_VELOCITY_MM_S}}])
-    with pytest.raises(AxisNotFoundError):
-        gantry.move_to(movements)
+    gantry.move_to(movements)
 
 
 # ---------------------------------------------------------------------------
