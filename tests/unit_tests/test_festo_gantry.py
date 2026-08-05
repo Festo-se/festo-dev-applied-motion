@@ -8,6 +8,8 @@ Coverage areas
 * ``Gantry.is_stopped()`` — returns True only when all axes report stopped.
 * ``Gantry.is_ready_for_motion()`` — returns True only when all axes
   report ready.
+* ``Gantry.get_status()`` — returns structured per-axis, summary, and
+    backend/controller diagnostics.
 * ``Gantry.get_location()`` — returns a dict keyed by axis name whose
   values come from each axis's ``_valid_position`` / ``current_position``.
 
@@ -40,6 +42,7 @@ def _make_stub_axis(name: str, *, move_return=True) -> EdconAxis:
     axis.current_position = MagicMock(return_value=0)
     axis._valid_position = MagicMock(return_value=0.0)
     axis.get_current_axis_position = MagicMock(return_value=0.0)
+    axis.is_homed = MagicMock(return_value=True)
     axis.stopped = MagicMock(return_value=True)
     axis.ready_for_motion = MagicMock(return_value=True)
     return axis
@@ -139,6 +142,78 @@ class TestGantryStatus:
         for axis in gantry_mock._stub_axes.values():
             axis.ready_for_motion.return_value = False
         assert gantry_mock.is_ready_for_motion() is False
+
+    def test_get_status_modbus_reports_axis_and_summary_fields(self, gantry_mock):
+        for axis in gantry_mock._stub_axes.values():
+            axis.get_current_axis_position.return_value = 12.34
+            axis.stopped.return_value = True
+            axis.ready_for_motion.return_value = True
+            axis.is_homed = MagicMock(return_value=True)
+
+        status = gantry_mock.get_status()
+
+        assert status["backend"] == "ModbusGantryBackend"
+        assert status["supports_teach"] is False
+        assert set(status["axes"].keys()) == set(gantry_mock._stub_axes.keys())
+        assert status["summary"]["axis_count"] == 2
+        assert status["summary"]["all_homed"] is True
+        assert status["summary"]["all_stopped"] is True
+        assert status["summary"]["all_ready_for_motion"] is True
+        assert status["summary"]["healthy"] is True
+        assert status["summary"]["axis_errors"] == {}
+        assert status["controller"]["sys_status"] is None
+
+    def test_get_status_marks_axis_error_and_unhealthy_when_axis_query_fails(self, gantry_mock):
+        for axis in gantry_mock._stub_axes.values():
+            axis.is_homed = MagicMock(return_value=True)
+        bad_axis = gantry_mock._stub_axes[next(iter(gantry_mock._stub_axes))]
+        bad_axis.get_current_axis_position.side_effect = RuntimeError("position read failed")
+
+        status = gantry_mock.get_status()
+
+        assert status["summary"]["healthy"] is False
+        assert len(status["summary"]["axis_errors"]) == 1
+        first_axis = next(iter(status["summary"]["axis_errors"]))
+        assert "RuntimeError" in status["summary"]["axis_errors"][first_axis]
+
+    def test_get_status_fposbapi_includes_controller_diagnostics(self, gantry_fposbapi_mock):
+        for axis in gantry_fposbapi_mock._stub_axes.values():
+            axis.get_current_axis_position = MagicMock(return_value=10.0)
+            axis.is_homed = MagicMock(return_value=True)
+            axis.stopped = MagicMock(return_value=True)
+            axis.ready_for_motion = MagicMock(return_value=True)
+
+        client = gantry_fposbapi_mock._stub_client
+        client.sys_status.return_value = "IDLE"
+        client.is_error.return_value = False
+        client.fpb_error.return_value = "0"
+        client.read_err.return_value = "1, READ_ERR, 0, NULL, SUCCESS"
+
+        status = gantry_fposbapi_mock.get_status()
+
+        assert status["backend"] == "FPosBAPIGantryBackend"
+        assert status["supports_teach"] is True
+        assert status["controller"]["sys_status"] == "IDLE"
+        assert status["controller"]["is_error"] is False
+        assert status["controller"]["fpb_error"] == "0"
+        assert status["controller"]["read_err"] == "1, READ_ERR, 0, NULL, SUCCESS"
+        assert status["controller"]["error"] is None
+
+    def test_get_status_fposbapi_handles_controller_query_error(self, gantry_fposbapi_mock):
+        for axis in gantry_fposbapi_mock._stub_axes.values():
+            axis.get_current_axis_position = MagicMock(return_value=10.0)
+            axis.is_homed = MagicMock(return_value=True)
+            axis.stopped = MagicMock(return_value=True)
+            axis.ready_for_motion = MagicMock(return_value=True)
+
+        client = gantry_fposbapi_mock._stub_client
+        client.sys_status.side_effect = RuntimeError("PLC offline")
+
+        status = gantry_fposbapi_mock.get_status()
+
+        assert status["controller"]["error"] is not None
+        assert "RuntimeError" in status["controller"]["error"]
+        assert status["summary"]["healthy"] is False
 
 
 # ---------------------------------------------------------------------------

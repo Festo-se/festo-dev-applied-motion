@@ -187,6 +187,7 @@ def gantry_mock():
         axis.current_position = MagicMock(return_value=0)
         axis._valid_position = MagicMock(return_value=0.0)
         axis.get_current_axis_position = MagicMock(return_value=0.0)
+        axis.is_homed = MagicMock(return_value=True)
         axis.stopped = MagicMock(return_value=True)
         axis.ready_for_motion = MagicMock(return_value=True)
         return axis
