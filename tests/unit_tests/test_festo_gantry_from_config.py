@@ -49,9 +49,9 @@ _MODBUS_CONFIG = {
                 "backend": "modbus",
                 "axes": {
                     "X": {"name": "X", "ip": "192.168.0.193"},
-                    "Z": {"name": "Z", "ip": "192.168.0.32"},
+                    "Y": {"name": "Y", "ip": "192.168.0.32"},
                 },
-                "axis_order": ["X", "Z"],
+                "axis_order": ["X", "Y"],
                 "concurrent_axes": None,
             }
         },
@@ -145,13 +145,13 @@ def patched_fposbapi_client(mocker):
 class TestFromConfigModbus:
     def test_constructor_accepts_modbus_config_directly(self, patched_festo_axis):
         g = Gantry(config=_MODBUS_CONFIG)
-        assert list(g.axes.keys()) == ["X", "Z"]
+        assert list(g.axes.keys()) == ["X", "Y"]
         assert g.supports_teach() is False
 
     def test_creates_festo_axis_for_each_entry(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
         assert "X" in g.axes
-        assert "Z" in g.axes
+        assert "Y" in g.axes
 
     def test_axis_count_matches_config(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
@@ -165,7 +165,7 @@ class TestFromConfigModbus:
 
     def test_axis_order_respected(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
-        assert list(g.axes.keys()) == ["X", "Z"]
+        assert list(g.axes.keys()) == ["X", "Y"]
 
     def test_client_is_none_for_modbus_backend(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
@@ -185,7 +185,7 @@ class TestFromConfigModbus:
         config["component_config"]["components"]["gantry_1"]["concurrent_axes"] = ["X"]
         g = Gantry.from_config(config)
         assert "X" in g.concurrent_axes
-        assert "Z" not in g.concurrent_axes
+        assert "Y" not in g.concurrent_axes
 
     def test_no_backend_key_defaults_to_modbus(self, patched_festo_axis):
         """Config without a backend key defaults to modbus."""
@@ -338,7 +338,7 @@ class TestGantryFactoryHelpers:
 
         construction = build_modbus_gantry(_MODBUS_CONFIG)
         assert isinstance(construction, GantryConstruction)
-        assert list(construction.axes.keys()) == ["X", "Z"]
+        assert list(construction.axes.keys()) == ["X", "Y"]
 
     def test_fposbapi_factory_returns_construction_bundle(self, patched_fposbapi_client):
         from applied_motion.gantry_factory import build_fposbapi_gantry
@@ -359,7 +359,7 @@ class TestFromConfigPath:
         spec_file.write_text(json.dumps(_MODBUS_CONFIG))
         g = Gantry.from_config(spec_file)
         assert "X" in g.axes
-        assert "Z" in g.axes
+        assert "Y" in g.axes
 
     def test_loads_fposbapi_json_file(self, tmp_path, patched_fposbapi_client):
         _, mock_client = patched_fposbapi_client

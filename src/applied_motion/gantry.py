@@ -385,6 +385,75 @@ class Gantry:
 
         return next_batch
 
+    def _movement_axis_name(self, movement: object, index: int) -> str | None:
+        """Extract and validate axis name from one movement payload.
+
+        Args:
+            movement: Runtime movement payload expected to be a single-item dict.
+            index: Zero-based position of the movement in the queued batch.
+
+        Returns:
+            Axis name when payload is structurally valid, else ``None``.
+        """
+        if not isinstance(movement, dict):
+            logger.error(
+                "Gantry.move_to: malformed movement at index=%d; expected dict got=%s",
+                index,
+                type(movement).__name__,
+            )
+            return None
+
+        if len(movement) != 1:
+            logger.error(
+                "Gantry.move_to: malformed movement at index=%d; expected single axis entry got keys=%s",
+                index,
+                tuple(movement.keys()),
+            )
+            return None
+
+        axis_name = next(iter(movement))
+        if not isinstance(axis_name, str) or not axis_name:
+            logger.error(
+                "Gantry.move_to: malformed movement at index=%d; axis name must be non-empty string got=%r",
+                index,
+                axis_name,
+            )
+            return None
+
+        return axis_name
+
+    def _collect_valid_movements(self, movements: MovementBatch) -> tuple[MovementBatch, tuple[str, ...]]:
+        """Filter queued movements to entries with valid, known axis references.
+
+        Args:
+            movements: Full queued movement batch to validate.
+
+        Returns:
+            Tuple ``(valid_movements, axis_names)`` containing only entries
+            with well-formed axis specifications that reference known axes.
+        """
+        valid_movements: MovementBatch = deque()
+        axis_names: list[str] = []
+        for index, movement in enumerate(movements):
+            axis_name = self._movement_axis_name(movement, index)
+            if axis_name is None:
+                logger.warning("Gantry.move_to: skipping malformed movement at index=%d", index)
+                continue
+
+            if axis_name not in self.axes:
+                logger.warning(
+                    "Gantry.move_to: unknown axis at index=%d axis=%s known_axes=%s; skipping movement",
+                    index,
+                    axis_name,
+                    tuple(self.axes.keys()),
+                )
+                continue
+
+            valid_movements.append(movement)
+            axis_names.append(axis_name)
+
+        return valid_movements, tuple(axis_names)
+
     def move_to(
         self,
         movements: MovementBatch,
@@ -407,18 +476,30 @@ class Gantry:
                 dispatched in parallel threads.  When ``False`` (default),
                 movements are grouped using ``concurrent_axes`` and dispatched
                 sequentially.
+
+        Notes:
+            Axis references are validated before dispatch. Malformed movement
+            entries or entries for unknown axes are logged and skipped.
         """
         logger.info("Gantry.move_to: queued=%d concurrent=%s timeout=%s", len(movements), concurrent, timeout)
 
+        valid_movements, validated_axis_names = self._collect_valid_movements(movements)
+        if not valid_movements:
+            logger.warning("Gantry.move_to: no valid movement entries to dispatch")
+            return
+
+        skipped_count = len(movements) - len(valid_movements)
+        if skipped_count > 0:
+            logger.warning("Gantry.move_to: skipped %d invalid movement entrie(s)", skipped_count)
+
         if concurrent:
-            axis_names = tuple(next(iter(movement)) for movement in movements)
-            results = self._move_dispatch(movements, concurrent=concurrent, timeout=timeout)
-            self._log_move_results(axis_names, results, concurrent=True)
+            results = self._move_dispatch(valid_movements, concurrent=concurrent, timeout=timeout)
+            self._log_move_results(validated_axis_names, results, concurrent=True)
             return
         else:
             concurrent_axes = self.concurrent_axes or {}
-            while movements:
-                next_moves = self._get_next_moves(movements, concurrent_axes)
+            while valid_movements:
+                next_moves = self._get_next_moves(valid_movements, concurrent_axes)
                 axis_names = tuple(next(iter(movement)) for movement in next_moves)
                 results = self._move_dispatch(next_moves, concurrent=True, timeout=timeout)
                 self._log_move_results(axis_names, results, concurrent=False)

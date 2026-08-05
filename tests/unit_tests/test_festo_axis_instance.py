@@ -125,7 +125,7 @@ class TestEdconAxisEquality:
 
     def test_different_names_are_not_equal(self):
         a = _bare_axis("X", "192.168.0.193")
-        b = _bare_axis("Z", "192.168.0.193")
+        b = _bare_axis("Y", "192.168.0.193")
         assert a != b
 
     def test_different_ips_are_not_equal(self):
@@ -135,7 +135,7 @@ class TestEdconAxisEquality:
 
     def test_different_name_and_ip_are_not_equal(self):
         a = _bare_axis("X", "192.168.0.193")
-        b = _bare_axis("Z", "192.168.0.32")
+        b = _bare_axis("Y", "192.168.0.32")
         assert a != b
 
     def test_comparison_with_non_axis_raises_not_implemented(self):
@@ -213,5 +213,5 @@ class TestEdconAxisHash:
         Hash collisions are theoretically possible but extremely unlikely
         for typical axis configurations."""
         a = _bare_axis("X", "192.168.0.193")
-        b = _bare_axis("Z", "192.168.0.32")
+        b = _bare_axis("Y", "192.168.0.32")
         assert hash(a) != hash(b)

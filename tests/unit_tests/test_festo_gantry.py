@@ -58,7 +58,7 @@ def _make_stub_axis(name: str, *, move_return=True) -> EdconAxis:
 class TestGantryInit:
     def test_axes_stored_by_name(self, gantry_mock):
         assert "X" in gantry_mock.axes
-        assert "Z" in gantry_mock.axes
+        assert "Y" in gantry_mock.axes
 
     def test_axes_are_the_supplied_festo_axis_instances(self, gantry_mock):
         for name, axis in gantry_mock._stub_axes.items():
@@ -71,13 +71,13 @@ class TestGantryInit:
 
     def test_concurrent_axes_stored_when_provided(self):
         axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
+        axis_z = _make_stub_axis("Y")
         g = Gantry(
             axes={"X": axis_x},
-            concurrent_axes={"Z": axis_z},
+            concurrent_axes={"Y": axis_z},
         )
-        assert "Z" in g.concurrent_axes
-        assert g.concurrent_axes["Z"] is axis_z
+        assert "Y" in g.concurrent_axes
+        assert g.concurrent_axes["Y"] is axis_z
 
     def test_accepts_empty_axes_dict(self):
         """Gantry must not raise when initialised with zero axes, as
@@ -252,13 +252,13 @@ class TestGantryGetLocation:
         so mixed-position states are represented faithfully.
         """
         axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
+        axis_z = _make_stub_axis("Y")
         axis_x.get_current_axis_position.return_value = 1.0
         axis_z.get_current_axis_position.return_value = 2.0
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
+        g = Gantry(axes={"X": axis_x, "Y": axis_z})
         location = g.get_location()
         assert location["X"] == pytest.approx(1.0)
-        assert location["Z"] == pytest.approx(2.0)
+        assert location["Y"] == pytest.approx(2.0)
 
 
 # ---------------------------------------------------------------------------
@@ -296,10 +296,10 @@ class TestGantryRepr:
         assert "Gantry" in repr(g)
 
     def test_repr_contains_axis_names(self):
-        g = Gantry(axes={"X": _make_stub_axis("X"), "Z": _make_stub_axis("Z")})
+        g = Gantry(axes={"X": _make_stub_axis("X"), "Y": _make_stub_axis("Y")})
         r = repr(g)
         assert "X" in r
-        assert "Z" in r
+        assert "Y" in r
 
 
 # ---------------------------------------------------------------------------
@@ -318,9 +318,9 @@ class TestGantryEquality:
 
     def test_different_axes_are_not_equal(self):
         axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
+        axis_z = _make_stub_axis("Y")
         g1 = Gantry(axes={"X": axis_x})
-        g2 = Gantry(axes={"Z": axis_z})
+        g2 = Gantry(axes={"Y": axis_z})
         assert g1 != g2
 
     def test_comparison_with_non_gantry_returns_not_implemented(self):
@@ -333,9 +333,9 @@ class TestGantryEquality:
 
     def test_same_axes_different_concurrent_axes_are_not_equal(self):
         axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
+        axis_z = _make_stub_axis("Y")
         g1 = Gantry(axes={"X": axis_x}, concurrent_axes=None)
-        g2 = Gantry(axes={"X": axis_x}, concurrent_axes={"Z": axis_z})
+        g2 = Gantry(axes={"X": axis_x}, concurrent_axes={"Y": axis_z})
         assert g1 != g2
 
     def test_same_fposb_axes_different_controller_endpoints_are_not_equal(self):
@@ -409,7 +409,7 @@ class TestGantryCollectionProtocol:
     """Verify the collection-like interface of Gantry."""
 
     def test_len_returns_number_of_axes(self):
-        axes = {"X": _make_stub_axis("X"), "Z": _make_stub_axis("Z")}
+        axes = {"X": _make_stub_axis("X"), "Y": _make_stub_axis("Y")}
         g = Gantry(axes=axes)
         assert len(g) == 2
 
@@ -418,9 +418,9 @@ class TestGantryCollectionProtocol:
         assert len(g) == 0
 
     def test_iter_yields_axis_names(self):
-        axes = {"X": _make_stub_axis("X"), "Z": _make_stub_axis("Z")}
+        axes = {"X": _make_stub_axis("X"), "Y": _make_stub_axis("Y")}
         g = Gantry(axes=axes)
-        assert set(g) == {"X", "Z"}
+        assert set(g) == {"X", "Y"}
 
     def test_contains_returns_true_for_registered_axis(self):
         g = Gantry(axes={"X": _make_stub_axis("X")})

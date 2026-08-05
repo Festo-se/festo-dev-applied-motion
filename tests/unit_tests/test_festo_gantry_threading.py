@@ -69,13 +69,13 @@ class TestMoveDispatch:
         exactly once for every movement in the deque.
         """
         axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
+        axis_z = _make_stub_axis("Y")
+        g = Gantry(axes={"X": axis_x, "Y": axis_z})
 
         # Provide single-item dicts so _single_move can read them directly.
         movements = deque([
             {"X": dict(_PARAMS)},
-            {"Z": dict(_PARAMS)},
+            {"Y": dict(_PARAMS)},
         ])
 
         call_log: list[str] = []
@@ -89,7 +89,7 @@ class TestMoveDispatch:
         with patch.object(g, "_single_move", side_effect=_recording_single_move):
             result = g._move_dispatch(movements, concurrent=True)
 
-        assert set(call_log) == {"X", "Z"}, (
+        assert set(call_log) == {"X", "Y"}, (
             f"Expected _single_move called for X and Z, got {call_log}"
         )
 
@@ -98,10 +98,10 @@ class TestMoveDispatch:
         batch size, one entry per movement.
         """
         axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
+        axis_z = _make_stub_axis("Y")
+        g = Gantry(axes={"X": axis_x, "Y": axis_z})
 
-        movements = deque([{"X": dict(_PARAMS)}, {"Z": dict(_PARAMS)}])
+        movements = deque([{"X": dict(_PARAMS)}, {"Y": dict(_PARAMS)}])
         result = g._move_dispatch(movements, concurrent=True)
 
         assert isinstance(result, tuple), "concurrent=True path must return a tuple"
@@ -120,10 +120,10 @@ class TestMoveDispatch:
     def test_concurrent_false_processes_all_movements(self):
         """Sequential path must process every movement in the deque."""
         axis_x = _make_stub_axis("X")
-        axis_z = _make_stub_axis("Z")
-        g = Gantry(axes={"X": axis_x, "Z": axis_z})
+        axis_z = _make_stub_axis("Y")
+        g = Gantry(axes={"X": axis_x, "Y": axis_z})
 
-        movements = deque([{"X": dict(_PARAMS)}, {"Z": dict(_PARAMS)}])
+        movements = deque([{"X": dict(_PARAMS)}, {"Y": dict(_PARAMS)}])
 
         with patch.object(g, "_single_move", return_value=0) as mock_single:
             g._move_dispatch(movements, concurrent=False)
@@ -225,6 +225,60 @@ class TestSingleMove:
 
 class TestMoveToRegressions:
     """Regression coverage for move_to orchestration bugs."""
+
+    def test_invalid_axis_is_logged_and_skipped(self, caplog):
+        """Unknown axis in queued batch must be logged and skipped.
+
+        Valid movements in the same queue must still be dispatched.
+        """
+        axis_x = _make_stub_axis("X")
+        axis_y = _make_stub_axis("Y")
+        g = Gantry(axes={"X": axis_x, "Y": axis_y})
+
+        movements = deque(
+            [
+                {"X": {"position": 10, "velocity": 20}},
+                {"MISSING": {"position": 20, "velocity": 30}},
+                {"Y": {"position": 30, "velocity": 40}},
+            ]
+        )
+
+        with patch.object(g, "_move_dispatch", wraps=g._move_dispatch) as dispatch_mock:
+            with caplog.at_level(logging.WARNING):
+                g.move_to(movements, concurrent=True)
+
+        dispatch_mock.assert_called_once()
+        axis_x.move.assert_called_once_with(position=10, velocity=20, timeout=None)
+        axis_y.move.assert_called_once_with(position=30, velocity=40, timeout=None)
+        assert "unknown axis" in caplog.text
+        assert "skipping movement" in caplog.text
+
+    def test_malformed_axis_spec_is_logged_and_skipped(self, caplog):
+        """Malformed axis payload must be logged and skipped.
+
+        Valid payload entries in same queue must still dispatch.
+        """
+        axis_x = _make_stub_axis("X")
+        g = Gantry(axes={"X": axis_x})
+
+        movements = deque(
+            [
+                {"X": {"position": 10, "velocity": 20}},
+                {
+                    "X": {"position": 20, "velocity": 30},
+                    "Y": {"position": 30, "velocity": 40},
+                },
+            ]
+        )
+
+        with patch.object(g, "_move_dispatch", wraps=g._move_dispatch) as dispatch_mock:
+            with caplog.at_level(logging.WARNING):
+                g.move_to(movements, concurrent=True)
+
+        dispatch_mock.assert_called_once()
+        axis_x.move.assert_called_once_with(position=10, velocity=20, timeout=None)
+        assert "malformed movement" in caplog.text
+        assert "skipping malformed movement" in caplog.text
 
     def test_concurrent_true_dispatches_once_with_full_batch(self):
         """Regression for #6.
