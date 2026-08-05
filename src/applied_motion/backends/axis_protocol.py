@@ -10,7 +10,7 @@ from typing import Protocol, runtime_checkable
 class Axis(Protocol):
     """Structural interface for a single controllable axis.
 
-    Both :class:`~applied_motion.gantry.backend.edcon_axis.EdconAxis` (Modbus/EDCON backend) and
+    Both :class:`~applied_motion.backends.edcon_axis.EdconAxis` (Modbus/festo-edcon backend) and
     :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` (FPosBAPI backend)
     satisfy this protocol structurally — no explicit inheritance required.
 
@@ -48,10 +48,10 @@ class Axis(Protocol):
         ...
 
     def is_homed(self) -> bool:
-        """Return whether the gantry has been homed.
+        """Return whether this axis reports a valid homed/reference state.
 
         Returns:
-            ``True`` if gantry is homed/referenced; ``False`` if gantry has not been homed/referenced.
+            ``True`` if this axis is homed/referenced; ``False`` otherwise.
         """
         ...
 
@@ -92,17 +92,17 @@ class Axis(Protocol):
         incremental: bool = False,
         duration: float = 0.0,
     ) -> bool:
-        """Jog axis.
+        """Jog the axis according to backend-specific jog semantics.
 
-        Parameters:
-            jog_positive (bool): If true, jog in positive direction.
-            jog_negative (bool): If true, jog in negative direction.
-
-            duration (float): Optional duration in seconds.
-                              A duration of 0 starts the task and returns immediately.
+        Args:
+            jog_positive: When ``True``, request jog in the positive direction.
+            jog_negative: When ``True``, request jog in the negative direction.
+            incremental: Backend-specific incremental jog mode flag.
+            duration: Optional jog duration in seconds. A value of ``0``
+                starts the jog and returns immediately.
 
         Returns:
-            bool: True if succesful, False otherwise
+            ``True`` if the jog command succeeds; ``False`` otherwise.
         """
         # TODO: Implement this functionality using corresponding FPosBAPI command
 

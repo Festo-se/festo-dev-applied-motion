@@ -82,9 +82,9 @@ class FPosBAxis:
                 relative displacement.
             velocity: Move speed in mm/s.  Written to PLC parameter 103
                 (global speed) before the move.
-            timeout: Accepted for interface compatibility; not applied —
-                the socket timeout on the underlying client provides the
-                effective upper bound.
+            timeout: Optional per-command socket timeout in seconds for the
+                ``MOVE_AXIS`` request.  ``None`` means blocking mode for this
+                request.
             **kwargs: Optional keyword overrides.  Recognised keys:
 
                 - ``position_type`` (``str``): ``"absolute"`` (default) or

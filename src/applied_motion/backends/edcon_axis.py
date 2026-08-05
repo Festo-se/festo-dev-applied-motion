@@ -225,6 +225,14 @@ class EdconAxis(MotionHandler):
 
     @property
     def max_speed(self) -> float:
+        """Return largest allowed speed magnitude for this axis in mm/s.
+
+        This derives from configured signed velocity bounds and returns
+        absolute maximum magnitude, independent of direction.
+
+        Returns:
+            Maximum absolute velocity limit in mm/s.
+        """
         return max(abs(self.min_velocity), abs(self.max_velocity))
 
     def get_current_axis_position(self) -> float:
