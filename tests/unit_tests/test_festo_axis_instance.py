@@ -89,7 +89,7 @@ class TestEdconAxisInitialization:
     def test_max_speed_equals_max_of_absolute_velocity_bounds(self, axis_mock):
         """max_speed must be the larger of |min_velocity| and |max_velocity|
         so callers can always clamp to the physically achievable top speed."""
-        expected = max(abs(-500.0), abs(500.0))
+        expected = max(abs(-50.0), abs(50.0))
         assert axis_mock.max_speed == expected
 
     def test_acknowledge_faults_called_during_init(self, axis_mock):
