@@ -441,13 +441,127 @@ class Gantry:
         """Return backend command list when available."""
         return self._backend.list_commands()
 
-    def get_status(self) -> None:
-        """Return the current status of the gantry.
+    def _collect_axis_status(self, axis_name: str, axis: Axis) -> dict[str, object]:
+        """Return status details for one axis.
 
-        .. note::
-            Not yet implemented.  Returns ``None`` until the status model
-            is defined.
+        Args:
+            axis_name: Logical axis label.
+            axis: Axis instance to query.
+
+        Returns:
+            Mapping with position, homing/motion flags, and optional error.
         """
+        axis_state: dict[str, object] = {
+            "position_mm": None,
+            "is_homed": None,
+            "is_stopped": None,
+            "ready_for_motion": None,
+            "error": None,
+        }
+        try:
+            axis_state["position_mm"] = axis.get_current_axis_position()
+            axis_state["is_homed"] = axis.is_homed()
+            axis_state["is_stopped"] = axis.stopped()
+            axis_state["ready_for_motion"] = axis.ready_for_motion()
+        except Exception as exc:
+            axis_state["error"] = f"{type(exc).__name__}: {exc}"
+            logger.exception("Gantry.get_status: failed to query axis '%s'", axis_name)
+        return axis_state
+
+    def _collect_controller_status(self) -> dict[str, object]:
+        """Return backend controller diagnostics when available.
+
+        Returns:
+            Mapping with PLC diagnostics fields. For backends without a
+            shared controller client, all diagnostic fields remain ``None``.
+        """
+        controller_status: dict[str, object] = {
+            "sys_status": None,
+            "is_error": None,
+            "fpb_error": None,
+            "read_err": None,
+            "error": None,
+        }
+        client = self._backend.client
+        if client is None:
+            return controller_status
+
+        try:
+            controller_status["sys_status"] = client.sys_status()
+            controller_status["is_error"] = client.is_error()
+            controller_status["fpb_error"] = client.fpb_error()
+            controller_status["read_err"] = client.read_err()
+        except Exception as exc:
+            controller_status["error"] = f"{type(exc).__name__}: {exc}"
+            logger.exception("Gantry.get_status: failed to query controller diagnostics")
+        return controller_status
+
+    def _build_status_summary(
+        self,
+        axis_statuses: dict[str, dict[str, object]],
+        controller_status: dict[str, object],
+    ) -> dict[str, object]:
+        """Build aggregate gantry health values from axis/controller status.
+
+        Args:
+            axis_statuses: Per-axis status mapping from :meth:`get_status`.
+            controller_status: Controller diagnostics mapping.
+
+        Returns:
+            Summary mapping with aggregate booleans and axis error details.
+        """
+        all_homed = all(state["is_homed"] is True for state in axis_statuses.values())
+        all_stopped = all(state["is_stopped"] is True for state in axis_statuses.values())
+        all_ready = all(state["ready_for_motion"] is True for state in axis_statuses.values())
+        axis_errors = {name: state["error"] for name, state in axis_statuses.items() if state["error"] is not None}
+
+        healthy = all_homed and all_stopped and all_ready and not axis_errors
+        if controller_status["error"] is not None:
+            healthy = False
+        if controller_status["is_error"] is True:
+            healthy = False
+
+        return {
+            "axis_count": len(self.axes),
+            "all_homed": all_homed,
+            "all_stopped": all_stopped,
+            "all_ready_for_motion": all_ready,
+            "healthy": healthy,
+            "axis_errors": axis_errors,
+        }
+
+    def get_status(self) -> dict[str, object]:
+        """Return a comprehensive status snapshot for the gantry.
+
+        The returned mapping combines per-axis health, aggregate summary
+        booleans, and (when available) controller-level diagnostics exposed
+        by the backend's shared client.
+
+        Returns:
+            A dict with keys:
+
+            - ``backend``: Backend class name.
+            - ``supports_teach``: Whether backend supports TEACH commands.
+            - ``axes``: Mapping of axis name to status details.
+            - ``summary``: Aggregate booleans and counts.
+            - ``controller``: PLC/controller diagnostics (for FPosBAPI).
+        """
+        axis_statuses = {
+            axis_name: self._collect_axis_status(axis_name, axis)
+            for axis_name, axis in self.axes.items()
+        }
+        controller_status = self._collect_controller_status()
+        summary = self._build_status_summary(axis_statuses, controller_status)
+
+        status: dict[str, object] = {
+            "backend": type(self._backend).__name__,
+            "supports_teach": self.supports_teach(),
+            "axes": axis_statuses,
+            "summary": summary,
+            "controller": controller_status,
+        }
+        logger.debug("Gantry.get_status: %s", status)
+        return status
 
     def get_location(self) -> dict[str, float]:
         """Return the current position of every axis in millimetres.
