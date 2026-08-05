@@ -28,8 +28,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.gantry import Gantry
+from applied_motion.gantry_factory import GantryConstruction
+from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
 
@@ -117,7 +118,7 @@ _FPOSBAPI_CONFIG = {
 @pytest.fixture()
 def patched_festo_axis(mocker):
     """Patch EdconAxis so its __init__ does not open a Modbus connection."""
-    mock_cls = mocker.patch("applied_motion.gantry.EdconAxis", autospec=True)
+    mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
     mock_cls.side_effect = lambda name, ip, run_referencing=False: MagicMock(
         spec=EdconAxis, name=name, ip=ip
     )
@@ -127,7 +128,7 @@ def patched_festo_axis(mocker):
 @pytest.fixture()
 def patched_fposbapi_client(mocker):
     """Patch FPosBAPIClient so from_config does not open a TCP socket."""
-    mock_cls = mocker.patch("applied_motion.gantry.FPosBAPIClient", autospec=True)
+    mock_cls = mocker.patch("applied_motion.gantry_factory.FPosBAPIClient", autospec=True)
     mock_instance = MagicMock(spec=FPosBAPIClient)
     mock_instance.ip = "192.168.10.25"
     mock_instance.port = 1234
@@ -142,6 +143,11 @@ def patched_fposbapi_client(mocker):
 
 
 class TestFromConfigModbus:
+    def test_constructor_accepts_modbus_config_directly(self, patched_festo_axis):
+        g = Gantry(config=_MODBUS_CONFIG)
+        assert list(g.axes.keys()) == ["X", "Z"]
+        assert g.supports_teach() is False
+
     def test_creates_festo_axis_for_each_entry(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
         assert "X" in g.axes
@@ -231,6 +237,13 @@ class TestFromConfigModbus:
 
 
 class TestFromConfigFPosBAPI:
+    def test_constructor_accepts_fposbapi_config_directly(self, patched_fposbapi_client):
+        _, mock_client = patched_fposbapi_client
+        g = Gantry(config=_FPOSBAPI_CONFIG)
+        assert list(g.axes.keys()) == ["X", "Y", "Z"]
+        assert g.supports_teach() is True
+        mock_client.send_command.assert_any_call("ENABLE")
+
     def test_creates_fposbapi_client_with_correct_ip(self, patched_fposbapi_client):
         mock_cls, _ = patched_fposbapi_client
         Gantry.from_config(_FPOSBAPI_CONFIG)
@@ -319,6 +332,22 @@ class TestFromConfigFPosBAPI:
         mock_client.close.assert_called_once()
 
 
+class TestGantryFactoryHelpers:
+    def test_modbus_factory_returns_construction_bundle(self, patched_festo_axis):
+        from applied_motion.gantry_factory import build_modbus_gantry
+
+        construction = build_modbus_gantry(_MODBUS_CONFIG)
+        assert isinstance(construction, GantryConstruction)
+        assert list(construction.axes.keys()) == ["X", "Z"]
+
+    def test_fposbapi_factory_returns_construction_bundle(self, patched_fposbapi_client):
+        from applied_motion.gantry_factory import build_fposbapi_gantry
+
+        construction = build_fposbapi_gantry(_FPOSBAPI_CONFIG)
+        assert isinstance(construction, GantryConstruction)
+        assert list(construction.axes.keys()) == ["X", "Y", "Z"]
+
+
 # ---------------------------------------------------------------------------
 # from_config with Path
 # ---------------------------------------------------------------------------
@@ -348,7 +377,7 @@ class TestFromConfigPath:
     def test_loads_canonical_fposbapi_fixture(self, patched_fposbapi_client):
         """The checked-in test-gantry-spec-fposapi.json must parse without error."""
         _, _ = patched_fposbapi_client
-        fixture = Path(__file__).parent.parent / "fixtures" / "test-gantry-spec-fposapi.json"
+        fixture = Path(__file__).parent.parent / "fixtures" / "test-gantry-spec-fposbapi.json"
         g = Gantry.from_config(fixture)
         assert len(g.axes) == 3
 
@@ -372,6 +401,18 @@ class TestFromConfigInvalidBackend:
         config["component_config"]["components"]["gantry_1"]["backend"] = "opc_ua"
         with pytest.raises(ValueError, match="opc_ua"):
             Gantry.from_config(config)
+
+
+class TestConstructorValidation:
+    def test_constructor_rejects_config_plus_manual_axes(self):
+        axis = object.__new__(EdconAxis)
+        axis.name = "X"
+        with pytest.raises(ValueError, match="either config or axes"):
+            Gantry(axes={"X": axis}, config=_MODBUS_CONFIG)
+
+    def test_constructor_requires_axes_when_no_config(self):
+        with pytest.raises(ValueError, match="axes must be provided"):
+            Gantry()
 
 
 # ---------------------------------------------------------------------------

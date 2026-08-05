@@ -267,6 +267,42 @@ class Gantry:
             logger.debug("Gantry._move_dispatch: sequential results=%s", tuple(placedholder))
             return tuple(placedholder)
 
+    def _log_move_results(self, axis_names: tuple[str, ...], results: tuple[int, ...], concurrent: bool) -> None:
+        """Log the outcome of one dispatched movement batch.
+
+        Args:
+            axis_names: Axis names in dispatch order for the batch.
+            results: Integer result codes returned by :meth:`_move_dispatch`.
+            concurrent: Whether batch ran via concurrent dispatch.
+
+        Returns:
+            ``None``.
+        """
+        batch_mode = "concurrent" if concurrent else "sequential"
+        if len(axis_names) != len(results):
+            logger.error(
+                "Gantry.move_to: %s batch axis/result mismatch axes=%s results=%s",
+                batch_mode,
+                axis_names,
+                results,
+            )
+            return
+
+        failed_axes = tuple(axis for axis, result in zip(axis_names, results, strict=True) if result != 0)
+        if failed_axes:
+            logger.warning(
+                "Gantry.move_to: %s batch completed with failures axes=%s results=%s",
+                batch_mode,
+                failed_axes,
+                results,
+            )
+        else:
+            logger.info(
+                "Gantry.move_to: %s batch completed successfully axes=%s",
+                batch_mode,
+                axis_names,
+            )
+
     def _single_move(self, movement: Movement, timeout: int | None = None) -> int:
         """Execute one movement dict and return an integer result code.
 
@@ -285,7 +321,7 @@ class Gantry:
         Raises:
             AxisNotFoundError: If the axis name is not found in :attr:`axes`.
         """
-        ((axis_name, kinematic_params),) = tuple(list(movement.items()))
+        ((axis_name, kinematic_params),) = movement.items()
 
         logger.debug("Gantry._single_move: axis=%s params=%s timeout=%s", axis_name, kinematic_params, timeout)
         try:
@@ -375,13 +411,17 @@ class Gantry:
         logger.info("Gantry.move_to: queued=%d concurrent=%s timeout=%s", len(movements), concurrent, timeout)
 
         if concurrent:
-            self._move_dispatch(movements, concurrent=concurrent, timeout=timeout)
+            axis_names = tuple(next(iter(movement)) for movement in movements)
+            results = self._move_dispatch(movements, concurrent=concurrent, timeout=timeout)
+            self._log_move_results(axis_names, results, concurrent=True)
             return
         else:
+            concurrent_axes = self.concurrent_axes or {}
             while movements:
-                concurrent_axes = self.concurrent_axes or {}
                 next_moves = self._get_next_moves(movements, concurrent_axes)
-                self._move_dispatch(next_moves, concurrent=True, timeout=timeout)
+                axis_names = tuple(next(iter(movement)) for movement in next_moves)
+                results = self._move_dispatch(next_moves, concurrent=True, timeout=timeout)
+                self._log_move_results(axis_names, results, concurrent=False)
 
     def home(self) -> None:
         """Home all registered axes.

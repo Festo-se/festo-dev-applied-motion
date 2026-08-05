@@ -21,19 +21,18 @@ Coverage areas
     - Returns 0 on a successful move.
     - Forwards kinematic params and timeout to ``axis.move()``.
     - Wraps any exception as ``AxisNotFoundError``.
-    - Consumes the movement dict via ``popitem()`` (documents mutation).
+    - Reads the movement dict without mutating it.
 
 No hardware or network connection required.
 """
 
-import threading
-import time
+import logging
 from collections import deque
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from applied_motion.gantry import AxisNotFoundError, MovementError, Gantry
+from applied_motion.gantry import MovementError, Gantry
 from applied_motion.backends.edcon_axis import EdconAxis
 
 # ---------------------------------------------------------------------------
@@ -67,12 +66,13 @@ class TestMoveDispatch:
 
     def test_concurrent_true_calls_single_move_for_each_movement(self):
         """When concurrent=True, _move_dispatch must call _single_move
-        exactly once for every movement in the deque."""
+        exactly once for every movement in the deque.
+        """
         axis_x = _make_stub_axis("X")
         axis_z = _make_stub_axis("Z")
         g = Gantry(axes={"X": axis_x, "Z": axis_z})
 
-        # Provide two-element dicts so _single_move's popitem() won't fail.
+        # Provide single-item dicts so _single_move can read them directly.
         movements = deque([
             {"X": dict(_PARAMS)},
             {"Z": dict(_PARAMS)},
@@ -95,7 +95,8 @@ class TestMoveDispatch:
 
     def test_concurrent_true_returns_tuple_of_results(self):
         """The concurrent path must return a tuple whose length equals the
-        batch size, one entry per movement."""
+        batch size, one entry per movement.
+        """
         axis_x = _make_stub_axis("X")
         axis_z = _make_stub_axis("Z")
         g = Gantry(axes={"X": axis_x, "Z": axis_z})
@@ -133,9 +134,7 @@ class TestMoveDispatch:
         )
 
     def test_concurrent_false_processes_at_least_first_movement(self):
-        """Document the current behaviour of the sequential path: it
-        dispatches the first movement and returns immediately, leaving
-        any remaining movements in the deque."""
+        """Sequential path must process every movement in the deque."""
         axis_x = _make_stub_axis("X")
         g = Gantry(axes={"X": axis_x})
 
@@ -144,8 +143,8 @@ class TestMoveDispatch:
         with patch.object(g, "_single_move", return_value=0) as mock_single:
             result = g._move_dispatch(movements, concurrent=False)
 
-        assert mock_single.call_count >= 1, "_single_move must be called at least once"
-        assert result == (0,), "Sequential path must return a 1-tuple of the first result"
+        assert mock_single.call_count == 2, "_single_move must be called for every movement"
+        assert result == (0, 0), "Sequential path must return one result per movement"
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +164,8 @@ class TestSingleMove:
     def test_delegates_kinematic_params_to_axis_move(self):
         """Kinematic parameters must be passed as keyword arguments to
         axis.move() so the axis receives the exact position and velocity
-        that the caller requested."""
+        that the caller requested.
+        """
         axis = _make_stub_axis("X")
         g = Gantry(axes={"X": axis})
         g._single_move({"X": {"position": 75, "velocity": 200}})
@@ -180,7 +180,8 @@ class TestSingleMove:
     def test_axis_exception_raises_axis_not_found_error(self):
         """Any exception from axis.move() must be re-raised as
         MovementError so the caller has a uniform error type to
-        catch, regardless of the underlying drive error."""
+        catch, regardless of the underlying drive error.
+        """
         axis = _make_stub_axis("X")
         axis.move.side_effect = RuntimeError("drive fault")
         g = Gantry(axes={"X": axis})
@@ -189,7 +190,8 @@ class TestSingleMove:
 
     def test_axis_not_found_error_chained_from_original_exception(self):
         """The MovementError must chain the original exception via
-        __cause__ so the full diagnostic is available in tracebacks."""
+        __cause__ so the full diagnostic is available in tracebacks.
+        """
         axis = _make_stub_axis("X")
         original = RuntimeError("drive fault")
         axis.move.side_effect = original
@@ -198,23 +200,19 @@ class TestSingleMove:
             g._single_move({"X": dict(_PARAMS)})
         assert exc_info.value.__cause__ is original
 
-    def test_movement_dict_is_consumed_by_popitem(self):
-        """_single_move calls dict.popitem() which removes the entry.
-        Callers must not reuse the dict after the call — this test
-        documents and pins that mutation so it is not accidentally removed."""
+    def test_movement_dict_is_not_consumed_by_single_move(self):
+        """_single_move must read movement payload without mutating it."""
         axis = _make_stub_axis("X")
         g = Gantry(axes={"X": axis})
         movement = {"X": dict(_PARAMS)}
         g._single_move(movement)
-        assert len(movement) == 0, (
-            "popitem() must have consumed the movement entry. "
-            "If this fails, the internal API contract has changed."
-        )
+        assert movement == {"X": dict(_PARAMS)}, "movement payload must remain intact"
 
     def test_missing_axis_raises_axis_not_found_error(self):
         """If the axis named in the movement is not registered in
         self.axes, MovementError must still be raised (via the
-        general exception handler)."""
+        general exception handler).
+        """
         g = Gantry(axes={})
         with pytest.raises(MovementError):
             g._single_move({"MISSING": dict(_PARAMS)})
@@ -290,10 +288,10 @@ class TestMoveToRegressions:
         axis_z.move.assert_called_once_with(position=30, velocity=40, timeout=7)
 
     def test_concurrent_true_movement_payloads_consumed_once(self):
-        """Concurrent move_to should consume each movement payload exactly once.
+        """Concurrent move_to should leave each movement payload intact.
 
-        _single_move currently mutates each movement dict via popitem(); after
-        one successful dispatch each payload should be empty rather than reused.
+        _single_move should not mutate each movement dict; after dispatch each
+        payload should still contain its original axis mapping.
         """
         axis_x = _make_stub_axis("X")
         axis_y = _make_stub_axis("Y")
@@ -305,5 +303,39 @@ class TestMoveToRegressions:
 
         g.move_to(movements, timeout=3, concurrent=True)
 
-        assert movement_x == {}, "X movement payload should be consumed exactly once"
-        assert movement_y == {}, "Y movement payload should be consumed exactly once"
+        assert movement_x == {"X": {"position": 10, "velocity": 20}}
+        assert movement_y == {"Y": {"position": 20, "velocity": 30}}
+
+    def test_concurrent_true_logs_successful_batch(self, caplog):
+        """move_to should log success when every result code is zero."""
+        axis_x = _make_stub_axis("X")
+        axis_y = _make_stub_axis("Y")
+        g = Gantry(axes={"X": axis_x, "Y": axis_y})
+
+        movements = deque([
+            {"X": {"position": 10, "velocity": 20}},
+            {"Y": {"position": 20, "velocity": 30}},
+        ])
+
+        with patch.object(g, "_move_dispatch", return_value=(0, 0)):
+            with caplog.at_level(logging.INFO):
+                g.move_to(movements, concurrent=True)
+
+        assert "completed successfully" in caplog.text
+
+    def test_concurrent_true_logs_failed_batch(self, caplog):
+        """move_to should log warning when any result code is non-zero."""
+        axis_x = _make_stub_axis("X")
+        axis_y = _make_stub_axis("Y")
+        g = Gantry(axes={"X": axis_x, "Y": axis_y})
+
+        movements = deque([
+            {"X": {"position": 10, "velocity": 20}},
+            {"Y": {"position": 20, "velocity": 30}},
+        ])
+
+        with patch.object(g, "_move_dispatch", return_value=(0, 1)):
+            with caplog.at_level(logging.WARNING):
+                g.move_to(movements, concurrent=True)
+
+        assert "completed with failures" in caplog.text
