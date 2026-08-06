@@ -7,7 +7,7 @@ All examples assume a CECC-X PLC is reachable at `192.168.10.25:1234`.
 
 ## 1. Connect via Configuration File
 
-The recommended approach — pass a JSON config file to `Gantry.from_config`:
+Config-driven approach — pass JSON config file to `Gantry.from_config`:
 
 ```python title="connect_from_config.py" linenums="1"
 from pathlib import Path
@@ -20,7 +20,7 @@ CONFIG_PATH = Path("gantry-config.json")
 gantry = Gantry.from_config(CONFIG_PATH)
 
 print(repr(gantry))
-# Gantry(axes=['X', 'Y', 'Z'])
+# Gantry(['X', 'Y', 'Z'])
 ```
 
 The config file (`gantry-config.json`):
@@ -67,6 +67,7 @@ For quick scripts or interactive sessions you can build the stack by hand:
 ```python title="connect_manual.py" linenums="1"
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
 from applied_motion.backends.fposbapi_axis import FPosBAxis
+from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend
 from applied_motion.gantry import Gantry
 
 # One shared TCP connection for the whole gantry
@@ -80,7 +81,7 @@ z = FPosBAxis(name="Z", index=3, client=client)
 gantry = Gantry(
     axes={"X": x, "Y": y, "Z": z},
     concurrent_axes=None,
-    _client=client,
+    _backend=FPosBAPIGantryBackend(client),
 )
 ```
 
@@ -183,6 +184,9 @@ gantry.move_to(movements, concurrent=True)
 > interleaved `SET_PAR` writes may affect the speed of the other axis.  Use
 > concurrent moves only when per-move velocity precision is not required.
 
+If your config defines `concurrent_axes`, then with `concurrent=False` (default)
+the gantry still batches those configured axes together.
+
 ---
 
 ## 7. Reading Current Positions
@@ -209,7 +213,7 @@ print(f"X axis: {x_pos} mm")
 ## 8. Sending a Raw FPosBAPI Command
 
 For commands not yet wrapped by a higher-level method, call
-[`FPosBAPIClient.send_command`][applied_motion.backends.fposbapi_client.FPosBAPIClient.send_command] directly:
+`FPosBAPIClient.send_command` directly:
 
 ```python title="raw_command.py" linenums="1"
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
@@ -302,3 +306,53 @@ Sample output:
 ```
 
 Use `logging.INFO` in production to keep only state-change events.
+
+---
+
+## 11. Read a Full Status Snapshot
+
+Use `get_status()` when you want both axis and controller health in one call:
+
+```python title="status_snapshot.py" linenums="1"
+from pathlib import Path
+from pprint import pprint
+
+from applied_motion import Gantry
+
+gantry = Gantry.from_config(Path("gantry-config.json"))
+pprint(gantry.get_status())
+```
+
+---
+
+## 12. Teach PLC Positions and Trays
+
+When running against an FPosBAPI backend, you can call gantry-level teach helpers:
+
+```python title="teach_examples.py" linenums="1"
+from pathlib import Path
+
+from applied_motion import Gantry
+
+gantry = Gantry.from_config(Path("gantry-config.json"))
+gantry.home()
+
+if gantry.supports_teach():
+    gantry.teach_pos(1)
+    gantry.teach_tray(tray_id=1, tray_pos=1)
+```
+
+---
+
+## 13. Discover Supported Controller Commands
+
+Different PLC builds may expose different command sets:
+
+```python title="list_commands.py" linenums="1"
+from pathlib import Path
+
+from applied_motion import Gantry
+
+gantry = Gantry.from_config(Path("gantry-config.json"))
+print(gantry.list_commands())
+```
