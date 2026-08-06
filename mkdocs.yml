@@ -1,7 +1,7 @@
 site_name:
   Festo Applied Motion -- Python-based control for Festo electrically-driven
   motion components
-site_url: https://festo-se.github.io/festo-dev-applied-motion/
+site_url: https://symmetrical-barnacle-r232pev.pages.github.io
 repo_url: https://github.com/Festo-se/festo-dev-applied-motion
 
 site_dir: public
