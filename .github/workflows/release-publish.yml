@@ -11,6 +11,12 @@ on:
   push:
     tags:
       - "*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. 1.2.3)"
+        required: true
+        type: string
 
 # default: least privileged permissions across all jobs
 permissions:
@@ -20,28 +26,64 @@ jobs:
   release:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-release-${{ github.ref_name }}
+      group: ${{ github.workflow }}-release-${{ inputs.tag || github.ref_name }}
       cancel-in-progress: false
 
     permissions:
       contents: write
     steps:
       - name: Setup | Checkout Repository on Release Branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ inputs.tag || github.ref_name }}
       - name: Install uv
         uses: astral-sh/setup-uv@v7
-      - name: Install Python 3.13
-        run: uv python install 3.13
+      - name: Install Python 3.14
+        run: uv python install 3.14
       - name: Build
         run: uv build
       - name: Upload | Distribution Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: distribution-artifacts
           path: dist
           if-no-files-found: error
+
+  github-release:
+    name: "Upload artifacts to GitHub Release"
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: distribution-artifacts
+          path: dist
+
+      # CHANGELOG.md was already updated and committed to main by the tag job
+      # in test.yml before this tag was pushed.  Run git-cliff here only to
+      # produce the release body text — no file write or commit needed.
+      - name: Generate release body from changelog
+        uses: orhun/git-cliff-action@v4
+        id: changelog
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+
+      - name: Create GitHub Release and upload artifacts
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          body: ${{ steps.changelog.outputs.content }}
+          files: dist/*
+          fail_on_unmatched_files: true
 
   deploy:
     # 1. Separate out the deploy step from the publish step to run each step at
@@ -58,70 +100,15 @@ jobs:
 
     steps:
       - name: Setup | Download Build Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         id: artifact-download
         with:
           name: distribution-artifacts
           path: dist
 
-      # ------------------------------------------------------------------- #
-      # Python Semantic Release is not responsible for publishing your      #
-      # python artifacts to PyPI. Use the official PyPA publish action      #
-      # instead. The following steps are an example but is not guaranteed   #
-      # to work as the action is not maintained by the                      #
-      # python-semantic-release team.                                       #
-      # ------------------------------------------------------------------- #
-
-      # see https://docs.pypi.org/trusted-publishers/
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-      # - name: Publish
-      #   run: uv publish
-      # - name: Publish package distributions to PyPI
-      #   continue-on-error: true
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     packages-dir: dist
-      #     print-hash: true
-      #     verbose: true
-
-  sbom:
-    runs-on: ubuntu-latest
-    needs: release
-    permissions:
-      contents: write
-
-    steps:
-      - name: Setup | Checkout Repository
-        uses: actions/checkout@v6
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          ref: ${{ github.ref_name }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Install Python 3.13
-        run: uv python install 3.13
-
-      - name: Install project with dependencies
-        run: uv sync
-
-      - name: Install cyclonedx-bom
-        run: uv tool install cyclonedx-bom
-
-      - name: Generate SBOM
-        run: >
-          uv tool run cyclonedx-py environment --of JSON --output-file
-          festo-dev-applied-motion-${{ github.ref_name }}.cdx.json .venv
-
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: festo-dev-applied-motion-${{ github.ref_name }}.cdx.json
-          if-no-files-found: error
-
-      - name: Attach SBOM to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: festo-dev-applied-motion-${{ github.ref_name }}.cdx.json
+          packages-dir: dist
+          print-hash: true
+          verbose: true

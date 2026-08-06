@@ -1,0 +1,196 @@
+name: "Test"
+
+on:
+  push:
+    branches:
+      - main
+      # - "refactor/**"
+      # - "feature/**"
+      # - "fix/**"
+    tags:
+      - "*.*.*"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: "Lint (ruff)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install Python
+        run: uv python install 3.11
+
+      - name: Install dev dependencies
+        run: uv sync --group dev
+
+      - name: Check formatting
+        run: uv run ruff format --check . --config pyproject.toml
+
+      - name: Lint
+        run: uv run ruff check . --config pyproject.toml
+
+  typecheck:
+    name: "Type check (ty)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Install dev dependencies
+        run: uv sync --group dev
+
+      - name: Type check
+        run: uv run ty check src/
+
+  test:
+    name: "Test (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dev dependencies
+        run: uv sync --group dev
+
+      # Hardware tests are excluded with -m "not hardware" because no device
+      # is connected to the Github CI Server. The hardware marker is defined in pyproject.toml
+      # under [tool.pytest.ini_options].
+      - name: Run tests with coverage
+        run: >
+          uv run pytest -m "not hardware" --cov=vaem --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+
+      # Upload the XML report as a build artifact so it can be downloaded
+      # from the Actions UI for inspection even without a coverage service.
+      - name: Upload coverage XML
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: error
+
+  package-build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install Python 3.14
+        run: uv python install 3.14
+      - name: Build
+        run: uv build
+
+  doc-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install Python 3.14
+        run: uv python install 3.14
+      - run: uv sync --group docs
+      - name: Test mkdocs build
+        run: uv run --group docs mkdocs build
+
+  tag:
+    name: "Auto-tag on version bump"
+    runs-on: ubuntu-latest
+    needs: test
+    # Only run on direct pushes to main
+    # (the tag push itself triggers release-publish.yml, not another tag job)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history required by git-cliff to generate the changelog.
+          # fetch-tags ensures we can check whether this version is already tagged.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Extract version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Generate and commit the changelog onto main BEFORE the tag is pushed
+      # so the tag points at a commit that already contains the updated CHANGELOG.md.
+      # release-publish.yml then just reads the changelog for the release body.
+      # - name: Generate changelog and prepend to CHANGELOG.md
+      #   if: steps.tag_check.outputs.exists == 'false'
+      #   uses: orhun/git-cliff-action@v4
+      #   with:
+      #     config: cliff.toml
+      #     args: --tag ${{ steps.version.outputs.version }} --latest --strip header
+      #       --prepend CHANGELOG.md
+      #   env:
+      #     OUTPUT: CHANGELOG.md
+      #     GITHUB_REPO: ${{ github.repository }}
+
+      # - name: Commit updated CHANGELOG.md to main
+      #   if: steps.tag_check.outputs.exists == 'false'
+      #   run: |
+      #     git checkout main
+      #     git config user.name "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     set +e
+      #     git add CHANGELOG.md
+      #     git commit -m "docs: update changelog for ${{ steps.version.outputs.version }}"
+      #     git push origin main
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          git tag ${{ steps.version.outputs.version }}
+          git push origin ${{ steps.version.outputs.version }}
+
+      # GITHUB_TOKEN-driven pushes do not trigger other workflows, so we
+      # dispatch release-publish.yml explicitly via the workflow_dispatch event.
+      - name: Trigger release-publish workflow
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          gh workflow run release-publish.yml \
+            --ref ${{ steps.version.outputs.version }} \
+            --field tag=${{ steps.version.outputs.version }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
