@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-applied-motion-teach = "applied_motion.cli.cli:main"
+applied-motion = "applied_motion.cli.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Festo-se/festo-dev-applied-motion/"

@@ -56,6 +56,33 @@ class TestRegisterMotionCli:
         assert cli.dispatch_motion_command(args) == 9
 
 
+class TestJogTuiSubcommand:
+    def test_jog_tui_sets_handler(self):
+        parser = cli.build_standalone_motion_parser()
+        args = parser.parse_args(["--config", "gantry.json", "jog-tui"])
+        assert args.motion_command == "jog-tui"
+        assert callable(args._handler)
+
+    def test_jog_tui_calls_run_jog_mode(self, monkeypatch):
+        jog_mode_calls = []
+
+        def fake_jog_mode(session, gantry):
+            jog_mode_calls.append((session, gantry))
+
+        monkeypatch.setattr(cli, "_run_jog_mode", fake_jog_mode)
+
+        fake_gantry = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        monkeypatch.setattr(cli, "_connect_gantry", lambda *_: fake_gantry)
+        fake_gantry.__enter__ = lambda s: fake_gantry
+        fake_gantry.__exit__ = lambda s, *a: None
+
+        parser = cli.build_standalone_motion_parser()
+        args = parser.parse_args(["--config", "gantry.json", "jog-tui"])
+        cli.dispatch_motion_command(args)
+
+        assert len(jog_mode_calls) == 1
+
+
 class TestDispatchMotionCommand:
     def test_raises_when_handler_missing(self):
         with pytest.raises(ValueError, match="No motion command selected"):

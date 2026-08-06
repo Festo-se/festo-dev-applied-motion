@@ -372,7 +372,7 @@ class Gantry:
             return next_batch
         concurrent_working_reference.remove(axis_name)
 
-        while concurrent_working_reference:
+        while concurrent_working_reference and movements:
             movement = movements.popleft()
             ((axis_name, (kinematic_params)),) = tuple(movement.items())
 

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
 
-"""Gantry teach-in session — position recording and jogging.
+"""Gantry commissioning and teach-in session — position recording and jogging.
 
 This module is backend-agnostic.  It does not depend on ``prompt_toolkit``
 or ``rich`` and can be imported and tested without the ``teach`` extra

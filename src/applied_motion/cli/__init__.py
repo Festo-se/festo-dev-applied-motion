@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
 
-"""Interactive teach-in tooling for gantry position recording.
+"""Interactive commissioning and teach-in tooling for gantry position recording.
 
 [`TeachSession`][applied_motion.cli.session.TeachSession] is available without any extras — it has no
 dependency on ``prompt_toolkit`` or ``rich``.
 
 The interactive REPL ([`applied_motion.cli.cli`][applied_motion.cli.cli]) and the
-``applied-motion-teach`` entry point require the ``teach`` extra::
+``cli`` optional-dependency extra require the ``cli`` extra::
 
-    pip install festo-dev-applied-motion[teach]
+    pip install festo-dev-applied-motion[cli]
 
 Typical usage::
 
@@ -21,7 +21,7 @@ Typical usage::
 
 To launch the interactive REPL::
 
-    applied-motion-teach --config gantry.json
+    applied-motion --config gantry.json
 """
 
 from applied_motion.cli.session import TeachSession
