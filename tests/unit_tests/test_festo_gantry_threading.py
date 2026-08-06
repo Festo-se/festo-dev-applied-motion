@@ -107,16 +107,7 @@ class TestMoveDispatch:
         assert isinstance(result, tuple), "concurrent=True path must return a tuple"
         assert len(result) == 2, f"Expected 2 results for 2 movements, got {len(result)}"
 
-    @pytest.mark.xfail(
-        strict=False,
-        reason=(
-            "Known bug: the 'return' inside the 'while movements:' loop in "
-            "_move_dispatch(concurrent=False) means only the first movement "
-            "is ever dispatched — remaining movements are silently dropped. "
-            "This test documents the *correct* contract (all movements "
-            "processed) and will flip to PASSED once the bug is fixed."
-        ),
-    )
+
     def test_concurrent_false_processes_all_movements(self):
         """Sequential path must process every movement in the deque."""
         axis_x = _make_stub_axis("X")
