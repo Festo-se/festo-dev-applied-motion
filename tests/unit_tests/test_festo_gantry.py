@@ -24,7 +24,7 @@ import pytest
 
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend
-from applied_motion.gantry import AxisNotFoundError, Gantry, MovementError
+from applied_motion.applied_motion import AxisNotFoundError, Gantry, MovementError
 from applied_motion.backends.edcon_axis import EdconAxis
 
 

@@ -56,7 +56,7 @@ import pytest
 
 from edcon.edrive.motion_handler import MotionHandler
 
-from applied_motion.gantry import Gantry
+from applied_motion.applied_motion import Gantry
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient, FPosBAPIClientError

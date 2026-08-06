@@ -32,7 +32,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from applied_motion.gantry import MovementError, Gantry
+from applied_motion.applied_motion import MovementError, Gantry
 from applied_motion.backends.edcon_axis import EdconAxis
 
 # ---------------------------------------------------------------------------

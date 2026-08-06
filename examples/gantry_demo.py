@@ -21,7 +21,7 @@ import time
 from collections import deque
 
 from applied_motion.backends.edcon_axis import EdconAxis
-from applied_motion.gantry import Gantry
+from applied_motion.applied_motion import Gantry
 
 logger = logging.getLogger(__name__)
 

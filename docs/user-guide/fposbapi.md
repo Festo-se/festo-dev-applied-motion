@@ -355,7 +355,7 @@ except FPosBAPIClientError as exc:
 Motion failures at the `Gantry` level raise `MovementError`, which wraps the underlying exception.
 
 ```python
-from applied_motion.gantry import MovementError
+from applied_motion.applied_motion import MovementError
 
 try:
     gantry.move_to(movements)

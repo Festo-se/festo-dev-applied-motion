@@ -28,7 +28,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from applied_motion.gantry import Gantry
+from applied_motion.applied_motion import Gantry
 from applied_motion.gantry_factory import GantryConstruction
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis

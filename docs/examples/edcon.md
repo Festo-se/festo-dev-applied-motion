@@ -44,7 +44,7 @@ Config example:
 
 ```python title="connect_manual.py" linenums="1"
 from applied_motion.backends.edcon_axis import EdconAxis
-from applied_motion.gantry import Gantry
+from applied_motion.applied_motion import Gantry
 
 x = EdconAxis(name="X", ip="192.168.0.100")
 y = EdconAxis(name="Y", ip="192.168.0.101")
@@ -139,7 +139,7 @@ from collections import deque
 from pathlib import Path
 
 from applied_motion import Gantry
-from applied_motion.gantry import MovementError
+from applied_motion.applied_motion import MovementError
 
 gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
 

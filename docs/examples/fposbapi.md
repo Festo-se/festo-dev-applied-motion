@@ -68,7 +68,7 @@ For quick scripts or interactive sessions you can build the stack by hand:
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend
-from applied_motion.gantry import Gantry
+from applied_motion.applied_motion import Gantry
 
 # One shared TCP connection for the whole gantry
 client = FPosBAPIClient(ip="192.168.10.25", port=1234, timeout=10.0)
@@ -245,7 +245,7 @@ from pathlib import Path
 from collections import deque
 from applied_motion import Gantry
 from applied_motion.backends.fposbapi_client import FPosBAPIClientError
-from applied_motion.gantry import MovementError
+from applied_motion.applied_motion import MovementError
 
 gantry = Gantry.from_config(Path("gantry-config.json"))
 gantry.home()

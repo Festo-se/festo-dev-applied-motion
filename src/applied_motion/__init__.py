@@ -14,5 +14,5 @@ __all__ = [
     "FPosBAxis",
 ]
 
-from applied_motion.gantry import Gantry, MovementError, AxisNotFoundError
+from applied_motion.applied_motion import Gantry, MovementError, AxisNotFoundError
 from applied_motion.backends import Axis, FPosBAPIClient, FPosBAPIClientError, FPosBAxis, EdconAxis

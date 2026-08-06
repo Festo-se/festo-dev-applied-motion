@@ -121,7 +121,7 @@ Malformed movement entries and unknown axis names are skipped and logged.
 
 ```python
 from collections import deque
-from applied_motion.gantry import MovementError
+from applied_motion.applied_motion import MovementError
 
 try:
     gantry.move_to(deque([

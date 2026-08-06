@@ -20,7 +20,7 @@ from collections import deque
 from pathlib import Path
 from typing import Callable
 
-from applied_motion.gantry import Gantry
+from applied_motion.applied_motion import Gantry
 
 logger = logging.getLogger(__name__)
 

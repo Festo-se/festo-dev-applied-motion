@@ -69,7 +69,7 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from rich.console import Console
 from rich.table import Table, box
 
-from applied_motion.gantry import Gantry
+from applied_motion.applied_motion import Gantry
 from applied_motion.cli.session import TeachSession
 
 console = Console()
