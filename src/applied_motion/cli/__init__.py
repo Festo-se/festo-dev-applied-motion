@@ -25,6 +25,17 @@ To launch the interactive REPL::
 """
 
 from applied_motion.cli.session import TeachSession
-from applied_motion.cli.cli import run_repl
+from applied_motion.cli.cli import (
+    build_standalone_motion_parser,
+    dispatch_motion_command,
+    register_motion_cli,
+    run_repl,
+)
 
-__all__ = ["TeachSession", "run_repl"]
+__all__ = [
+    "TeachSession",
+    "run_repl",
+    "register_motion_cli",
+    "build_standalone_motion_parser",
+    "dispatch_motion_command",
+]

@@ -55,6 +55,7 @@ Page Up / Page Down    Step axis[2] (typically Z) positive / negative
 import argparse
 import logging
 import sys
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
@@ -108,6 +109,13 @@ _TOP_LEVEL_CMDS = [
     "exit",
 ]
 _DIRECTIONS = ["+", "-"]
+
+MotionCliExtension = Callable[[argparse._SubParsersAction], None]
+"""Extension hook signature for adding extra motion subcommands.
+
+Each extension receives motion command's subparser collection and may call
+``add_parser`` to register additional nested commands.
+"""
 
 
 def _location_table(loc: dict[str, float]) -> Table:
@@ -374,18 +382,224 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
             console.print(f"[red]✗[/] Unexpected error: {exc}")
 
 
-def main() -> None:
-    """Entry point for the ``applied-motion-teach`` CLI command."""
-    parser = argparse.ArgumentParser(
-        prog="applied-motion-teach",
-        description="Interactive teach-in REPL for gantry position recording.",
+def _configure_logging(log_level: str) -> None:
+    """Configure process logging for CLI execution.
+
+    Args:
+        log_level: Logging threshold name, such as ``"INFO"`` or
+            ``"WARNING"``.
+    """
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper(), logging.WARNING),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+
+
+def _connect_gantry(config_path: Path, gantry_name: str) -> Gantry:
+    """Build a gantry instance from configuration.
+
+    Args:
+        config_path: Path to gantry configuration JSON.
+        gantry_name: Gantry component name in configuration.
+
+    Returns:
+        Connected gantry instance.
+    """
+    return Gantry.from_config(config_path, name=gantry_name)
+
+
+def _run_shell(args: argparse.Namespace) -> int:
+    """Run interactive teach shell command.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    with _connect_gantry(args.config, args.gantry_name) as gantry:
+        console.print(f"[green]✓[/] Connected: [bold]{gantry!r}[/]")
+
+        on_capture = None
+        if gantry.supports_teach():
+
+            def on_capture(label: str, pos: dict[str, float]) -> None:
+                console.print(f"  [dim]Tip: run [green]teach pos <id>[/] to commit [bold]{label!r}[/] to PLC.[/]")
+
+        session = TeachSession(gantry, on_capture=on_capture)
+        run_repl(session, gantry)
+    return 0
+
+
+def _run_where(args: argparse.Namespace) -> int:
+    """Print axis positions once.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    with _connect_gantry(args.config, args.gantry_name) as gantry:
+        console.print(_location_table(gantry.get_location()))
+    return 0
+
+
+def _run_home(args: argparse.Namespace) -> int:
+    """Home all axes once.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    with _connect_gantry(args.config, args.gantry_name) as gantry:
+        gantry.home()
+        console.print("[green]✓[/] All axes homed.")
+    return 0
+
+
+def _run_status(args: argparse.Namespace) -> int:
+    """Print gantry status snapshot.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    with _connect_gantry(args.config, args.gantry_name) as gantry:
+        status = gantry.get_status()
+    if args.as_json:
+        console.print_json(data=status)
+    else:
+        console.print_json(data=status)
+    return 0
+
+
+def _run_jog(args: argparse.Namespace) -> int:
+    """Execute one jog command in non-interactive mode.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    with _connect_gantry(args.config, args.gantry_name) as gantry:
+        session = TeachSession(gantry)
+        location = session.jog(args.axis.upper(), args.direction, args.step, args.velocity, timeout=args.timeout)
+        console.print(_location_table(location))
+    return 0
+
+
+def _run_teach_pos(args: argparse.Namespace) -> int:
+    """Execute PLC TEACH_POS command.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    with _connect_gantry(args.config, args.gantry_name) as gantry:
+        if not gantry.supports_teach():
+            raise NotImplementedError("Configured backend does not support TEACH_POS")
+        gantry.teach_pos(pos_id=args.pos_id)
+        console.print(f"[green]✓[/] TEACH_POS sent ([cyan]pos_id={args.pos_id}[/])")
+    return 0
+
+
+def _run_teach_tray(args: argparse.Namespace) -> int:
+    """Execute PLC TEACH_TRAY command.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    with _connect_gantry(args.config, args.gantry_name) as gantry:
+        if not gantry.supports_teach():
+            raise NotImplementedError("Configured backend does not support TEACH_TRAY")
+        gantry.teach_tray(tray_id=args.tray_id, tray_pos=args.tray_pos)
+        console.print(
+            f"[green]✓[/] TEACH_TRAY sent ([cyan]tray_id={args.tray_id}[/], [cyan]tray_pos={args.tray_pos}[/])"
+        )
+    return 0
+
+
+def _add_motion_command_parsers(subparsers: argparse._SubParsersAction) -> None:
+    """Register built-in motion command parsers.
+
+    Args:
+        subparsers: Subparser action used for command registration.
+    """
+    shell_parser = subparsers.add_parser("shell", help="Run interactive teach shell")
+    shell_parser.set_defaults(_handler=_run_shell)
+
+    where_parser = subparsers.add_parser("where", help="Print current axis positions")
+    where_parser.set_defaults(_handler=_run_where)
+
+    home_parser = subparsers.add_parser("home", help="Home all axes")
+    home_parser.set_defaults(_handler=_run_home)
+
+    status_parser = subparsers.add_parser("status", help="Print gantry status")
+    status_parser.add_argument("--json", dest="as_json", action="store_true", help="Print status as JSON")
+    status_parser.set_defaults(_handler=_run_status)
+
+    jog_parser = subparsers.add_parser("jog", help="Run one non-interactive jog step")
+    jog_parser.add_argument("axis", help="Axis name")
+    jog_parser.add_argument("direction", choices=_DIRECTIONS, help="Direction: '+' or '-'")
+    jog_parser.add_argument("step", type=float, help="Jog distance in mm")
+    jog_parser.add_argument("--velocity", type=float, default=10.0, help="Jog speed in mm/s")
+    jog_parser.add_argument("--timeout", type=int, default=30, help="Move timeout in seconds")
+    jog_parser.set_defaults(_handler=_run_jog)
+
+    teach_pos_parser = subparsers.add_parser("teach-pos", help="Send backend TEACH_POS")
+    teach_pos_parser.add_argument("pos_id", type=int, help="PLC position slot ID")
+    teach_pos_parser.set_defaults(_handler=_run_teach_pos)
+
+    teach_tray_parser = subparsers.add_parser("teach-tray", help="Send backend TEACH_TRAY")
+    teach_tray_parser.add_argument("tray_id", type=int, help="PLC tray ID")
+    teach_tray_parser.add_argument("tray_pos", type=int, help="PLC tray position index")
+    teach_tray_parser.set_defaults(_handler=_run_teach_tray)
+
+
+def register_motion_cli(
+    parent_subparsers: argparse._SubParsersAction,
+    *,
+    command_name: str = "motion",
+    extensions: Sequence[MotionCliExtension] = (),
+) -> argparse.ArgumentParser:
+    """Attach motion CLI subtree to parent parser.
+
+    Designed for higher-level system CLIs that compose multiple domains
+    (for example ``motion`` and ``fluid``) side-by-side.
+
+    Args:
+        parent_subparsers: Parent parser subcommand registry.
+        command_name: Name used for mounted motion command subtree.
+        extensions: Optional extension hooks that can add extra motion
+            subcommands.
+
+    Returns:
+        Mounted motion command parser.
+    """
+    parser = parent_subparsers.add_parser(command_name, help="Motion control commands")
     parser.add_argument(
         "--config",
         required=True,
         type=Path,
         metavar="PATH",
-        help="Path to the gantry JSON configuration file.",
+        help="Path to gantry JSON configuration file.",
+    )
+    parser.add_argument(
+        "--gantry-name",
+        default="gantry_1",
+        metavar="NAME",
+        help="Gantry component name in config (default: gantry_1).",
     )
     parser.add_argument(
         "--log-level",
@@ -393,33 +607,98 @@ def main() -> None:
         metavar="LEVEL",
         help="Python logging level (default: WARNING).",
     )
-    args = parser.parse_args()
+    motion_subparsers = parser.add_subparsers(dest="motion_command")
+    _add_motion_command_parsers(motion_subparsers)
+    for extension in extensions:
+        extension(motion_subparsers)
+    return parser
 
-    logging.basicConfig(
-        level=getattr(logging, args.log_level.upper(), logging.WARNING),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+
+def build_standalone_motion_parser(
+    *,
+    prog: str = "applied-motion-teach",
+    extensions: Sequence[MotionCliExtension] = (),
+) -> argparse.ArgumentParser:
+    """Build standalone motion CLI parser.
+
+    Args:
+        prog: Program name shown in help output.
+        extensions: Optional extension hooks for additional subcommands.
+
+    Returns:
+        Fully configured standalone parser.
+    """
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description="Composable motion control CLI for teach-in and axis operations.",
     )
+    parser.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="Path to gantry JSON configuration file.",
+    )
+    parser.add_argument(
+        "--gantry-name",
+        default="gantry_1",
+        metavar="NAME",
+        help="Gantry component name in config (default: gantry_1).",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        metavar="LEVEL",
+        help="Python logging level (default: WARNING).",
+    )
+    subparsers = parser.add_subparsers(dest="motion_command")
+    _add_motion_command_parsers(subparsers)
+    for extension in extensions:
+        extension(subparsers)
+    return parser
+
+
+def dispatch_motion_command(args: argparse.Namespace) -> int:
+    """Dispatch parsed motion command namespace.
+
+    Args:
+        args: Parsed argument namespace from a motion parser.
+
+    Returns:
+        Process exit code.
+
+    Raises:
+        ValueError: If no command handler is available in *args*.
+    """
+    if hasattr(args, "log_level"):
+        _configure_logging(args.log_level)
+
+    handler = getattr(args, "_handler", None)
+    if handler is None:
+        raise ValueError("No motion command selected")
+    return handler(args)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Entry point for ``applied-motion-teach`` standalone CLI command.
+
+    Args:
+        argv: Optional argv override used by tests.
+    """
+    parser = build_standalone_motion_parser()
+    args = parser.parse_args(argv)
+    if args.motion_command is None:
+        args._handler = _run_shell
 
     console.print(f"[dim]Loading config:[/] {args.config}")
     try:
-        gantry = Gantry.from_config(args.config)
+        exit_code = dispatch_motion_command(args)
     except Exception as exc:
-        console.print(f"[red]✗[/] Failed to connect: {exc}")
+        console.print(f"[red]✗[/] {exc}")
         sys.exit(1)
 
-    with gantry:
-        console.print(f"[green]✓[/] Connected: [bold]{gantry!r}[/]")
-
-        # Wire FPosBAPI hook: after every capture, remind the operator to
-        # optionally commit the position to the PLC with 'teach pos'.
-        on_capture = None
-        if gantry.supports_teach():
-
-            def on_capture(label: str, pos: dict[str, float]) -> None:
-                console.print(f"  [dim]Tip: run [green]teach pos <id>[/] to commit [bold]{label!r}[/] to the PLC.[/]")
-
-        session = TeachSession(gantry, on_capture=on_capture)
-        run_repl(session, gantry)
+    if exit_code:
+        sys.exit(exit_code)
 
 
 # TODO: Add hook to cli to enable/disable gantry for manual motion/teach in
