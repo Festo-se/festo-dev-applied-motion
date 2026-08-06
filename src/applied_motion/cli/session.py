@@ -4,11 +4,11 @@
 
 This module is backend-agnostic.  It does not depend on ``prompt_toolkit``
 or ``rich`` and can be imported and tested without the ``teach`` extra
-installed, as long as :func:`applied_motion.cli` (the package guard)
+installed, as long as [`applied_motion.cli`][applied_motion.cli] (the package guard)
 is not triggered first.
 
-The :class:`TeachSession` class deliberately avoids calling any private
-attributes of :class:`~applied_motion.gantry.Gantry`.
+The [`TeachSession`][applied_motion.cli.session.TeachSession] class deliberately avoids calling any private
+attributes of [`Gantry`][applied_motion.gantry.Gantry].
 PLC-specific actions (``TEACH_POS``, ``TEACH_TRAY``) are delegated to the
 caller via the ``on_capture`` hook, keeping this class backend-agnostic and
 independently unit-testable.
@@ -29,11 +29,11 @@ OnCaptureHook = Callable[[str, dict[str, float]], None]
 
 Signature: ``on_capture(label: str, position: dict[str, float]) -> None``
 
-Called after every successful :meth:`TeachSession.capture` with the
+Called after every successful [`TeachSession.capture`][applied_motion.cli.session.TeachSession.capture] with the
 position label and the recorded position dict.  Typical uses:
 
 * Send ``TEACH_POS`` / ``TEACH_TRAY`` to the CECC-X PLC via
-  :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient`.
+  [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient].
 * Emit an event to a higher-level orchestration layer.
 * Write a running log to a remote database.
 """
@@ -43,9 +43,9 @@ class TeachSession:
     """Records gantry positions interactively or programmatically.
 
     Provides step-jog and position capture on top of a connected
-    :class:`~applied_motion.gantry.Gantry`.  Captured positions are kept
-    in :attr:`positions` and can be persisted to and from JSON via
-    :meth:`save` / :meth:`load`.
+    [`Gantry`][applied_motion.gantry.Gantry].  Captured positions are kept
+    in ``positions`` and can be persisted to and from JSON via
+    [`save`][applied_motion.cli.session.TeachSession.save] / [`load`][applied_motion.cli.session.TeachSession.load].
 
     This class has no knowledge of the gantry backend (Modbus vs FPosBAPI)
     and no dependency on ``prompt_toolkit`` or ``rich``.  Backend-specific
@@ -53,15 +53,15 @@ class TeachSession:
     performed by the caller through the *on_capture* hook.
 
     Args:
-        gantry: Connected and homed :class:`~applied_motion.gantry.Gantry`
+        gantry: Connected and homed [`Gantry`][applied_motion.gantry.Gantry]
             instance.
         on_capture: Optional hook called immediately after each successful
-            :meth:`capture`.  Receives the position label and position dict.
+            [`capture`][applied_motion.cli.session.TeachSession.capture].  Receives the position label and position dict.
             Exceptions raised by the hook propagate to the caller.
 
     Attributes:
         positions: Ordered dict mapping label → ``{axis_name: position_mm}``.
-            Populated by :meth:`capture` and :meth:`load`.
+            Populated by [`capture`][applied_motion.cli.session.TeachSession.capture] and [`load`][applied_motion.cli.session.TeachSession.load].
 
     Example::
 
@@ -105,11 +105,11 @@ class TeachSession:
 
         Reads the current axis position, computes an absolute target, and
         dispatches a single-axis move via
-        :meth:`~applied_motion.gantry.Gantry.move_to`.
+        [`Gantry.move_to`][applied_motion.gantry.Gantry.move_to].
 
         Args:
             axis_name: Name of the axis to jog (must be a key in
-                :attr:`~applied_motion.gantry.Gantry.axes`).
+                ``axes``).
             direction: ``"+"`` to move in the positive direction, ``"-"``
                 to move in the negative direction.
             step_mm: Distance to step in millimetres.  Must be positive.
@@ -164,8 +164,8 @@ class TeachSession:
     def capture(self, label: str) -> dict[str, float]:
         """Record the current gantry position under *label*.
 
-        Calls :meth:`~applied_motion.gantry.Gantry.get_location`, stores
-        the result in :attr:`positions`, then invokes *on_capture* if one
+        Calls [`Gantry.get_location`][applied_motion.gantry.Gantry.get_location], stores
+        the result in ``positions``, then invokes *on_capture* if one
         was provided.
 
         Args:
@@ -204,13 +204,13 @@ class TeachSession:
         logger.info("TeachSession.save: wrote %d position(s) to %s", len(self.positions), path)
 
     def load(self, path: Path | str) -> None:
-        """Merge positions from a JSON file into :attr:`positions`.
+        """Merge positions from a JSON file into ``positions``.
 
         Existing labels are overwritten by entries from *path*; labels
         absent in *path* are preserved.
 
         Args:
-            path: Source JSON file previously written by :meth:`save`.
+            path: Source JSON file previously written by [`save`][applied_motion.cli.session.TeachSession.save].
 
         Raises:
             OSError: If *path* cannot be opened.

@@ -13,11 +13,11 @@ On success the last three comma-delimited fields are ``0, NULL, SUCCESS``.
 On error the last three fields carry a non-zero error id, type string, and
 message string.
 
-A single :class:`FPosBAPIClient` instance should be shared across all
-:class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` objects belonging
-to the same gantry, and is owned by :class:`~applied_motion.gantry.Gantry`.
+A single [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] instance should be shared across all
+[`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] objects belonging
+to the same gantry, and is owned by [`Gantry`][applied_motion.gantry.Gantry].
 All send/receive operations are serialised through an internal
-:class:`threading.Lock`.
+`threading.Lock`.
 """
 
 import logging
@@ -63,8 +63,8 @@ class FPosBAPIClient:
     """Thread-safe TCP socket client for the Festo FPosBAPI ASCII protocol.
 
     Connects to the CECC-X PLC on *ip*:*port* and wraps the request/response
-    cycle in :meth:`send_command`.  A :class:`threading.Lock` serialises all
-    socket I/O so multiple :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis`
+    cycle in [`send_command`][applied_motion.backends.fposbapi_client.FPosBAPIClient.send_command].  A `threading.Lock` serialises all
+    socket I/O so multiple [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis]
     objects sharing the same client do not interleave their frames.
 
     Attributes:
@@ -202,7 +202,7 @@ class FPosBAPIClient:
 
         Acquires the internal lock, increments the message ID, formats the
         ASCII request frame, sends it, then reads lines via
-        :meth:`_collect_response` until the terminal (non-``ACK``) line
+        `_collect_response` until the terminal (non-``ACK``) line
         arrives.  The terminal (last) line is validated for correct MSG_ID
         echo, CMD echo, and ``SUCCESS`` status before returning.
 
@@ -245,7 +245,7 @@ class FPosBAPIClient:
         Args:
             command: FPosBAPI command string, e.g. ``"HOME"``, ``"MOVE_AXIS"``.
             *params: Zero or more positional parameters.
-            timeout: Per-call socket timeout forwarded to :meth:`send_command`.
+            timeout: Per-call socket timeout forwarded to [`send_command`][applied_motion.backends.fposbapi_client.FPosBAPIClient.send_command].
                 Pass ``None`` for blocking mode on long-running motion commands.
 
         Returns:
@@ -322,7 +322,7 @@ class FPosBAPIClient:
     def _collect_response(self) -> list[str]:
         r"""Read response lines from the socket until the terminal line arrives.
 
-        Calls :meth:`_recv_line` repeatedly.  Each response frame begins with
+        Calls `_recv_line` repeatedly.  Each response frame begins with
         zero or more intermediate ``ACK`` lines (last comma-delimited field is
         ``ACK``) followed by a single terminal line whose last field is either
         ``SUCCESS`` or an error string.  Reading stops as soon as a non-``ACK``
@@ -1108,7 +1108,7 @@ class FPosBAPIClient:
     # def reconnect(self) -> None:
     #     """Close the current socket and open a fresh connection to the same server.
 
-    #     Call this after a :class:`FPosBAPIClientError` caused by a PLC reboot
+    #     Call this after a `FPosBAPIClientError` caused by a PLC reboot
     #     or a dropped TCP connection.  The new socket is drained of any
     #     buffered bytes before this method returns.
 
@@ -1145,7 +1145,7 @@ class FPosBAPIClient:
 
     #     Args:
     #         deadline: Maximum total seconds to wait.  Raises
-    #             :class:`FPosBAPIClientError` if the server is still not ready.
+    #             `FPosBAPIClientError` if the server is still not ready.
     #             Defaults to ``120.0``.
     #         poll_interval: Seconds to wait between probe attempts.  Defaults
     #             to ``2.0``.
@@ -1220,7 +1220,7 @@ class FPosBAPIClient:
             other: Object to compare.
 
         Returns:
-            ``True`` if *other* is an :class:`FPosBAPIClient` with equal *ip*
+            ``True`` if *other* is a [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] with equal *ip*
             and *port*; ``False`` otherwise.
         """
         if not isinstance(other, FPosBAPIClient):

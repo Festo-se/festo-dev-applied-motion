@@ -3,12 +3,12 @@
 
 """FPosBAPI axis proxy — represents one axis of a CECC-X controlled gantry.
 
-:class:`FPosBAxis` delegates all motion commands through a shared
-:class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient` socket connection
+[`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] delegates all motion commands through a shared
+[`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] socket connection
 to the CECC-X PLC.  It satisfies the
-:class:`~applied_motion.backends.axis_protocol.Axis` structural interface
-and can be used anywhere a :class:`~applied_motion.gantry.backends.edcon_axis EdconAxis` is accepted
-by :class:`~applied_motion.gantry.Gantry`.
+[`Axis`][applied_motion.backends.axis_protocol.Axis] structural interface
+and can be used anywhere a [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] is accepted
+by [`Gantry`][applied_motion.gantry.Gantry].
 
 Axis index convention (matches CECC-X CoDeSys program default):
 
@@ -16,18 +16,18 @@ Axis index convention (matches CECC-X CoDeSys program default):
 * ``2`` — Y axis
 * ``3`` — Z axis
 
-ROB_POS response field layout assumed by :meth:`FPosBAxis.get_current_axis_position`::
+ROB_POS response field layout assumed by [`FPosBAxis.get_current_axis_position`][applied_motion.backends.fposbapi_axis.FPosBAxis.get_current_axis_position]::
 
     msg_id, ROB_POS, x_mm, y_mm, z_mm, 0, NULL, SUCCESS
 
 Position at field index ``axis_index + 1`` (1-based field 2 = X, 3 = Y, 4 = Z).
 
 .. warning::
-    :meth:`move` issues a ``SET_PAR 103`` (global speed) command immediately
+    [`move`][applied_motion.backends.fposbapi_axis.FPosBAxis.move] issues a ``SET_PAR 103`` (global speed) command immediately
     before ``MOVE_AXIS``.  These two commands are serialised by the shared
-    :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient` lock, but they
+    [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] lock, but they
     are **not** atomic — concurrent moves on different axes may interleave their
-    ``SET_PAR`` calls.  Use :meth:`~applied_motion.gantry.Gantry.move_to`
+    ``SET_PAR`` calls.  Use [`Gantry.move_to`][applied_motion.gantry.Gantry.move_to]
     with a single-axis movement queue (not concurrent) when per-move velocity
     accuracy matters.
 """
@@ -43,9 +43,9 @@ class FPosBAxis:
     """FPosBAPI-backed representation of a single CECC-X gantry axis.
 
     Wraps ``MOVE_AXIS``, ``HOME``, and ``ROB_POS`` FPosBAPI commands behind the
-    same public interface as :class:`~applied_motion.gantry.backends.edcon_axis.EdconAxis`.  All
+    same public interface as [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis].  All
     socket communication is performed via the shared *client* instance which
-    must be owned by the parent :class:`~applied_motion.gantry.Gantry`.
+    must be owned by the parent [`Gantry`][applied_motion.gantry.Gantry].
 
     Attributes:
         name: Human-readable axis label, e.g. ``"X"``.
@@ -61,7 +61,7 @@ class FPosBAxis:
                 checks.
             index: 1-based axis index for ``MOVE_AXIS`` commands.  Must match
                 the axis numbering configured in the CECC-X CoDeSys program.
-            client: Shared :class:`~applied_motion.backends.fposbapi_client.FPosBAPIClient`
+            client: Shared [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient]
                 instance owned by the parent gantry.
         """
         self.name = name
@@ -127,7 +127,7 @@ class FPosBAxis:
         proxy triggers a full multi-axis homing sequence.
 
         .. note::
-            :meth:`~applied_motion.gantry.Gantry.home` sends a single
+            [`Gantry.home`][applied_motion.gantry.Gantry.home] sends a single
             ``HOME`` command at the gantry level and does not call this method
             on each proxy individually, avoiding duplicate ``HOME`` requests.
 
@@ -212,10 +212,10 @@ class FPosBAxis:
     def stopped(self) -> bool:
         """Return ``True``; FPosBAPI moves are blocking so motion is always complete on return.
 
-        :meth:`move` blocks until the PLC emits a ``SUCCESS`` response,
+        [`move`][applied_motion.backends.fposbapi_axis.FPosBAxis.move] blocks until the PLC emits a ``SUCCESS`` response,
         meaning by the time Python regains control the axis has stopped.
         This method always returns ``True`` to satisfy the
-        :class:`~applied_motion.backends.axis_protocol.Axis` interface.
+        [`Axis`][applied_motion.backends.axis_protocol.Axis] interface.
 
         Returns:
             Always ``True``.
@@ -297,7 +297,7 @@ class FPosBAxis:
             other: Object to compare.
 
         Returns:
-            ``True`` if *other* is an :class:`FPosBAxis` with equal
+            ``True`` if *other* is a [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] with equal
             *name* and *index*; ``NotImplemented`` otherwise.
         """
         if not isinstance(other, FPosBAxis):

@@ -123,7 +123,7 @@ class FPosBAPIGantryBackend:
 
         Args:
             client: Shared PLC TCP client.
-            owns_client: When ``True``, :meth:`close` closes *client*.
+            owns_client: When ``True``, [`close`][applied_motion.backends.gantry_backend.FPosBAPIGantryBackend.close] closes *client*.
         """
         self._client = client
         self._owns_client = owns_client

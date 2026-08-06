@@ -3,18 +3,18 @@
 
 """Modbus TCP axis backend — direct per-drive edcon/CMMT connection.
 
-:class:`EdconAxis` is the original Festo gantry axis implementation.  It
+[`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] is the original Festo gantry axis implementation.  It
 connects directly to an individual CMMT servo/stepper drive via
 Modbus TCP using the ``festo-edcon`` library, and exposes a millimetre-based
 public API that satisfies
-:class:`~applied_motion.backends.axis_protocol.Axis`.
+[`Axis`][applied_motion.backends.axis_protocol.Axis].
 
 This backend is appropriate when each drive is individually addressable on the
-network and :class:`~applied_motion.gantry.Gantry` manages concurrency in
+network and [`Gantry`][applied_motion.gantry.Gantry] manages concurrency in
 Python.
 
 For coordinated multi-axis motion managed by a CECC-X PLC using the Festo Easy
-Positioning API, use :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis`
+Positioning API, use [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis]
 with the FPosBAPI backend instead.
 
 """
@@ -53,7 +53,7 @@ class EdconAxis(MotionHandler):
     Attributes:
         name: Human-readable label for this axis (e.g. ``"X"``).
         ip: IPv4 address of the drive's Modbus TCP endpoint.
-        com: Active :class:`~edcon.edrive.com_modbus.ComModbus` connection.
+        com: Active `ComModbus` connection.
         max_speed: Maximum achievable speed in drive velocity units.
         max_position: Maximum achievable position in mm.
         min_position: Minimum achievable position in mm.
@@ -73,8 +73,8 @@ class EdconAxis(MotionHandler):
     ) -> None:
         """Initialise the axis and establish a Modbus connection.
 
-        Creates the :class:`~edcon.edrive.com_modbus.ComModbus` connection,
-        initialises the parent :class:`~edcon.edrive.motion_handler.MotionHandler`,
+        Creates the `ComModbus` connection,
+        initialises the parent `MotionHandler`,
         reads the software-limit PNUs, and optionally triggers homing.
 
         Args:
@@ -160,11 +160,11 @@ class EdconAxis(MotionHandler):
             other: Object to compare against.
 
         Returns:
-            ``True`` if *other* is a :class:`EdconAxis` with the same
+            ``True`` if *other* is a [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] with the same
             ``name`` and ``ip``; ``False`` otherwise.
 
         Raises:
-            NotImplementedError: If *other* is not a :class:`EdconAxis`.
+            NotImplementedError: If *other* is not a [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis].
         """
         if not isinstance(other, EdconAxis):
             return False
@@ -173,8 +173,8 @@ class EdconAxis(MotionHandler):
     def __hash__(self) -> int:
         """Return a hash derived from the axis identity fields.
 
-        Uses the same fields as :meth:`__eq__` so that equal axes have
-        equal hashes, making :class:`EdconAxis` safe to use in sets and
+        Uses the same fields as [`__eq__`][applied_motion.backends.edcon_axis.EdconAxis.__eq__] so that equal axes have
+        equal hashes, making [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] safe to use in sets and
         as dict keys.
         """
         return hash((self.name, self.ip))
@@ -212,7 +212,7 @@ class EdconAxis(MotionHandler):
         Returns the raw position value in the drive's **internal unit system**
         (drive units, whose scale is determined by PNU 11724 and varies by
         firmware/configuration — typically 0.001 mm per unit).  Use
-        :meth:`get_current_axis_position` when you need the position in a
+        [`get_current_axis_position`][applied_motion.backends.edcon_axis.EdconAxis.get_current_axis_position] when you need the position in a
         consistent, human-readable unit (mm).
         """
         logger.warning(
@@ -239,12 +239,12 @@ class EdconAxis(MotionHandler):
         """Return the current axis position in the library's canonical output unit (mm).
 
         Reads the raw drive-unit position from ``MotionHandler.current_position``,
-        then converts it to mm via :meth:`_valid_position` with ``invert=True``.
+        then converts it to mm via `_valid_position` with ``invert=True``.
         The drive's own PNU-reported position-unit scale is used for the
         conversion, so the result is always consistent regardless of how the
         drive was configured.
 
-        Internal methods (:meth:`_check_overshoot`, unit converters) continue to
+        Internal methods (`_check_overshoot`, unit converters) continue to
         use ``super().current_position()`` directly so their drive-unit arithmetic
         is unaffected.
         """
@@ -376,7 +376,7 @@ class EdconAxis(MotionHandler):
 
         Args:
             validated_position: Drive-unit position that has already passed
-                through :meth:`_valid_position`.  May be absolute or relative
+                through `_valid_position`.  May be absolute or relative
                 depending on *absolute*.
             absolute: ``True`` if *validated_position* is an absolute target;
                 ``False`` if it is a relative displacement from the current

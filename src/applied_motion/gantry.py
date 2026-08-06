@@ -3,11 +3,12 @@
 
 """Festo gantry axis and multi-axis gantry abstractions.
 
-This module provides :class:`Gantry`, which coordinates one or more axes
+This module provides [`Gantry`][applied_motion.gantry.Gantry], which coordinates one or more axes
 for sequential or concurrent positioning.
 
-Use :meth:`Gantry.from_config` to instantiate the correct backend
+Pass ``config=...`` to [`Gantry`][applied_motion.gantry.Gantry] to instantiate the correct backend
 automatically from a JSON configuration dict or file.
+[`Gantry.from_config`][applied_motion.gantry.Gantry.from_config] is a convenience wrapper around that constructor path.
 """
 
 from typing import Iterator, TypedDict, TypeAlias
@@ -29,13 +30,13 @@ AxisMap: TypeAlias = dict[str, Axis]
 
 
 class _OptionalKinematicParams(TypedDict, total=False):
-    """Optional kinematic parameters accepted by :meth:`Axis.move`."""
+    """Optional kinematic parameters accepted by [`Axis.move`][applied_motion.backends.axis_protocol.Axis.move]."""
 
     position_type: str
 
 
 class KinematicParams(_OptionalKinematicParams):
-    """Kinematic parameters accepted by :meth:`Axis.move`."""
+    """Kinematic parameters accepted by [`Axis.move`][applied_motion.backends.axis_protocol.Axis.move]."""
 
     position: float
     velocity: float
@@ -46,7 +47,7 @@ MovementBatch: TypeAlias = deque[Movement]
 
 
 class AxisStatus(TypedDict):
-    """Per-axis status payload returned by :meth:`Gantry.get_status`."""
+    """Per-axis status payload returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
 
     position_mm: float | None
     is_homed: bool | None
@@ -56,7 +57,7 @@ class AxisStatus(TypedDict):
 
 
 class ControllerStatus(TypedDict):
-    """Controller diagnostics payload returned by :meth:`Gantry.get_status`."""
+    """Controller diagnostics payload returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
 
     sys_status: str | None
     is_error: bool | None
@@ -66,7 +67,7 @@ class ControllerStatus(TypedDict):
 
 
 class GantryStatusSummary(TypedDict):
-    """Aggregate gantry health values returned by :meth:`Gantry.get_status`."""
+    """Aggregate gantry health values returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
 
     axis_count: int
     all_homed: bool
@@ -77,7 +78,7 @@ class GantryStatusSummary(TypedDict):
 
 
 class GantryStatus(TypedDict):
-    """Top-level status payload returned by :meth:`Gantry.get_status`."""
+    """Top-level status payload returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
 
     backend: str
     supports_teach: bool
@@ -118,16 +119,16 @@ class Gantry:
     ) -> None:
         """Initialise the gantry with the provided axis mapping.
 
-        Prefer :meth:`from_config` for production use; it selects the correct
+        When ``config`` is provided, this constructor selects the correct
         backend (Modbus or FPosBAPI) and creates axes automatically from a JSON
         configuration dict or file.
 
         Args:
             axes: Dict mapping axis names to axis instances.  Accepts both
-                :class:`EdconAxis` (Modbus backend) and
-                :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis`
+                [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] (Modbus backend) and
+                [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis]
                 (FPosBAPI backend) — any object satisfying
-                :class:`~applied_motion.backends.axis_protocol.Axis`.
+                [`Axis`][applied_motion.backends.axis_protocol.Axis].
             concurrent_axes: Optional dict of axes that are allowed to move
                 simultaneously.  Pass ``None`` (default) to disable concurrent
                 grouping.
@@ -158,14 +159,14 @@ class Gantry:
 
     @classmethod
     def from_config(cls, config: dict | str | Path, name: str = "gantry_1") -> "Gantry":
-        """Instantiate a :class:`Gantry` from a configuration dict or JSON file.
+        """Instantiate a [`Gantry`][applied_motion.gantry.Gantry] from a configuration dict or JSON file.
 
         Args:
             config: Parsed configuration mapping or JSON file path.
             name: Component name to load from config.
 
         Returns:
-            Initialised :class:`Gantry` instance.
+            Initialised [`Gantry`][applied_motion.gantry.Gantry] instance.
         """
         return cls(config=config, name=name)
 
@@ -181,7 +182,7 @@ class Gantry:
             other: Object to compare against.
 
         Returns:
-            ``True`` if *other* is a :class:`Gantry` with equal ``axes``
+            ``True`` if *other* is a [`Gantry`][applied_motion.gantry.Gantry] with equal ``axes``
             and ``concurrent_axes`` mappings *and* the same backend/controller
             identity; ``False`` otherwise.
         """
@@ -201,7 +202,7 @@ class Gantry:
         return hash((axis_identity, concurrent_identity, self._backend_identity()))
 
     def _backend_identity(self) -> tuple[type[object], tuple[str, int] | None]:
-        """Return stable backend identity fields used by :meth:`__eq__`.
+        """Return stable backend identity fields used by [`__eq__`][applied_motion.gantry.Gantry.__eq__].
 
         Returns:
             Tuple of backend type and optional ``(ip, port)`` endpoint.
@@ -226,7 +227,7 @@ class Gantry:
             item: Axis name to look up.
 
         Returns:
-            ``True`` if *item* is a key in :attr:`axes`.
+            ``True`` if *item* is a key in ``axes``.
         """
         return item in self.axes
 
@@ -239,12 +240,12 @@ class Gantry:
         """Dispatch a batch of movements either concurrently or sequentially.
 
         Args:
-            movements: :class:`~collections.deque` of movement dicts to execute.
+            movements: `deque` of movement dicts to execute.
             concurrent: When ``True``, all movements are executed in parallel
-                via :class:`~concurrent.futures.ThreadPoolExecutor`.
+                via `ThreadPoolExecutor`.
                 When ``False``, movements are executed one at a time.
             timeout: Optional per-move time limit in seconds forwarded to each
-                :meth:`EdconAxis.move` call.
+                [`EdconAxis.move`][applied_motion.backends.edcon_axis.EdconAxis.move] call.
 
         Returns:
             Tuple of integer result codes, one per movement dispatched.
@@ -271,7 +272,7 @@ class Gantry:
 
         Args:
             axis_names: Axis names in dispatch order for the batch.
-            results: Integer result codes returned by :meth:`_move_dispatch`.
+            results: Integer result codes returned by [`_move_dispatch`][applied_motion.gantry.Gantry._move_dispatch].
             concurrent: Whether batch ran via concurrent dispatch.
 
         Returns:
@@ -306,19 +307,19 @@ class Gantry:
         """Execute one movement dict and return an integer result code.
 
         Extracts the sole ``{axis_name: kinematic_params}`` entry from
-        *movement* and delegates to :meth:`Axis.move`.
+        *movement* and delegates to [`Axis.move`][applied_motion.backends.axis_protocol.Axis.move].
 
         Args:
             movement: Single-item dict mapping an axis name to its kinematic
                 parameter dict.
             timeout: Optional per-move time limit in seconds forwarded to
-                :meth:`Axis.move`.
+                [`Axis.move`][applied_motion.backends.axis_protocol.Axis.move].
 
         Returns:
             ``0`` on success, ``1`` on failure.
 
         Raises:
-            AxisNotFoundError: If the axis name is not found in :attr:`axes`.
+            AxisNotFoundError: If the axis name is not found in ``axes``.
         """
         ((axis_name, kinematic_params),) = movement.items()
 
@@ -358,7 +359,7 @@ class Gantry:
                 batched together.
 
         Returns:
-            A :class:`~collections.deque` containing the next batch of
+            A `deque` containing the next batch of
             movements to dispatch concurrently.
         """
         next_batch: MovementBatch = deque()
@@ -466,11 +467,11 @@ class Gantry:
         gantry's ``concurrent_axes`` configuration.
 
         Args:
-            movements: A :class:`~collections.deque` of movement dicts.  Each
+            movements: A `deque` of movement dicts.  Each
                 dict maps a single axis name to its kinematic parameters, e.g.
                 ``{"X": {"position": 100.0, "velocity": 50.0}}``.
             timeout: Optional per-move time limit in seconds.  Passed through
-                to each :meth:`EdconAxis.move` call.
+                to each [`EdconAxis.move`][applied_motion.backends.edcon_axis.EdconAxis.move] call.
             concurrent: When ``True``, all movements in the current batch are
                 dispatched in parallel threads.  When ``False`` (default),
                 movements are grouped using ``concurrent_axes`` and dispatched
@@ -510,7 +511,7 @@ class Gantry:
         CECC-X PLC which homes all axes in a coordinated sequence.
 
         For the **Modbus backend**, iterates over every axis in insertion
-        order and calls :meth:`Axis.home` on each one sequentially.
+        order and calls [`Axis.home`][applied_motion.backends.axis_protocol.Axis.home] on each one sequentially.
         """
         if self._backend is None:
             for axis in self.axes.values():
@@ -639,7 +640,7 @@ class Gantry:
         """Build aggregate gantry health values from axis/controller status.
 
         Args:
-            axis_statuses: Per-axis status mapping from :meth:`get_status`.
+            axis_statuses: Per-axis status mapping from [`get_status`][applied_motion.gantry.Gantry.get_status].
             controller_status: Controller diagnostics mapping.
 
         Returns:
@@ -698,7 +699,7 @@ class Gantry:
     def get_location(self) -> dict[str, float]:
         """Return the current position of every axis in millimetres.
 
-        Calls :meth:`EdconAxis.get_current_axis_position` for each registered
+        Calls [`EdconAxis.get_current_axis_position`][applied_motion.backends.edcon_axis.EdconAxis.get_current_axis_position] for each registered
         axis and returns the results as a dict keyed by axis name.
 
         Returns:
@@ -712,8 +713,8 @@ class Gantry:
         """Return True when every registered axis has stopped moving.
 
         Returns:
-            ``True`` if :meth:`~edcon.edrive.motion_handler.MotionHandler.stopped`
-            returns ``True`` for all axes; ``False`` if any axis is still in motion.
+            ``True`` if `stopped`
+                returns ``True`` for all axes; ``False`` if any axis is still in motion.
         """
         return all(axis.stopped() for axis in self.axes.values())
 
@@ -721,8 +722,6 @@ class Gantry:
         """Return True when every registered axis is ready to accept a move command.
 
         Returns:
-            ``True`` if
-            :meth:`~edcon.edrive.motion_handler.MotionHandler.ready_for_motion`
-            returns ``True`` for all axes; ``False`` otherwise.
+            ``True`` if `ready_for_motion` returns ``True`` for all axes; ``False`` otherwise.
         """
         return all(axis.ready_for_motion() for axis in self.axes.values())

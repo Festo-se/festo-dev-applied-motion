@@ -10,8 +10,8 @@ from typing import Protocol, runtime_checkable
 class Axis(Protocol):
     """Structural interface for a single controllable axis.
 
-    Both :class:`~applied_motion.backends.edcon_axis.EdconAxis` (Modbus/festo-edcon backend) and
-    :class:`~applied_motion.backends.fposbapi_axis.FPosBAxis` (FPosBAPI backend)
+    Both [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] (Modbus/festo-edcon backend) and
+    [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] (FPosBAPI backend)
     satisfy this protocol structurally — no explicit inheritance required.
 
     All position values are in **millimetres (mm)**.

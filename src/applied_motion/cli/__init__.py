@@ -2,10 +2,10 @@
 
 """Interactive teach-in tooling for gantry position recording.
 
-:class:`TeachSession` is available without any extras — it has no
+[`TeachSession`][applied_motion.cli.session.TeachSession] is available without any extras — it has no
 dependency on ``prompt_toolkit`` or ``rich``.
 
-The interactive REPL (:mod:`applied_motion.cli.cli`) and the
+The interactive REPL ([`applied_motion.cli.cli`][applied_motion.cli.cli]) and the
 ``applied-motion-teach`` entry point require the ``teach`` extra::
 
     pip install festo-dev-applied-motion[teach]
