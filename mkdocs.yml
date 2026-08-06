@@ -1,4 +1,5 @@
-site_name: Festo Gantry -- Python-based control for Festo electrically-driven
+site_name:
+  Festo Applied Motion -- Python-based control for Festo electrically-driven
   motion components
 site_url: https://festo-se.github.io/festo-dev-applied-motion/
 repo_url: https://github.com/Festo-se/festo-dev-applied-motion
@@ -9,19 +10,18 @@ docs_dir: docs
 theme:
   name: material
   palette:
-    - media: "(prefers-color-scheme)"
-      toggle:
-        icon: material/brightness-auto
-        name: System preference
-
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: pink
+      accent: amber
       toggle:
         icon: material/brightness-7
         name: Light mode
 
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: deep-orange
+      accent: lime
       toggle:
         icon: material/brightness-4
         name: Dark mode
@@ -48,6 +48,7 @@ plugins:
   - codeinclude
   - search
   - include-markdown
+  - live-edit
   - autorefs:
       resolve_closest: true
   - mkdocs-autoapi:
@@ -64,8 +65,22 @@ plugins:
           paths:
             - src
           options:
-            show_source: true
             docstring_style: google
+            docstring_section_style: table
+            members_order: source
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_object_full_path: false
+            heading_level: 2
+            show_signature: true
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            inherited_members: true
+            filters:
+              - "!^_"
+              - "^__init__$"
 
 extra_css:
   - css/extra.css
@@ -73,9 +88,16 @@ extra_css:
 
 nav:
   - Home: "index.md"
+  - Getting Started: "getting-started/index.md"
+  - User Guide:
+      - "FPosBAPI Backend": "user-guide/fposbapi.md"
+      - "festo-edcon / Modbus Backend": "user-guide/edcon.md"
+  - Examples:
+      - "FPosBAPI": "examples/fposbapi.md"
+      - "festo-edcon / Modbus": "examples/edcon.md"
   - Festo Resources:
       - "CMMT Product Page":
           "https://www.festo.com/us/en/p/servo-drive-for-synchronous\
           -motors-id_CMMT-ST/"
   - Issues Tracker:
-      - "Report an Issue": "https://github.com/Festo-se/festo-dev-fluid-motion/issues"
+      - "Report an Issue": "https://github.com/Festo-se/festo-dev-applied-motion/issues"

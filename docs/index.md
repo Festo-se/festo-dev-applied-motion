@@ -1,58 +1,43 @@
-# Festo Gantry
+# Festo Applied Motion
 
-`festo-dev-applied-motion` is a Python library providing quality-of-life controls for Festo electrically-driven, motion components.
+`festo-dev-applied-motion` is a Python library for controlling Festo electric motion systems with a consistent gantry API.
 
-## Installation
+It supports two production backends:
 
-### From Codebase
+| Backend | Best for | Transport |
+|---|---|---|
+| **Modbus / festo-edcon** (`EdconAxis`) | Direct per-drive control (CMMT/CMMT-ST) | Modbus TCP per axis |
+| **FPosBAPI** (`FPosBAxis`) | CECC-X PLC controlled multi-axis gantries | Single shared TCP socket |
 
-Navigate to the directory where the code is stored and, using uv, type in the following command:
+## Install
 
-```
-uv pip install -e .
-```
-
-This will package the library locally and can be used as regular imports.
-
-### Official Packaged Releases
-
-The latest released version of this package can be found on the package registry of this project.
-Install using uv:
-
-```
+```bash
 uv add festo-dev-applied-motion
 ```
 
-### From Git Repository
+Or from source:
 
-```
-uv pip install git+https://github.com/Festo-se/festo-dev-applied-motion.git
-```
-
-Or as an editable dependency with a local copy of the source code:
-
-1. Clone the repository
-
-```
-git clone https://github.com/Festo-se/festo-dev-applied-motion.git <destination-directory>
-```
-
-2. Navigate to the clone destination directory
-
-```
-cd <destination>
-```
-
-3. Install with uv
-
-```
+```bash
+git clone https://github.com/Festo-se/festo-dev-applied-motion.git
+cd festo-dev-applied-motion
 uv pip install -e .
 ```
 
-## Dependencies
+## Quick links
 
-`festo-dev-applied-motion` depends on `festo-edcon` for communicating with Festo servo drives over EtherNet/IP or PROFINET.
+- [Getting Started](getting-started/index.md)
+- [FPosBAPI User Guide](user-guide/fposbapi.md)
+- [festo-edcon User Guide](user-guide/edcon.md)
+- [FPosBAPI Examples](examples/fposbapi.md)
+- [festo-edcon Examples](examples/edcon.md)
+- API reference pages (auto-generated during docs build; available in left navigation)
 
-## Festo Resources
+## Notes
 
+- Position units are **millimetres (mm)** throughout the public API.
+- `Gantry.from_config(...)` is convenience wrapper over `Gantry(config=...)`.
+
+## Festo resources
+
+- [Repository](https://github.com/Festo-se/festo-dev-applied-motion)
 - [Issues Tracker](https://github.com/Festo-se/festo-dev-applied-motion/issues)

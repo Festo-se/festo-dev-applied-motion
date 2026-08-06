@@ -11,15 +11,15 @@ A single persistent TCP socket carries all motion commands for every axis of the
 ┌─────────────────────────────────┐
 │           Gantry                │
 │  axes: {X: FPosBAxis, …}        │
-│  _client: FPosBAPIClient        │
+│  _backend: FPosBAPIGantryBackend│
 │                                 │
-│  ┌──────────┐ ┌──────────────┐  │
-│  │FPosBAxis │ │FPosBAPIClient│  │
+│  ┌──────────┐ ┌──────────────────────┐
+│  │FPosBAxis │ │FPosBAPIGantryBackend │
 │  │  name="X"│ │  ip / port   │  │
-│  │  index=1 │ │  socket      │  │
-│  │          │─│  lock        │  │
-│  │FPosBAxis │ │  msg_id      │  │
-│  │  name="Y"│ └──────────────┘  │
+│  │  index=1 │ │  └─client────┐     │
+│  │          │─│               │     │
+│  │FPosBAxis │ │   FPosBAPIClient    │
+│  │  name="Y"│ └──────────────────────┘
 │  │  index=2 │         │         │
 │  └──────────┘         │ TCP     │
 └──────────────────────────────── ┘
@@ -32,9 +32,10 @@ Three classes work together:
 
 | Class | Responsibility |
 |---|---|
-| [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] | Opens and maintains the TCP socket; formats/parses ASCII frames; thread-safe via `threading.Lock`. |
-| [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] | Represents one logical axis; translates `move()`, `home()`, and `get_current_axis_position()` into FPosBAPI commands. |
-| [`Gantry`][applied_motion.gantry.Gantry] | Owns the `FPosBAPIClient` and a mapping of `FPosBAxis` objects; dispatches sequential or concurrent motion queues. |
+| `FPosBAPIClient` | Opens and maintains the TCP socket; formats/parses ASCII frames; thread-safe via `threading.Lock`. |
+| `FPosBAxis` | Represents one logical axis; translates `move()`, `home()`, and `get_current_axis_position()` into FPosBAPI commands. |
+| `FPosBAPIGantryBackend` | Owns the shared `FPosBAPIClient` and backend-specific behavior (`home`, diagnostics, teach operations). |
+| `Gantry` | Owns axis mapping and delegates backend behavior to `FPosBAPIGantryBackend`; dispatches movement queues. |
 
 ---
 
@@ -70,7 +71,7 @@ Example exchange for a move command:
 
 ## FPosBAPIClient
 
-[`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] is instantiated once per gantry and shared across all axes.
+`FPosBAPIClient` is instantiated once per gantry and shared across all axes.
 You normally let `Gantry.from_config` create it; but for special use cases you can build it directly:
 
 ```python
@@ -99,18 +100,27 @@ lines = client.send_command("MOVE_AXIS", 1, 0, 150.0)
 ```
 
 `send_command` returns a list of all response lines received before the empty frame terminator.
-It raises [`FPosBAPIClientError`][applied_motion.backends.fposbapi_client.FPosBAPIClientError] if the server reports an error or the connection is lost.
+It raises `FPosBAPIClientError` if the server reports an error or the connection is lost.
 
 ### Reconnection behaviour
 
 If the TCP connection drops mid-session, `FPosBAPIClient` performs exactly **one automatic reconnect** attempt before raising `FPosBAPIClientError`.
 TCP keepalive is enabled on the socket (15 s idle time, 5 s interval) to detect silent link failures early.
 
+### Command wrappers available today
+
+`FPosBAPIClient` provides typed wrappers around many PLC commands in addition to `send_command`, including:
+
+- Motion: `enable`, `disable`, `home`, `move_pos`, `move_loc`, `halt`, `resume`, `abort`
+- Teaching: `teach_pos`, `teach_tray`, `read_pos`, `write_pos`, `read_tray`, `write_tray`
+- Diagnostics: `sys_status`, `is_error`, `fpb_error`, `read_err`, `err_log`, `com_log`
+- Parameters / I/O: `get_par`, `set_par`, `get_io`, `set_io`
+
 ---
 
 ## FPosBAxis
 
-[`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] represents a single logical axis of the gantry.
+`FPosBAxis` represents a single logical axis of the gantry.
 It stores a **1-based axis index** that must match the axis numbering in the CoDeSys program:
 
 | Index | Axis |
@@ -162,11 +172,23 @@ command more than once.
 x_axis.home()  # homes X, Y, and Z together
 ```
 
+### Drive-ready state and homed state
+
+`FPosBAxis.ready_for_motion()` queries `IS_ENBL`, and `FPosBAxis.is_homed()` queries `IS_HOME`.
+
+```python
+if not x_axis.ready_for_motion():
+    raise RuntimeError("Drives are not enabled")
+
+if not x_axis.is_homed():
+    x_axis.home()
+```
+
 ---
 
 ## Gantry (FPosBAPI mode)
 
-### From a configuration file (recommended)
+### From a configuration file
 
 ```python
 from pathlib import Path
@@ -276,7 +298,12 @@ Each dict maps one axis name to its kinematic parameters.
 |---|---|
 | `movements` | `deque` of `{axis_name: {position, velocity}}` dicts. |
 | `timeout` | Per-move time limit in seconds, or `None`. |
-| `concurrent` | `True` to dispatch all movements in parallel threads. |
+| `concurrent` | `True` to dispatch all valid movements in one parallel batch. |
+
+When `concurrent=False`, the gantry still uses `concurrent_axes` grouping from config:
+
+- axes listed in `concurrent_axes` may run in the same batch,
+- axes not in that set are dispatched as individual batches.
 
 ### `Gantry.get_location()`
 
@@ -287,11 +314,34 @@ location = gantry.get_location()
 # {'X': 150.0, 'Y': 75.0, 'Z': 20.0}
 ```
 
+### `Gantry.get_status()`
+
+Returns backend metadata, per-axis states, and controller diagnostics.
+
+```python
+status = gantry.get_status()
+print(status["backend"])
+print(status["summary"]["healthy"])
+print(status["controller"])  # sys_status/is_error/fpb_error/read_err/error
+```
+
+### Teaching helpers and command discovery
+
+For FPosBAPI backends:
+
+```python
+if gantry.supports_teach():
+    gantry.teach_pos(1)
+    gantry.teach_tray(tray_id=1, tray_pos=1)
+
+print(gantry.list_commands())
+```
+
 ---
 
 ## Error Handling
 
-All FPosBAPI errors surface as [`FPosBAPIClientError`][applied_motion.backends.fposbapi_client.FPosBAPIClientError].
+All FPosBAPI errors surface as `FPosBAPIClientError`.
 
 ```python
 from applied_motion.backends.fposbapi_client import FPosBAPIClientError
@@ -302,7 +352,7 @@ except FPosBAPIClientError as exc:
     print(f"PLC rejected the command: {exc}")
 ```
 
-Motion failures at the `Gantry` level raise [`MovementError`][applied_motion.gantry.MovementError], which wraps the underlying exception.
+Motion failures at the `Gantry` level raise `MovementError`, which wraps the underlying exception.
 
 ```python
 from applied_motion.gantry import MovementError
