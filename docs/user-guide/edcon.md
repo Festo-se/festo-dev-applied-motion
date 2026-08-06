@@ -1,7 +1,7 @@
 # festo-edcon / Modbus Backend
 
 The festo-edcon backend connects Python directly to each Festo drive using Modbus TCP.
-Each logical axis is represented by an [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis], and the gantry coordinates those axis objects through [`Gantry`][applied_motion.gantry.Gantry].
+Each logical axis is represented by an [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis], and the gantry coordinates those axis objects through [`Gantry`][applied_motion.applied_motion.Gantry].
 
 ---
 
@@ -116,7 +116,7 @@ For Modbus backend, `controller` fields in status are `None` (no shared PLC cont
 
 ## Error Handling
 
-Axis-level move failures surface as [`MovementError`][applied_motion.gantry.MovementError] from `Gantry.move_to`.
+Axis-level move failures surface as [`MovementError`][applied_motion.applied_motion.MovementError] from `Gantry.move_to`.
 Malformed movement entries and unknown axis names are skipped and logged.
 
 ```python

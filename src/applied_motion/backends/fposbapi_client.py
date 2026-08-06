@@ -15,7 +15,7 @@ message string.
 
 A single [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] instance should be shared across all
 [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] objects belonging
-to the same gantry, and is owned by [`Gantry`][applied_motion.gantry.Gantry].
+to the same gantry, and is owned by [`Gantry`][applied_motion.applied_motion.Gantry].
 All send/receive operations are serialised through an internal
 `threading.Lock`.
 """

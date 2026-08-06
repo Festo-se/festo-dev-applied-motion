@@ -59,7 +59,7 @@
     --md-default-fg-color--lighter: #9fa8da;
 
     --md-code-fg-color: #f8f4ff;
-    --md-code-bg-color: #0c1e36;
+    --md-code-bg-color: #0070cc;
     --md-code-hl-color: #26324a;
     --md-code-hl-number-color: #ffb86c;
     --md-code-hl-special-color: #ff79c6;
@@ -248,16 +248,36 @@ body {
 }
 
 /* color heading text by kind — must beat h1/h2/h3 rules above */
-.md-typeset .doc-heading .doc-module-name    { color: var(--doc-symbol-module-fg-color) !important; }
-.md-typeset .doc-heading .doc-class-name     { color: var(--doc-symbol-class-fg-color) !important; }
-.md-typeset .doc-heading .doc-function-name  { color: var(--doc-symbol-function-fg-color) !important; }
-.md-typeset .doc-heading .doc-attribute-name { color: var(--doc-symbol-attribute-fg-color) !important; }
-.md-typeset .doc-heading .doc-type_alias-name { color: var(--doc-symbol-type_alias-fg-color) !important; }
+.md-typeset .doc-heading .doc-module-name {
+    color: var(--doc-symbol-module-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-class-name {
+    color: var(--doc-symbol-class-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-function-name {
+    color: var(--doc-symbol-function-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-attribute-name {
+    color: var(--doc-symbol-attribute-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-type_alias-name {
+    color: var(--doc-symbol-type_alias-fg-color) !important;
+}
 
 /* parameter names in list-style docstring sections */
-.md-typeset .doc-section-title + dl > dt { color: var(--doc-symbol-parameter-fg-color); font-weight: 700; }
+.md-typeset .doc-section-title+dl>dt {
+    color: var(--doc-symbol-parameter-fg-color);
+    font-weight: 700;
+}
+
 /* parameter names in signature (positional/keyword) */
-.md-typeset .doc-signature .n:not([class*="other"]) { color: var(--md-code-hl-function-color); }
+.md-typeset .doc-signature .n:not([class*="other"]) {
+    color: var(--md-code-hl-function-color);
+}
 
 .md-typeset .doc-symbol {
     display: inline-block;

@@ -45,7 +45,7 @@ uv pip install -e .
 
 ## Quick start
 
-One direct path to a working gantry session is [`Gantry.from_config`][applied_motion.gantry.Gantry.from_config].
+One direct path to a working gantry session is [`Gantry.from_config`][applied_motion.applied_motion.Gantry.from_config].
 Pass it a JSON configuration dict (or path to a JSON file) describing your hardware:
 
 ```python

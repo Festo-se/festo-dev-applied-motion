@@ -8,7 +8,7 @@ installed, as long as [`applied_motion.cli`][applied_motion.cli] (the package gu
 is not triggered first.
 
 The [`TeachSession`][applied_motion.cli.session.TeachSession] class deliberately avoids calling any private
-attributes of [`Gantry`][applied_motion.gantry.Gantry].
+attributes of [`Gantry`][applied_motion.applied_motion.Gantry].
 PLC-specific actions (``TEACH_POS``, ``TEACH_TRAY``) are delegated to the
 caller via the ``on_capture`` hook, keeping this class backend-agnostic and
 independently unit-testable.
@@ -43,7 +43,7 @@ class TeachSession:
     """Records gantry positions interactively or programmatically.
 
     Provides step-jog and position capture on top of a connected
-    [`Gantry`][applied_motion.gantry.Gantry].  Captured positions are kept
+    [`Gantry`][applied_motion.applied_motion.Gantry].  Captured positions are kept
     in ``positions`` and can be persisted to and from JSON via
     [`save`][applied_motion.cli.session.TeachSession.save] / [`load`][applied_motion.cli.session.TeachSession.load].
 
@@ -53,7 +53,7 @@ class TeachSession:
     performed by the caller through the *on_capture* hook.
 
     Args:
-        gantry: Connected and homed [`Gantry`][applied_motion.gantry.Gantry]
+        gantry: Connected and homed [`Gantry`][applied_motion.applied_motion.Gantry]
             instance.
         on_capture: Optional hook called immediately after each successful
             [`capture`][applied_motion.cli.session.TeachSession.capture].  Receives the position label and position dict.
@@ -105,7 +105,7 @@ class TeachSession:
 
         Reads the current axis position, computes an absolute target, and
         dispatches a single-axis move via
-        [`Gantry.move_to`][applied_motion.gantry.Gantry.move_to].
+        [`Gantry.move_to`][applied_motion.applied_motion.Gantry.move_to].
 
         Args:
             axis_name: Name of the axis to jog (must be a key in
@@ -164,7 +164,7 @@ class TeachSession:
     def capture(self, label: str) -> dict[str, float]:
         """Record the current gantry position under *label*.
 
-        Calls [`Gantry.get_location`][applied_motion.gantry.Gantry.get_location], stores
+        Calls [`Gantry.get_location`][applied_motion.applied_motion.Gantry.get_location], stores
         the result in ``positions``, then invokes *on_capture* if one
         was provided.
 

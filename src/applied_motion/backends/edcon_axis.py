@@ -10,7 +10,7 @@ public API that satisfies
 [`Axis`][applied_motion.backends.axis_protocol.Axis].
 
 This backend is appropriate when each drive is individually addressable on the
-network and [`Gantry`][applied_motion.gantry.Gantry] manages concurrency in
+network and [`Gantry`][applied_motion.applied_motion.Gantry] manages concurrency in
 Python.
 
 For coordinated multi-axis motion managed by a CECC-X PLC using the Festo Easy

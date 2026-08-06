@@ -245,7 +245,7 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
         session: A [`TeachSession`][applied_motion.cli.session.TeachSession]
             instance backed by a connected, homed gantry.  Captured
             positions accumulate in ``session.positions``.
-        gantry: The connected [`Gantry`][applied_motion.gantry.Gantry]
+        gantry: The connected [`Gantry`][applied_motion.applied_motion.Gantry]
             instance whose axes define the tab-completion candidates and
             receive motion commands.
     """

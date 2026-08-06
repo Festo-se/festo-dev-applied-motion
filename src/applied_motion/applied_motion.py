@@ -3,12 +3,12 @@
 
 """Festo gantry axis and multi-axis gantry abstractions.
 
-This module provides [`Gantry`][applied_motion.gantry.Gantry], which coordinates one or more axes
+This module provides [`Gantry`][applied_motion.applied_motion.Gantry], which coordinates one or more axes
 for sequential or concurrent positioning.
 
-Pass ``config=...`` to [`Gantry`][applied_motion.gantry.Gantry] to instantiate the correct backend
+Pass ``config=...`` to [`Gantry`][applied_motion.applied_motion.Gantry] to instantiate the correct backend
 automatically from a JSON configuration dict or file.
-[`Gantry.from_config`][applied_motion.gantry.Gantry.from_config] is a convenience wrapper around that constructor path.
+[`Gantry.from_config`][applied_motion.applied_motion.Gantry.from_config] is a convenience wrapper around that constructor path.
 """
 
 from typing import Iterator, TypedDict, TypeAlias
@@ -47,7 +47,7 @@ MovementBatch: TypeAlias = deque[Movement]
 
 
 class AxisStatus(TypedDict):
-    """Per-axis status payload returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
+    """Per-axis status payload returned by [`Gantry.get_status`][applied_motion.applied_motion.Gantry.get_status]."""
 
     position_mm: float | None
     is_homed: bool | None
@@ -57,7 +57,7 @@ class AxisStatus(TypedDict):
 
 
 class ControllerStatus(TypedDict):
-    """Controller diagnostics payload returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
+    """Controller diagnostics payload returned by [`Gantry.get_status`][applied_motion.applied_motion.Gantry.get_status]."""
 
     sys_status: str | None
     is_error: bool | None
@@ -67,7 +67,7 @@ class ControllerStatus(TypedDict):
 
 
 class GantryStatusSummary(TypedDict):
-    """Aggregate gantry health values returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
+    """Aggregate gantry health values returned by [`Gantry.get_status`][applied_motion.applied_motion.Gantry.get_status]."""
 
     axis_count: int
     all_homed: bool
@@ -78,7 +78,7 @@ class GantryStatusSummary(TypedDict):
 
 
 class GantryStatus(TypedDict):
-    """Top-level status payload returned by [`Gantry.get_status`][applied_motion.gantry.Gantry.get_status]."""
+    """Top-level status payload returned by [`Gantry.get_status`][applied_motion.applied_motion.Gantry.get_status]."""
 
     backend: str
     supports_teach: bool
@@ -159,14 +159,14 @@ class Gantry:
 
     @classmethod
     def from_config(cls, config: dict | str | Path, name: str = "gantry_1") -> "Gantry":
-        """Instantiate a [`Gantry`][applied_motion.gantry.Gantry] from a configuration dict or JSON file.
+        """Instantiate a [`Gantry`][applied_motion.applied_motion.Gantry] from a configuration dict or JSON file.
 
         Args:
             config: Parsed configuration mapping or JSON file path.
             name: Component name to load from config.
 
         Returns:
-            Initialised [`Gantry`][applied_motion.gantry.Gantry] instance.
+            Initialised [`Gantry`][applied_motion.applied_motion.Gantry] instance.
         """
         return cls(config=config, name=name)
 
@@ -182,7 +182,7 @@ class Gantry:
             other: Object to compare against.
 
         Returns:
-            ``True`` if *other* is a [`Gantry`][applied_motion.gantry.Gantry] with equal ``axes``
+            ``True`` if *other* is a [`Gantry`][applied_motion.applied_motion.Gantry] with equal ``axes``
             and ``concurrent_axes`` mappings *and* the same backend/controller
             identity; ``False`` otherwise.
         """
@@ -202,7 +202,7 @@ class Gantry:
         return hash((axis_identity, concurrent_identity, self._backend_identity()))
 
     def _backend_identity(self) -> tuple[type[object], tuple[str, int] | None]:
-        """Return stable backend identity fields used by [`__eq__`][applied_motion.gantry.Gantry.__eq__].
+        """Return stable backend identity fields used by [`__eq__`][applied_motion.applied_motion.Gantry.__eq__].
 
         Returns:
             Tuple of backend type and optional ``(ip, port)`` endpoint.
@@ -272,7 +272,7 @@ class Gantry:
 
         Args:
             axis_names: Axis names in dispatch order for the batch.
-            results: Integer result codes returned by [`_move_dispatch`][applied_motion.gantry.Gantry._move_dispatch].
+            results: Integer result codes returned by [`_move_dispatch`][applied_motion.applied_motion.Gantry._move_dispatch].
             concurrent: Whether batch ran via concurrent dispatch.
 
         Returns:
@@ -640,7 +640,7 @@ class Gantry:
         """Build aggregate gantry health values from axis/controller status.
 
         Args:
-            axis_statuses: Per-axis status mapping from [`get_status`][applied_motion.gantry.Gantry.get_status].
+            axis_statuses: Per-axis status mapping from [`get_status`][applied_motion.applied_motion.Gantry.get_status].
             controller_status: Controller diagnostics mapping.
 
         Returns:

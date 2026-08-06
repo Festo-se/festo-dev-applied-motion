@@ -8,7 +8,7 @@
 to the CECC-X PLC.  It satisfies the
 [`Axis`][applied_motion.backends.axis_protocol.Axis] structural interface
 and can be used anywhere a [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] is accepted
-by [`Gantry`][applied_motion.gantry.Gantry].
+by [`Gantry`][applied_motion.applied_motion.Gantry].
 
 Axis index convention (matches CECC-X CoDeSys program default):
 
@@ -27,7 +27,7 @@ Position at field index ``axis_index + 1`` (1-based field 2 = X, 3 = Y, 4 = Z).
     before ``MOVE_AXIS``.  These two commands are serialised by the shared
     [`FPosBAPIClient`][applied_motion.backends.fposbapi_client.FPosBAPIClient] lock, but they
     are **not** atomic — concurrent moves on different axes may interleave their
-    ``SET_PAR`` calls.  Use [`Gantry.move_to`][applied_motion.gantry.Gantry.move_to]
+    ``SET_PAR`` calls.  Use [`Gantry.move_to`][applied_motion.applied_motion.Gantry.move_to]
     with a single-axis movement queue (not concurrent) when per-move velocity
     accuracy matters.
 """
@@ -45,7 +45,7 @@ class FPosBAxis:
     Wraps ``MOVE_AXIS``, ``HOME``, and ``ROB_POS`` FPosBAPI commands behind the
     same public interface as [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis].  All
     socket communication is performed via the shared *client* instance which
-    must be owned by the parent [`Gantry`][applied_motion.gantry.Gantry].
+    must be owned by the parent [`Gantry`][applied_motion.applied_motion.Gantry].
 
     Attributes:
         name: Human-readable axis label, e.g. ``"X"``.
@@ -127,7 +127,7 @@ class FPosBAxis:
         proxy triggers a full multi-axis homing sequence.
 
         .. note::
-            [`Gantry.home`][applied_motion.gantry.Gantry.home] sends a single
+            [`Gantry.home`][applied_motion.applied_motion.Gantry.home] sends a single
             ``HOME`` command at the gantry level and does not call this method
             on each proxy individually, avoiding duplicate ``HOME`` requests.
 
