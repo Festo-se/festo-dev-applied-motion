@@ -92,6 +92,7 @@ nav:
   - User Guide:
       - "FPosBAPI Backend": "user-guide/fposbapi.md"
       - "festo-edcon / Modbus Backend": "user-guide/edcon.md"
+      - "CLI Reference": "user-guide/cli.md"
   - Examples:
       - "FPosBAPI": "examples/fposbapi.md"
       - "festo-edcon / Modbus": "examples/edcon.md"
