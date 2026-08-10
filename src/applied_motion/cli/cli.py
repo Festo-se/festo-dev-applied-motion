@@ -147,7 +147,7 @@ def _build_completer(axis_names: list[str]) -> WordCompleter:
         _TOP_LEVEL_CMDS + axis_names + _DIRECTIONS,
         ignore_case=True,
         sentence=True,
-    )
+    )  # TODO: Move to cli composer util?
 
 
 def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa

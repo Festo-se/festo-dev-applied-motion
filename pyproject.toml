@@ -51,6 +51,7 @@ docs = [
     "mkdocs-codeinclude-plugin>=0.2.1",  
     "mkdocs-live-edit-plugin"
 ]
+examples = ["requests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -31,6 +31,7 @@ from applied_motion.cli.cli import (
     register_motion_cli,
     run_repl,
 )
+from applied_motion.cli.compose import Command, CommandGroup, CommandHandler, UnknownCommandError, UsageError
 
 __all__ = [
     "TeachSession",
@@ -38,4 +39,9 @@ __all__ = [
     "register_motion_cli",
     "build_standalone_motion_parser",
     "dispatch_motion_command",
+    "Command",
+    "CommandGroup",
+    "CommandHandler",
+    "UnknownCommandError",
+    "UsageError",
 ]
