@@ -31,6 +31,7 @@ No hardware or network connection required.  All tests use a plain
 
 import json
 from collections import deque
+from math import inf
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -55,6 +56,8 @@ def _make_gantry(axis_names: list[str] = None, current_positions: dict[str, floa
     for name in axis_names:
         axis = MagicMock()
         axis.get_current_axis_position.return_value = current_positions.get(name, 0.0)
+        axis.min_position = -inf
+        axis.max_position = inf
         gantry.axes[name] = axis
 
     gantry.get_location.return_value = dict(current_positions)

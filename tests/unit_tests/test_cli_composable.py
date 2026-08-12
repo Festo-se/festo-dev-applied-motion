@@ -41,13 +41,16 @@ class TestRegisterMotionCli:
         assert args.motion_command == "status"
         assert callable(args._handler)
 
-    def test_extension_can_add_nested_subcommand(self):
+    def test_extension_can_add_nested_subcommand(self, monkeypatch):
         parent = argparse.ArgumentParser(prog="system")
         top = parent.add_subparsers(dest="domain")
 
+        fake_gantry = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        monkeypatch.setattr(cli, "_connect_gantry", lambda *_: fake_gantry)
+
         def extension(motion_subparsers):
             parser = motion_subparsers.add_parser("extra")
-            parser.set_defaults(_handler=lambda _: 9)
+            parser.set_defaults(_handler=lambda args, gantry: 9)
 
         cli.register_motion_cli(top, extensions=[extension])
         args = parent.parse_args(["motion", "--config", "gantry.json", "extra"])
@@ -73,8 +76,6 @@ class TestJogTuiSubcommand:
 
         fake_gantry = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
         monkeypatch.setattr(cli, "_connect_gantry", lambda *_: fake_gantry)
-        fake_gantry.__enter__ = lambda s: fake_gantry
-        fake_gantry.__exit__ = lambda s, *a: None
 
         parser = cli.build_standalone_motion_parser()
         args = parser.parse_args(["--config", "gantry.json", "jog-tui"])
@@ -93,12 +94,14 @@ class TestMain:
     def test_defaults_to_shell_when_subcommand_missing(self, monkeypatch):
         called = {"count": 0}
 
-        def fake_shell(args):
+        def fake_shell(args, gantry):
             called["count"] += 1
             assert isinstance(args.config, Path)
             return 0
 
         monkeypatch.setattr(cli, "_run_shell", fake_shell)
+        fake_gantry = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        monkeypatch.setattr(cli, "_connect_gantry", lambda *_: fake_gantry)
 
         cli.main(["--config", "gantry.json"])
 

@@ -167,8 +167,9 @@ class TestEdconAxisMoveNoTimeout:
         """A position below the negative SW limit must be clamped to that limit.
 
         Axis stroke: 0 to 10,000 µm.  Target: -5 mm → -5,000 µm < 0 → clamped to 0.
+        Axis starts at 5,000 µm (5 mm) so the clamped target != current position.
         """
-        axis = _make_move_axis(neg_limit=0, pos_limit=10_000)
+        axis = _make_move_axis(neg_limit=0, pos_limit=10_000, current_pos=5_000)
         axis.move(position=-5, velocity=100)  # -5 mm → -5,000 µm < 0
         pos_arg = axis.position_task.call_args[0][0]
         assert pos_arg == 0

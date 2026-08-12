@@ -33,6 +33,7 @@ from applied_motion.gantry_factory import GantryConstruction
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
+from applied_motion.config import GantryConfig, SystemConfig
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +120,7 @@ _FPOSBAPI_CONFIG = {
 def patched_festo_axis(mocker):
     """Patch EdconAxis so its __init__ does not open a Modbus connection."""
     mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
-    mock_cls.side_effect = lambda name, ip, run_referencing=False: MagicMock(
+    mock_cls.side_effect = lambda name, ip, run_referencing=False, min_position=None, max_position=None: MagicMock(
         spec=EdconAxis, name=name, ip=ip
     )
     return mock_cls
@@ -147,6 +148,22 @@ class TestFromConfigModbus:
         g = Gantry(config=_MODBUS_CONFIG)
         assert list(g.axes.keys()) == ["X", "Y"]
         assert g.supports_teach() is False
+
+    def test_modbus_factory_homes_axes_during_construction(self, mocker):
+        mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
+        axis_x = MagicMock(spec=EdconAxis)
+        axis_y = MagicMock(spec=EdconAxis)
+        mock_cls.side_effect = [axis_x, axis_y]
+
+        gcfg = GantryConfig(SystemConfig(_MODBUS_CONFIG)(), "gantry_1")
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        _build_modbus_from_gcfg(gcfg)
+
+        # Verify EdconAxis instantiated with run_referencing=True for each axis
+        assert mock_cls.call_count == 2
+        for call in mock_cls.call_args_list:
+            assert call.kwargs.get("run_referencing") is True
 
     def test_creates_festo_axis_for_each_entry(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
