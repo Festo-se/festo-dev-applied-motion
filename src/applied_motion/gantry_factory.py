@@ -62,6 +62,7 @@ def _build_modbus_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
             run_referencing=gcfg.axes_cfg[axis_name].get("run_referencing", True),
             min_position=gcfg.axes_cfg[axis_name].get("min_position", -inf),
             max_position=gcfg.axes_cfg[axis_name].get("max_position", inf),
+            sw_limit_margin_mm=gcfg.axes_cfg[axis_name].get("sw_limit_margin_mm", 1.0),
         )
         for axis_name in gcfg.axis_order
     }

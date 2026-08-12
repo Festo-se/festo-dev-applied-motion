@@ -120,7 +120,7 @@ _FPOSBAPI_CONFIG = {
 def patched_festo_axis(mocker):
     """Patch EdconAxis so its __init__ does not open a Modbus connection."""
     mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
-    mock_cls.side_effect = lambda name, ip, run_referencing=False, min_position=None, max_position=None: MagicMock(
+    mock_cls.side_effect = lambda name, ip, run_referencing=False, min_position=None, max_position=None, sw_limit_margin_mm=None: MagicMock(
         spec=EdconAxis, name=name, ip=ip
     )
     return mock_cls

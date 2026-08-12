@@ -68,7 +68,13 @@ class EdconAxis(MotionHandler):
     min_velocity_fas_units: int
 
     def __init__(
-        self, name: str, ip: str, run_referencing: bool = False, max_position: float = inf, min_position: float = -inf
+        self,
+        name: str,
+        ip: str,
+        run_referencing: bool = False,
+        max_position: float = inf,
+        min_position: float = -inf,
+        sw_limit_margin_mm: float = 1.0,
     ) -> None:
         """Initialise the axis and establish a Modbus connection.
 
@@ -116,10 +122,12 @@ class EdconAxis(MotionHandler):
             "time": {"unit": "s", "power": -1, "power_of_ten": 1},
         }
         self.max_position = min(
-            max_position, self._valid_position(self._pos_sw_limit, self.input_pos_unit, invert=True)
+            max_position,
+            self._valid_position(self._pos_sw_limit, self.input_pos_unit, invert=True) - sw_limit_margin_mm,
         )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
         self.min_position = max(
-            min_position, self._valid_position(self._neg_sw_limit, self.input_pos_unit, invert=True)
+            min_position,
+            self._valid_position(self._neg_sw_limit, self.input_pos_unit, invert=True) + sw_limit_margin_mm,
         )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
         self.max_velocity = self._valid_velocity(
             self._max_vel, self.input_vel_unit, invert=True
