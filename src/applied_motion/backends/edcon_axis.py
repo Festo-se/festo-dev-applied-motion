@@ -74,7 +74,6 @@ class EdconAxis(MotionHandler):
         run_referencing: bool = False,
         max_position: float = inf,
         min_position: float = -inf,
-        sw_limit_margin_mm: float = 1.0,
     ) -> None:
         """Initialise the axis and establish a Modbus connection.
 
@@ -116,19 +115,21 @@ class EdconAxis(MotionHandler):
 
         self._min_vel: int = self.com.read_pnu(11212)
         self._max_vel: int = self.com.read_pnu(11213)
+        self._pos_scale_exp: int = self.com.read_pnu(11724)
+        self._vel_scale_exp: int = self.com.read_pnu(11725)
         self.input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
         self.input_vel_unit = {
             "distance": {"unit": "m", "power": 1, "power_of_ten": -3},
             "time": {"unit": "s", "power": -1, "power_of_ten": 1},
         }
-        self.max_position = min(
+        self.max_position = -1 + min(
             max_position,
-            self._valid_position(self._pos_sw_limit, self.input_pos_unit, invert=True) - sw_limit_margin_mm,
-        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
-        self.min_position = max(
+            self._valid_position(self._pos_sw_limit, self.input_pos_unit, invert=True),
+        )  # TODO: Fix overshooting following error in drive control
+        self.min_position = 1 + max(
             min_position,
-            self._valid_position(self._neg_sw_limit, self.input_pos_unit, invert=True) + sw_limit_margin_mm,
-        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
+            self._valid_position(self._neg_sw_limit, self.input_pos_unit, invert=True),
+        )  # TODO: Fix overshooting following error in drive control
         self.max_velocity = self._valid_velocity(
             self._max_vel, self.input_vel_unit, invert=True
         )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
@@ -262,6 +263,25 @@ class EdconAxis(MotionHandler):
         _mm_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
         return self._valid_position(super().current_position(), _mm_unit, invert=True)
 
+    def _clamped_target(self, position, positioning_type):
+        current = self.get_current_axis_position()
+
+        if positioning_type:
+            target = position
+        else:
+            target = current + position
+
+        # target is in mm here; compare against configured mm limits.
+        # if self.min_position <= target <= self.max_position:
+        #     return target  # already in range, no change needed
+        clamped_target = max(self.min_position, min(self.max_position, target))
+
+        if positioning_type:
+            return clamped_target
+        else:
+            # Convert clamped absolute target back to a relative delta
+            return clamped_target - current
+
     def move(self, position: int | float, velocity: int | float, timeout: int | None = None, **kwargs) -> bool:
         """Move the axis to a specified position with a given velocity.
 
@@ -285,40 +305,32 @@ class EdconAxis(MotionHandler):
         # TODO: check valid move parameters against internal set values
         # e.g. Position limit, velocity limit, acceleration limit, etc.
         # if not valid, raise exception
-        positioning_type = kwargs.get("position_type", "absolute") == "absolute"
+        pos_type = kwargs.get("position_type", "absolute")
+        logger.debug(
+            "Axis '%s': entering move — raw position=%s  raw velocity=%s raw timeout=%s raw position_type=%s",
+            self.name,
+            position,
+            velocity,
+            timeout,
+            pos_type,
+        )
+        positioning_type = pos_type == "absolute"
 
-        def clamped_target(position, positioning_type):
-            if positioning_type:
-                target = position
-            else:
-                target = self.get_current_axis_position() + position
-
-            # target is in mm here; compare against configured mm limits.
-            if self.min_position <= target <= self.max_position:
-                return target  # already in range, no change needed
-            clamped_target = max(self.min_position, min(self.max_position, target))
-
-            if positioning_type:
-                return clamped_target
-            else:
-                # Convert clamped absolute target back to a relative delta
-                return clamped_target - self.get_current_axis_position()
-
-        position = clamped_target(position, positioning_type)
-
+        clamped_position = self._clamped_target(position, positioning_type)
+        logger.debug("Axis '%s': processing move — clamped_position=%s", self.name, clamped_position)
         try:
-            validated_position = int(self._valid_position(position, self.input_pos_unit))
+            validated_position = int(self._valid_position(clamped_position, self.input_pos_unit))
         except Exception:
             logger.exception("Axis '%s': failed to validate position", self.name)
-            validated_position = -5
+            validated_position = -5  # TODO: This seems bad and wrong
 
         try:
             validated_velocity = int(self._valid_velocity(velocity, self.input_vel_unit))
         except Exception:
             logger.exception("Axis '%s': failed to validate velocity", self.name)
-            validated_velocity = 5
+            validated_velocity = 5  # TODO: This seems bad and wrong
         logger.debug(
-            "Axis '%s': entering move — validated_position=%s  validated_velocity=%s",
+            "Axis '%s': processing move — validated_position=%s  validated_velocity=%s",
             self.name,
             validated_position,
             validated_velocity,
@@ -336,8 +348,13 @@ class EdconAxis(MotionHandler):
         logger.debug(
             "Axis '%s': clamped_position=%s  validated_velocity=%s", self.name, validated_position, validated_velocity
         )
-        # Skip the drive command entirely when already at target (prevents position_task hang at limit).
-        if abs(validated_position - int(super().current_position())) == 0:
+        # Skip if already at target (absolute) or zero delta (relative).
+        at_target = (
+            abs(validated_position - int(super().current_position())) == 0
+            if positioning_type
+            else abs(validated_position) == 0
+        )
+        if at_target:
             logger.info("Axis '%s': already at target drive position %s, skipping move", self.name, validated_position)
             return True
         result: bool = False
@@ -410,15 +427,26 @@ class EdconAxis(MotionHandler):
         configured_neg_limit = int(self._valid_position(self.min_position, self.input_pos_unit))
         configured_pos_limit = int(self._valid_position(self.max_position, self.input_pos_unit))
 
+        current_pos = 0
         if absolute:
             target = validated_position
         else:
-            target = super().current_position() + validated_position
+            current_pos = super().current_position()  # snapshot once; position may change under motion
+            target = current_pos + validated_position
 
         if configured_neg_limit <= target <= configured_pos_limit:
-            return target  # already in range, no change needed
+            logger.debug(
+                "Axis '%s': clamp diagnostics — configured(mm)=[%s, %s], drive_raw=[%s, %s], target_raw=%s, no clamp applied",
+                self.name,
+                self.min_position,
+                self.max_position,
+                self._neg_sw_limit,
+                self._pos_sw_limit,
+                target,
+            )
+            return validated_position  # return original delta (relative) or target (absolute — same value)
 
-        clamped_target = max(configured_neg_limit, min(configured_pos_limit, target))
+        clamped_target = int(max(configured_neg_limit, min(configured_pos_limit, target)))
         scaled_target = self._valid_position(target, self.input_pos_unit, invert=True)
         scaled_clamped_target = self._valid_position(clamped_target, self.input_pos_unit, invert=True)
         logger.warning(
@@ -443,8 +471,7 @@ class EdconAxis(MotionHandler):
         if absolute:
             return clamped_target
         else:
-            # Convert clamped absolute target back to a relative delta
-            return clamped_target - super().current_position()
+            return clamped_target - current_pos
 
     def _valid_position(self, position: int | float, input_unit: dict, invert: bool = False) -> float:
         """Convert *position* between the caller's unit system and the drive's unit system.
@@ -471,7 +498,7 @@ class EdconAxis(MotionHandler):
             "distance": {
                 "unit": "m",
                 "power": 1,
-                "power_of_ten": self.com.read_pnu(11724),
+                "power_of_ten": self._pos_scale_exp,
             }
         }
 
@@ -502,7 +529,7 @@ class EdconAxis(MotionHandler):
             "distance": {
                 "unit": "m",
                 "power": 1,
-                "power_of_ten": self.com.read_pnu(11725),
+                "power_of_ten": self._vel_scale_exp,
             }
         }
 

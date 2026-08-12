@@ -57,6 +57,7 @@ Page Up / Page Down    Step axis[2] (typically Z) positive / negative
 import argparse
 import logging
 import sys
+import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -181,6 +182,7 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
         "status": ("ok", "Ready. Use arrow keys to jog."),
         "location": gantry.get_location(),
         "depth_idx": 0,
+        "busy": False,
     }
 
     def _active_depth() -> str | None:
@@ -235,17 +237,34 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
         return FormattedText(parts)
 
     kb = KeyBindings()
+    app: Application = Application(
+        layout=Layout(Window(content=FormattedTextControl(_content, focusable=True))),
+        key_bindings=kb,
+        full_screen=False,
+    )
 
     def _do_jog(axis_name: str, direction: str) -> None:
+        if state["busy"]:
+            return
         step = _STEP_SIZES[state["step_idx"]]
-        try:
-            state["location"] = session.jog(axis_name, direction, step)
-            state["status"] = ("ok", f"{direction}{step:.3g} mm on {axis_name}")
-        except (ValueError, KeyError) as exc:
-            state["status"] = ("warn", f"Limit or config error: {exc}")
-        except Exception as exc:
-            logger.exception("CLI jog mode: jog failed axis=%s direction=%s step=%s", axis_name, direction, step)
-            state["status"] = ("err", f"Error: {exc}")
+        state["busy"] = True
+        state["status"] = ("info", f"Moving {axis_name} {direction}{step:.3g} mm…")
+        app.invalidate()
+
+        def _run() -> None:
+            try:
+                state["location"] = session.jog(axis_name, direction, step)
+                state["status"] = ("ok", f"{direction}{step:.3g} mm on {axis_name}")
+            except (ValueError, KeyError) as exc:
+                state["status"] = ("warn", f"Limit or config error: {exc}")
+            except Exception as exc:
+                logger.exception("CLI jog mode: jog failed axis=%s direction=%s step=%s", axis_name, direction, step)
+                state["status"] = ("err", f"Error: {exc}")
+            finally:
+                state["busy"] = False
+                app.invalidate()
+
+        threading.Thread(target=_run, daemon=True).start()
 
     if len(axis_names) >= 1:
 
@@ -308,9 +327,8 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
     def _(event) -> None:
         event.app.exit()
 
-    layout = Layout(Window(content=FormattedTextControl(_content, focusable=True)))
     try:
-        Application(layout=layout, key_bindings=kb, full_screen=False).run()
+        app.run()
     except KeyboardInterrupt:
         pass
     console.print(f"{format_badge('JOG', 'info')} [festo.muted]Returned to REPL.[/]")
