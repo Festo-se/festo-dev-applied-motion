@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
 
-"""Gantry commissioning and teach-in session — position recording and jogging.
+"""Gantry commissioning and motion session — position recording and jogging.
 
 This module is backend-agnostic.  It does not depend on ``prompt_toolkit``
 or ``rich`` and can be imported and tested without the ``teach`` extra
 installed, as long as [`applied_motion.cli`][applied_motion.cli] (the package guard)
 is not triggered first.
 
-The [`TeachSession`][applied_motion.cli.session.TeachSession] class deliberately avoids calling any private
+The [`MotionSession`][applied_motion.cli.session.MotionSession] class deliberately avoids calling any private
 attributes of [`Gantry`][applied_motion.applied_motion.Gantry].
 PLC-specific actions (``TEACH_POS``, ``TEACH_TRAY``) are delegated to the
 caller via the ``on_capture`` hook, keeping this class backend-agnostic and
@@ -30,7 +30,7 @@ OnCaptureHook = Callable[[str, dict[str, float]], None]
 
 Signature: ``on_capture(label: str, position: dict[str, float]) -> None``
 
-Called after every successful [`TeachSession.capture`][applied_motion.cli.session.TeachSession.capture] with the
+Called after every successful [`MotionSession.capture`][applied_motion.cli.session.MotionSession.capture] with the
 position label and the recorded position dict.  Typical uses:
 
 * Send ``TEACH_POS`` / ``TEACH_TRAY`` to the CECC-X PLC via
@@ -40,13 +40,13 @@ position label and the recorded position dict.  Typical uses:
 """
 
 
-class TeachSession:
+class MotionSession:
     """Records gantry positions interactively or programmatically.
 
     Provides step-jog and position capture on top of a connected
     [`Gantry`][applied_motion.applied_motion.Gantry].  Captured positions are kept
     in ``positions`` and can be persisted to and from JSON via
-    [`save`][applied_motion.cli.session.TeachSession.save] / [`load`][applied_motion.cli.session.TeachSession.load].
+    [`save`][applied_motion.cli.session.MotionSession.save] / [`load`][applied_motion.cli.session.MotionSession.load].
 
     This class has no knowledge of the gantry backend (Modbus vs FPosBAPI)
     and no dependency on ``prompt_toolkit`` or ``rich``.  Backend-specific
@@ -57,12 +57,12 @@ class TeachSession:
         gantry: Connected and homed [`Gantry`][applied_motion.applied_motion.Gantry]
             instance.
         on_capture: Optional hook called immediately after each successful
-            [`capture`][applied_motion.cli.session.TeachSession.capture].  Receives the position label and position dict.
+            [`capture`][applied_motion.cli.session.MotionSession.capture].  Receives the position label and position dict.
             Exceptions raised by the hook propagate to the caller.
 
     Attributes:
         positions: Ordered dict mapping label → ``{axis_name: position_mm}``.
-            Populated by [`capture`][applied_motion.cli.session.TeachSession.capture] and [`load`][applied_motion.cli.session.TeachSession.load].
+            Populated by [`capture`][applied_motion.cli.session.MotionSession.capture] and [`load`][applied_motion.cli.session.MotionSession.load].
 
     Example::
 
@@ -70,7 +70,7 @@ class TeachSession:
         def plc_hook(label, pos):
             gantry.teach_pos(pos_id=label_to_id[label])
 
-        session = TeachSession(gantry, on_capture=plc_hook)
+        session = MotionSession(gantry, on_capture=plc_hook)
         session.jog("X", "+", 5.0)
         session.capture("deck_a1")
         session.save("deck_layout.json")
@@ -85,7 +85,7 @@ class TeachSession:
         self.on_capture = on_capture
         self.positions: dict[str, dict[str, float]] = {}
         logger.debug(
-            "TeachSession: created for gantry=%r hook=%s",
+            "MotionSession: created for gantry=%r hook=%s",
             gantry,
             getattr(on_capture, "__name__", repr(on_capture)) if on_capture is not None else "None",
         )
@@ -147,7 +147,7 @@ class TeachSession:
             delta = max(raw_delta, -available)
 
         logger.info(
-            "TeachSession.jog: axis=%s limits=[%.3f, %.3f] mm current=%.3f delta=%.3f vel=%.1f mm/s timeout=%ss",
+            "MotionSession.jog: axis=%s limits=[%.3f, %.3f] mm current=%.3f delta=%.3f vel=%.1f mm/s timeout=%ss",
             axis_name,
             axis.min_position,
             axis.max_position,
@@ -158,19 +158,19 @@ class TeachSession:
         )
         if delta != raw_delta:
             logger.warning(
-                "TeachSession.jog: axis=%s delta clamped %.3f\u2192%.3f mm (%s mm margin from SW limit)",
+                "MotionSession.jog: axis=%s delta clamped %.3f\u2192%.3f mm (%s mm margin from SW limit)",
                 axis_name,
                 raw_delta,
                 delta,
                 _JOG_LIMIT_MARGIN,
             )
         if abs(delta) < 1e-3:
-            logger.info("TeachSession.jog: axis=%s at limit, skipping move", axis_name)
+            logger.info("MotionSession.jog: axis=%s at limit, skipping move", axis_name)
             return self.gantry.get_location()
 
         axis.move(delta, velocity, position_type="relative", timeout=timeout)
         location = self.gantry.get_location()
-        logger.debug("TeachSession.jog: post-move location=%s", location)
+        logger.debug("MotionSession.jog: post-move location=%s", location)
         return location
 
     # ------------------------------------------------------------------
@@ -196,7 +196,7 @@ class TeachSession:
         """
         position = self.gantry.get_location()
         self.positions[label] = position
-        logger.info("TeachSession.capture: label=%r position=%s", label, position)
+        logger.info("MotionSession.capture: label=%r position=%s", label, position)
         if self.on_capture is not None:
             self.on_capture(label, position)
         return position
@@ -217,7 +217,7 @@ class TeachSession:
         path = Path(path)
         with path.open("w") as fh:
             json.dump(self.positions, fh, indent=2)
-        logger.info("TeachSession.save: wrote %d position(s) to %s", len(self.positions), path)
+        logger.info("MotionSession.save: wrote %d position(s) to %s", len(self.positions), path)
 
     def load(self, path: Path | str) -> None:
         """Merge positions from a JSON file into ``positions``.
@@ -226,7 +226,7 @@ class TeachSession:
         absent in *path* are preserved.
 
         Args:
-            path: Source JSON file previously written by [`save`][applied_motion.cli.session.TeachSession.save].
+            path: Source JSON file previously written by [`save`][applied_motion.cli.session.MotionSession.save].
 
         Raises:
             OSError: If *path* cannot be opened.
@@ -236,4 +236,4 @@ class TeachSession:
         with path.open() as fh:
             loaded: dict[str, dict[str, float]] = json.load(fh)
         self.positions.update(loaded)
-        logger.info("TeachSession.load: read %d position(s) from %s", len(loaded), path)
+        logger.info("MotionSession.load: read %d position(s) from %s", len(loaded), path)

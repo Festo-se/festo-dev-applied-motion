@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
 # SPDX-License-Identifier: MIT
 
-"""Interactive commissioning and teach-in REPL for gantry position recording.
+"""
+Interactive commissioning and motion REPL for gantry operation.
 
 Requires the ``cli`` optional-dependency extra::
 
@@ -55,7 +56,6 @@ Page Up / Page Down    Step axis[2] (typically Z) positive / negative
 =====================  ================================================
 """
 
-# TODO: cli tool fails with no notification why when gantry is not referenced/homed. Fix this
 import argparse
 import logging
 import sys
@@ -72,7 +72,6 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.patch_stdout import patch_stdout
 from rich.table import Table, box
 
 from applied_motion.cli.formatting import build_help_block, format_badge, format_bool, format_help_line
@@ -93,7 +92,7 @@ from applied_motion.cli.theme import (
 )
 
 from applied_motion.applied_motion import Gantry
-from applied_motion.cli.session import TeachSession
+from applied_motion.cli.session import MotionSession
 
 console = festo_console()
 logger = logging.getLogger(__name__)
@@ -182,7 +181,7 @@ def _build_completer(axis_names: list[str]) -> WordCompleter:
     )  # TODO: Move to cli composer util?
 
 
-def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
+def _run_jog_mode(session: MotionSession, gantry: Gantry) -> None:  # noqa
     """Arrow-key driven inline jog TUI.  Press Esc or q to return to REPL."""
     axis_names = list(gantry.axes.keys())
     # axes[2:] are depth axes — cycled via Tab, stepped via PgUp/PgDn
@@ -339,14 +338,13 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
         event.app.exit()
 
     try:
-        with patch_stdout(raw=True):
-            app.run()
+        app.run()
     except KeyboardInterrupt:
         pass
     console.print(f"{format_badge('JOG', 'info')} [festo.muted]Returned to REPL.[/]")
 
 
-def run_repl(session: TeachSession, gantry: Gantry) -> int:  # noqa
+def run_repl(session: MotionSession, gantry: Gantry) -> int:  # noqa
     """Launch the interactive teach-in REPL for a connected gantry.
 
     Presents a prompt-toolkit REPL that accepts ``jog``, ``capture``,
@@ -355,7 +353,7 @@ def run_repl(session: TeachSession, gantry: Gantry) -> int:  # noqa
     history are provided automatically.
 
     Args:
-        session: A [`TeachSession`][applied_motion.cli.session.TeachSession]
+        session: A [`MotionSession`][applied_motion.cli.session.MotionSession]
             instance backed by a connected, homed gantry.  Captured
             positions accumulate in ``session.positions``.
         gantry: The connected [`Gantry`][applied_motion.applied_motion.Gantry]
@@ -370,7 +368,9 @@ def run_repl(session: TeachSession, gantry: Gantry) -> int:  # noqa
 
     console.print(_HELP_TEXT)
 
-    with patch_stdout(raw=True):
+    previous_disable = logging.root.manager.disable
+    logging.disable(logging.CRITICAL)
+    try:
         while True:
             try:
                 raw = ps.prompt("motion> ").strip()
@@ -492,6 +492,8 @@ def run_repl(session: TeachSession, gantry: Gantry) -> int:  # noqa
             except Exception as exc:
                 logger.exception("Unexpected error processing command %r", raw)
                 console.print(f"[festo.err]✗[/] Unexpected error: {exc}")
+    finally:
+        logging.disable(previous_disable)
 
     console.print("[festo.ok]✓[/] Quitting program repl successful.")
     return 1
@@ -530,7 +532,7 @@ def _run_shell(args: argparse.Namespace, gantry: Gantry) -> int:
                 f"  {format_badge('TIP', 'info')} [festo.muted]run [festo.ok]teach pos <id>[/] to commit [bold]{label!r}[/] to PLC.[/]"
             )
 
-    session = TeachSession(gantry, on_capture=on_capture)
+    session = MotionSession(gantry, on_capture=on_capture)
     exit_code = run_repl(session, gantry)
     console.print("[festo.ok]✓[/] Program shell exited successfully.")
     return exit_code
@@ -669,7 +671,7 @@ def _run_jog(args: argparse.Namespace, gantry: Gantry) -> int:
     Returns:
         Process exit code.
     """
-    session = TeachSession(gantry)
+    session = MotionSession(gantry)
     location = session.jog(args.axis.upper(), args.direction, args.step, args.velocity, timeout=args.timeout)
     console.print(_location_table(location))
     return 0
@@ -725,7 +727,7 @@ def _run_jog_tui(args: argparse.Namespace, gantry: Gantry) -> int:
         Process exit code.
     """
     console.print(f"{format_badge('CONNECTED', 'ok')} [bold]{gantry!r}[/]")
-    session = TeachSession(gantry)
+    session = MotionSession(gantry)
     _run_jog_mode(session, gantry)
     return 0
 

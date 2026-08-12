@@ -24,6 +24,7 @@ constructors are patched so no TCP or Modbus connections are attempted.
 
 import json
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -114,6 +115,15 @@ _FPOSBAPI_CONFIG = {
         }
     
 }
+
+
+def _base_modbus_component() -> dict:
+    return {
+        "backend": "modbus",
+        "axes": {"X": {"name": "X", "ip": "192.168.0.193"}},
+        "axis_order": ["X"],
+        "concurrent_axes": None,
+    }
 
 
 @pytest.fixture()
@@ -418,6 +428,48 @@ class TestFromConfigInvalidBackend:
         config["component_config"]["components"]["gantry_1"]["backend"] = "opc_ua"
         with pytest.raises(ValueError, match="opc_ua"):
             Gantry.from_config(config)
+
+
+class TestConfigValidationContracts:
+    def test_system_config_rejects_non_dict_loaded_value(self):
+        with pytest.raises(ValueError, match="Config config must load as a dict"):
+            SystemConfig(cast(dict, []))
+
+    def test_system_config_rejects_non_dict_component_config(self):
+        with pytest.raises(ValueError, match="Normalized config config must be a dict"):
+            SystemConfig({"component_config": []})
+
+    def test_gantry_config_requires_components_mapping(self):
+        with pytest.raises(ValueError, match="Config config must contain a 'components' mapping"):
+            GantryConfig({}, "gantry_1")
+
+    def test_gantry_config_requires_named_component(self):
+        with pytest.raises(ValueError, match="Config config does not contain component 'gantry_1'"):
+            GantryConfig({"components": {}}, "gantry_1")
+
+    def test_gantry_config_requires_axis_mapping(self):
+        component = _base_modbus_component()
+        component.pop("axes")
+        with pytest.raises(ValueError, match="Config component 'gantry_1' must contain an 'axes' mapping"):
+            GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+
+    def test_gantry_config_axis_order_unknown_axis_error_text(self):
+        component = _base_modbus_component()
+        component["axis_order"] = ["Y"]
+        with pytest.raises(ValueError, match=r"Config axis_order references unknown axes: \['Y'\]"):
+            GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+
+    def test_gantry_config_concurrent_axes_unknown_axis_error_text(self):
+        component = _base_modbus_component()
+        component["concurrent_axes"] = ["Y"]
+        with pytest.raises(ValueError, match=r"Config concurrent_axes references unknown axes: \['Y'\]"):
+            GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+
+    def test_gantry_config_modbus_axis_requires_ip_error_text(self):
+        component = _base_modbus_component()
+        component["axes"]["X"] = {"name": "X"}
+        with pytest.raises(ValueError, match="Modbus axis 'X' must define string field 'ip'"):
+            GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
 
 
 class TestConstructorValidation:

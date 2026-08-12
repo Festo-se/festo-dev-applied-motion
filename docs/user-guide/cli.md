@@ -16,7 +16,7 @@ uv add festo-dev-applied-motion[cli]
 applied-motion --config gantry.json [subcommand]
 ```
 
-If no subcommand is given, the interactive teach shell starts automatically.
+If no subcommand is given, the interactive motion shell starts automatically.
 
 ### Global flags
 
@@ -32,7 +32,7 @@ If no subcommand is given, the interactive teach shell starts automatically.
 
 | Subcommand | Description |
 |---|---|
-| `shell` | Interactive teach REPL (default) |
+| `shell` | Interactive motion REPL (default) |
 | `where` | Print current axis positions once |
 | `home` | Home all axes once |
 | `status` | Print gantry status snapshot |
@@ -79,7 +79,7 @@ applied-motion --config gantry.json jog Z - 10 --velocity 25 --timeout 60
 applied-motion --config gantry.json jog-tui
 ```
 
-Connects to the gantry and opens a full-screen TUI. No teach REPL involved. Press `Esc` or `q` to exit.
+Connects to the gantry and opens a full-screen TUI. No motion REPL involved. Press `Esc` or `q` to exit.
 
 #### Key bindings
 
@@ -96,7 +96,7 @@ Connects to the gantry and opens a full-screen TUI. No teach REPL involved. Pres
 
 The TUI displays current position for all axes, the active step size, and the last operation status. When three or more axes are configured, `Tab` cycles which axis responds to Page Up/Page Down — the active axis is marked with `◀`.
 
-### Jog inside the teach shell
+### Jog inside the motion shell
 
 After launching `shell`, the `jog` command is also available at the REPL prompt:
 
@@ -108,7 +108,7 @@ motion> jog X + 5 25                 # single step, 5 mm at 25 mm/s
 
 ---
 
-## Interactive teach shell
+## Interactive motion shell
 
 ```bash
 applied-motion --config gantry.json shell
@@ -164,15 +164,15 @@ For FPosBAPI backends, use `teach pos <id>` after each capture to commit the pos
 
 ## Programmatic use
 
-`TeachSession` is available without the `cli` extra and has no dependency on `prompt_toolkit` or `rich`:
+`MotionSession` is available without the `cli` extra and has no dependency on `prompt_toolkit` or `rich`:
 
 ```python
 from applied_motion import Gantry
-from applied_motion.cli import TeachSession
+from applied_motion.cli import MotionSession
 
 with Gantry.from_config("gantry.json") as gantry:
     gantry.home()
-    session = TeachSession(gantry)
+    session = MotionSession(gantry)
     session.jog("X", "+", 5.0)           # step 5 mm
     session.capture("deck_a1")
     session.save("deck_layout.json")
@@ -184,10 +184,10 @@ The `on_capture` hook fires after every `capture` call — use it to commit posi
 def plc_hook(label: str, pos: dict[str, float]) -> None:
     gantry.teach_pos(pos_id=label_to_id[label])
 
-session = TeachSession(gantry, on_capture=plc_hook)
+session = MotionSession(gantry, on_capture=plc_hook)
 ```
 
-`TeachSession.jog` returns the full location dict after the move:
+`MotionSession.jog` returns the full location dict after the move:
 
 ```python
 location = session.jog("Z", "-", 10.0, velocity=25.0, timeout=60)
