@@ -253,7 +253,7 @@ class Gantry:
         logger.debug("Gantry._move_dispatch: batch=%d concurrent=%s timeout=%s", len(movements), concurrent, timeout)
         if concurrent:
             with ThreadPoolExecutor(max_workers=len(movements)) as executor:
-                move_results = executor.map(lambda x: self._single_move(x, timeout=timeout), movements, timeout=timeout)
+                move_results = executor.map(lambda x: self._single_move(x, timeout=timeout), movements)
                 executed_movements = tuple(res for res in move_results)  # TODO: Timeout result?
                 logger.debug("Gantry._move_dispatch: concurrent results=%s", executed_movements)
 

@@ -19,6 +19,8 @@ class Axis(Protocol):
     """
 
     name: str
+    min_position: float
+    max_position: float
 
     def move(self, position: float, velocity: float, **kwargs) -> bool:
         """Move the axis to *position* at *velocity*.

@@ -33,6 +33,7 @@ Position at field index ``axis_index + 1`` (1-based field 2 = X, 3 = Y, 4 = Z).
 """
 
 import logging
+from math import inf
 
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
 
@@ -67,6 +68,8 @@ class FPosBAxis:
         self.name = name
         self.index = index
         self._client = client
+        self.min_position: float = -inf
+        self.max_position: float = inf
         logger.info("FPosBAxis '%s' (index=%d) created", name, index)
 
     def move(self, position: float, velocity: float, timeout: int | None = None, **kwargs) -> bool:

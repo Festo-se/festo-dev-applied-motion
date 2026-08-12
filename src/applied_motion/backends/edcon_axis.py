@@ -149,6 +149,10 @@ class EdconAxis(MotionHandler):
         self.acknowledge_faults()
         self.enable_powerstage()
 
+        if run_referencing:
+            logger.info("Axis '%s': referencing requested during initialization", self.name)
+            self.home()
+
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the axis."""
         return f"EdconAxis(name={self.name!r}, ip={self.ip!r})"
@@ -325,6 +329,10 @@ class EdconAxis(MotionHandler):
         logger.debug(
             "Axis '%s': clamped_position=%s  validated_velocity=%s", self.name, validated_position, validated_velocity
         )
+        # Skip the drive command entirely when already at target (prevents position_task hang at limit).
+        if abs(validated_position - int(super().current_position())) == 0:
+            logger.info("Axis '%s': already at target drive position %s, skipping move", self.name, validated_position)
+            return True
         result: bool = False
         # TODO: Check powerstage enabled, attempt enable if not
         # TODO:

@@ -4,6 +4,7 @@
 """Factory helpers for building gantry axes and backend state from config."""
 
 from dataclasses import dataclass
+from math import inf
 from pathlib import Path
 
 from applied_motion.backends.axis_protocol import Axis
@@ -58,7 +59,9 @@ def _build_modbus_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
         axis_name: EdconAxis(
             name=gcfg.axes_cfg[axis_name]["name"],
             ip=gcfg.axes_cfg[axis_name]["ip"],
-            run_referencing=gcfg.axes_cfg[axis_name].get("run_referencing", False),
+            run_referencing=gcfg.axes_cfg[axis_name].get("run_referencing", True),
+            min_position=gcfg.axes_cfg[axis_name].get("min_position", -inf),
+            max_position=gcfg.axes_cfg[axis_name].get("max_position", inf),
         )
         for axis_name in gcfg.axis_order
     }

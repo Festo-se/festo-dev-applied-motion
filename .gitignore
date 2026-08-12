@@ -60,6 +60,8 @@ coverage.xml
 .pytest_cache/
 cover/
 lib-cov
+**/.pytest_cache
+**/.ruff_cache
 
 # Translations
 *.mo
