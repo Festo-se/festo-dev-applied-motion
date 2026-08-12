@@ -16,13 +16,14 @@ independently unit-testable.
 
 import json
 import logging
-from collections import deque
 from pathlib import Path
 from typing import Callable
 
 from applied_motion.applied_motion import Gantry
 
 logger = logging.getLogger(__name__)
+
+_JOG_LIMIT_MARGIN: float = 0.02  # stay this far (mm) inside SW limits when jogging
 
 OnCaptureHook = Callable[[str, dict[str, float]], None]
 """Type alias for the optional capture hook.
@@ -99,7 +100,7 @@ class TeachSession:
         direction: str,
         step_mm: float,
         velocity: float = 10.0,
-        timeout: int = 30,
+        timeout: int = 15,
     ) -> dict[str, float]:
         """Step-move one axis by *step_mm* in *direction*.
 
@@ -135,42 +136,39 @@ class TeachSession:
         if axis_name not in self.gantry.axes:
             raise KeyError(f"Axis {axis_name!r} is not registered with this gantry")
 
-        current = self.gantry.axes[axis_name].get_current_axis_position()
-        delta = step_mm if direction == "+" else -step_mm
-        raw_target = current + delta
         axis = self.gantry.axes[axis_name]
+        current = axis.get_current_axis_position()
+        raw_delta = step_mm if direction == "+" else -step_mm
+        if raw_delta > 0:
+            available = max(0.0, axis.max_position - current - _JOG_LIMIT_MARGIN)
+            delta = min(raw_delta, available)
+        else:
+            available = max(0.0, current - axis.min_position - _JOG_LIMIT_MARGIN)
+            delta = max(raw_delta, -available)
+
         logger.info(
-            "TeachSession.jog: axis=%s limits=[%.3f, %.3f] mm",
+            "TeachSession.jog: axis=%s limits=[%.3f, %.3f] mm current=%.3f delta=%.3f vel=%.1f mm/s timeout=%ss",
             axis_name,
             axis.min_position,
             axis.max_position,
-        )
-        target = max(axis.min_position, min(axis.max_position, raw_target))
-        if target != raw_target:
-            logger.warning(
-                "TeachSession.jog: target %.3f mm clamped to %.3f mm (axis limits [%.3f, %.3f])",
-                raw_target,
-                target,
-                axis.min_position,
-                axis.max_position,
-            )
-        if abs(target - current) < 1e-3:
-            logger.info("TeachSession.jog: axis=%s already at limit %.3f mm, skipping move", axis_name, target)
-            return self.gantry.get_location()
-        logger.info(
-            "TeachSession.jog: axis=%s %s%.3fmm %.3f\u2192%.3f mm vel=%.1f mm/s timeout=%ss",
-            axis_name,
-            direction,
-            step_mm,
             current,
-            target,
+            delta,
             velocity,
             timeout,
         )
-        self.gantry.move_to(
-            deque([{axis_name: {"position": target, "velocity": velocity}}]),
-            timeout=timeout,
-        )
+        if delta != raw_delta:
+            logger.warning(
+                "TeachSession.jog: axis=%s delta clamped %.3f\u2192%.3f mm (%s mm margin from SW limit)",
+                axis_name,
+                raw_delta,
+                delta,
+                _JOG_LIMIT_MARGIN,
+            )
+        if abs(delta) < 1e-3:
+            logger.info("TeachSession.jog: axis=%s at limit, skipping move", axis_name)
+            return self.gantry.get_location()
+
+        axis.move(delta, velocity, position_type="relative", timeout=timeout)
         location = self.gantry.get_location()
         logger.debug("TeachSession.jog: post-move location=%s", location)
         return location

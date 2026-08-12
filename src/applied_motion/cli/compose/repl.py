@@ -8,6 +8,7 @@ import logging
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
 
 from applied_motion.cli.compose.core import CommandError, CommandGroup, UnknownCommandError, UsageError
@@ -89,40 +90,41 @@ def run_repl(  # noqa: C901
     if intro:
         console.print(render_help(root))
 
-    while True:
-        try:
-            raw = session.prompt(prompt).strip()
-        except (EOFError, KeyboardInterrupt):
-            console.print("\n[festo.muted]Exiting.[/]")
-            break
+    with patch_stdout(raw=True):
+        while True:
+            try:
+                raw = session.prompt(prompt).strip()
+            except (EOFError, KeyboardInterrupt):
+                console.print("\n[festo.muted]Exiting.[/]")
+                break
 
-        if not raw:
-            continue
+            if not raw:
+                continue
 
-        tokens = raw.split()
-        head = tokens[0].lower()
+            tokens = raw.split()
+            head = tokens[0].lower()
 
-        if head in ("quit", "exit"):
-            break
-        if head == "help":
-            console.print(render_help(root))
-            continue
+            if head in ("quit", "exit"):
+                break
+            if head == "help":
+                console.print(render_help(root))
+                continue
 
-        try:
-            root.dispatch(tokens)
-        except UsageError as exc:
-            console.print(f"[festo.err]✗[/] {exc}")
-        except UnknownCommandError as exc:
-            console.print(f"[festo.err]✗[/] {exc}  (type [festo.ok]help[/])")
-        except NotImplementedError as exc:
-            console.print(f"[festo.warn]![/] Not supported: {exc}")
-        except AttributeError as exc:
-            console.print(f"[festo.warn]![/] Not available: {exc}")
-        except (KeyError, ValueError, IndexError, RuntimeError, CommandError) as exc:
-            console.print(f"[festo.err]✗[/] {exc}")
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Unexpected error processing command %r", raw)
-            console.print(f"[festo.err]✗[/] Unexpected error: {exc}")
+            try:
+                root.dispatch(tokens)
+            except UsageError as exc:
+                console.print(f"[festo.err]✗[/] {exc}")
+            except UnknownCommandError as exc:
+                console.print(f"[festo.err]✗[/] {exc}  (type [festo.ok]help[/])")
+            except NotImplementedError as exc:
+                console.print(f"[festo.warn]![/] Not supported: {exc}")
+            except AttributeError as exc:
+                console.print(f"[festo.warn]![/] Not available: {exc}")
+            except (KeyError, ValueError, IndexError, RuntimeError, CommandError) as exc:
+                console.print(f"[festo.err]✗[/] {exc}")
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Unexpected error processing command %r", raw)
+                console.print(f"[festo.err]✗[/] Unexpected error: {exc}")
 
 
 __all__ = ["NamespaceCompleter", "render_help", "run_repl"]

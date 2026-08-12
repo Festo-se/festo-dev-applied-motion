@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
+# SPDX-License-Identifier: MIT
 
 """Interactive commissioning and teach-in REPL for gantry position recording.
 
@@ -32,6 +33,7 @@ Command                                 Effect
 ``list``                                List all captured positions
 ``save <path>``                         Write positions to a JSON file
 ``load <path>``                         Merge positions from a JSON file
+``loglevel [OFF|DEBUG|INFO|WARNING|ERROR|CRITICAL]``  Show or change current log level
 ``help``                                Print this command reference
 ``quit``                                Exit the REPL
 ======================================  ======================================
@@ -70,9 +72,16 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.patch_stdout import patch_stdout
 from rich.table import Table, box
 
 from applied_motion.cli.formatting import build_help_block, format_badge, format_bool, format_help_line
+from applied_motion.cli.logging_utils import (
+    INHERITED_LOG_LEVEL_CHOICES,
+    LOG_LEVEL_CHOICES,
+    configure_logging,
+    set_runtime_log_level,
+)
 from applied_motion.cli.theme import (
     FESTO_BLUE_2,
     FESTO_BLUE_CAERUL,
@@ -103,6 +112,7 @@ _HELP_ENTRIES: list[tuple[str, str]] = [
     ("list", "List all captured positions"),
     ("save <path>", "Write positions to JSON"),
     ("load <path>", "Merge positions from JSON"),
+    ("loglevel [LEVEL]", "Show or change current log level"),
     ("help", "Show this reference"),
     ("quit", "Exit"),
 ]
@@ -118,6 +128,7 @@ _TOP_LEVEL_CMDS = [
     "list",
     "save",
     "load",
+    "loglevel",
     "help",
     "quit",
     "exit",
@@ -328,7 +339,8 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
         event.app.exit()
 
     try:
-        app.run()
+        with patch_stdout(raw=True):
+            app.run()
     except KeyboardInterrupt:
         pass
     console.print(f"{format_badge('JOG', 'info')} [festo.muted]Returned to REPL.[/]")
@@ -358,139 +370,131 @@ def run_repl(session: TeachSession, gantry: Gantry) -> int:  # noqa
 
     console.print(_HELP_TEXT)
 
-    while True:
-        try:
-            raw = ps.prompt("motion> ").strip()
-        except (EOFError, KeyboardInterrupt):  # noqa
-            console.print("\n[festo.muted]Exiting.[/]")
-            return 130
+    with patch_stdout(raw=True):
+        while True:
+            try:
+                raw = ps.prompt("motion> ").strip()
+            except (EOFError, KeyboardInterrupt):  # noqa
+                console.print("\n[festo.muted]Exiting.[/]")
+                return 130
 
-        if not raw:
-            continue
+            if not raw:
+                continue
 
-        parts = raw.split()
-        cmd = parts[0].lower()
+            parts = raw.split()
+            cmd = parts[0].lower()
 
-        try:
-            if cmd in ("quit", "exit", "q"):
-                console.print("[festo.ok]✓[/] Quitting program.")
-                break
+            try:
+                if cmd in ("quit", "exit", "q"):
+                    console.print("[festo.ok]✓[/] Quitting program.")
+                    break
 
-            elif cmd == "help":
-                console.print(_HELP_TEXT)
+                elif cmd == "help":
+                    console.print(_HELP_TEXT)
 
-            elif cmd == "where":
-                loc = gantry.get_location()
-                console.print(_location_table(loc))
+                elif cmd == "where":
+                    loc = gantry.get_location()
+                    console.print(_location_table(loc))
 
-            elif cmd == "home":
-                gantry.home()
-                console.print("[festo.ok]✓[/] All axes homed.")
+                elif cmd == "home":
+                    gantry.home()
+                    console.print("[festo.ok]✓[/] All axes homed.")
 
-            elif cmd == "jog":
-                if len(parts) == 1:
-                    # No args → enter arrow-key jog TUI
-                    _run_jog_mode(session, gantry)
-                elif len(parts) < 4:
-                    console.print(f"{format_badge('USAGE', 'warn')} [festo.brand]jog[/]")
-                    console.print(f"    {format_help_line('jog', 'Enter arrow-key jog mode')}")
-                    console.print(
-                        f"    {format_help_line('jog <axis> <+/-> <step> [vel]', 'Single step-move (mm, default vel=10 mm/s)')}"
-                    )
-                else:
-                    axis = parts[1].upper()
-                    direction = parts[2]
-                    step = float(parts[3])
-                    vel = float(parts[4]) if len(parts) > 4 else 10.0
-                    try:
-                        loc = session.jog(axis, direction, step, vel)
-                        console.print(_location_table(loc))
-                    except (ValueError, KeyError) as exc:
-                        console.print(f"[festo.err]✗[/] {exc}")
-                    except Exception as exc:
-                        logger.exception(
-                            "CLI command 'jog': failed axis=%s direction=%s step=%s vel=%s",
-                            axis,
-                            direction,
-                            step,
-                            vel,
+                elif cmd == "jog":
+                    if len(parts) == 1:
+                        # No args → enter arrow-key jog TUI
+                        _run_jog_mode(session, gantry)
+                    elif len(parts) < 4:
+                        console.print(f"{format_badge('USAGE', 'warn')} [festo.brand]jog[/]")
+                        console.print(f"    {format_help_line('jog', 'Enter arrow-key jog mode')}")
+                        console.print(
+                            f"    {format_help_line('jog <axis> <+/-> <step> [vel]', 'Single step-move (mm, default vel=10 mm/s)')}"
                         )
-                        console.print(f"[festo.err]✗[/] Move rejected by axis: {exc}")
+                    else:
+                        axis = parts[1].upper()
+                        direction = parts[2]
+                        step = float(parts[3])
+                        vel = float(parts[4]) if len(parts) > 4 else 10.0
+                        try:
+                            loc = session.jog(axis, direction, step, vel)
+                            console.print(_location_table(loc))
+                        except (ValueError, KeyError) as exc:
+                            console.print(f"[festo.err]✗[/] {exc}")
+                        except Exception as exc:
+                            logger.exception(
+                                "CLI command 'jog': failed axis=%s direction=%s step=%s vel=%s",
+                                axis,
+                                direction,
+                                step,
+                                vel,
+                            )
+                            console.print(f"[festo.err]✗[/] Move rejected by axis: {exc}")
 
-            elif cmd == "capture":
-                if len(parts) < 2:
-                    console.print(f"[festo.err]✗[/] Usage: {format_help_line('capture <label>')}")
-                    continue
-                label = parts[1]
-                session.capture(label)
-                console.print(f"[festo.ok]✓[/] Captured [bold]{label!r}[/]")
+                elif cmd == "capture":
+                    if len(parts) < 2:
+                        console.print(f"[festo.err]✗[/] Usage: {format_help_line('capture <label>')}")
+                        continue
+                    label = parts[1]
+                    session.capture(label)
+                    console.print(f"[festo.ok]✓[/] Captured [bold]{label!r}[/]")
 
-            elif cmd == "teach":
-                if not gantry.supports_teach():
-                    console.print(
-                        f"{format_badge('TEACH DISABLED', 'warn')} [festo.muted]Modbus backend has no PLC teach command.[/]\n"
-                        "    Use [festo.ok]capture[/] to save positions to JSON instead."
-                    )
-                elif len(parts) >= 3 and parts[1] == "pos":
-                    pos_id = int(parts[2])
-                    gantry.teach_pos(pos_id=pos_id)
-                    console.print(f"[festo.ok]✓[/] TEACH_POS sent ([festo.ok]pos_id={pos_id}[/])")
-                elif len(parts) >= 4 and parts[1] == "tray":
-                    tray_id, tray_pos = int(parts[2]), int(parts[3])
-                    gantry.teach_tray(tray_id=tray_id, tray_pos=tray_pos)
-                    console.print(
-                        f"[festo.ok]✓[/] TEACH_TRAY sent ([festo.ok]tray_id={tray_id}[/], [festo.ok]tray_pos={tray_pos}[/])"
-                    )
+                elif cmd == "teach":
+                    if not gantry.supports_teach():
+                        console.print(
+                            f"{format_badge('TEACH DISABLED', 'warn')} [festo.muted]Modbus backend has no PLC teach command.[/]\n"
+                            "    Use [festo.ok]capture[/] to save positions to JSON instead."
+                        )
+                    elif len(parts) >= 3 and parts[1] == "pos":
+                        pos_id = int(parts[2])
+                        gantry.teach_pos(pos_id=pos_id)
+                        console.print(f"[festo.ok]✓[/] TEACH_POS sent ([festo.ok]pos_id={pos_id}[/])")
+                    elif len(parts) >= 4 and parts[1] == "tray":
+                        tray_id, tray_pos = int(parts[2]), int(parts[3])
+                        gantry.teach_tray(tray_id=tray_id, tray_pos=tray_pos)
+                        console.print(
+                            f"[festo.ok]✓[/] TEACH_TRAY sent ([festo.ok]tray_id={tray_id}[/], [festo.ok]tray_pos={tray_pos}[/])"
+                        )
+                    else:
+                        console.print("[festo.err]✗[/] Usage:")
+                        console.print(f"    {format_help_line('teach pos <pos_id>')}")
+                        console.print(f"    {format_help_line('teach tray <tray_id> <tray_pos>')}")
+
+                elif cmd == "list":
+                    if not session.positions:
+                        console.print("[festo.muted]No positions captured yet.[/]")
+                    else:
+                        console.print(_positions_table(session.positions))
+
+                elif cmd == "save":
+                    if len(parts) < 2:
+                        console.print(f"[festo.err]✗[/] Usage: {format_help_line('save <path>')}")
+                        continue
+                    session.save(parts[1])
+                    console.print(f"[festo.ok]✓[/] {len(session.positions)} position(s) saved → [bold]{parts[1]}[/]")
+
+                elif cmd == "load":
+                    if len(parts) < 2:
+                        console.print(f"[festo.err]✗[/] Usage: {format_help_line('load <path>')}")
+                        continue
+                    before = len(session.positions)
+                    session.load(parts[1])
+                    added = len(session.positions) - before
+                    console.print(f"[festo.ok]✓[/] {added} position(s) loaded from [bold]{parts[1]}[/]")
+
+                elif cmd == "loglevel":
+                    console.print(f"[festo.ok]✓[/] {set_runtime_log_level(parts[1:])}")
+
                 else:
-                    console.print("[festo.err]✗[/] Usage:")
-                    console.print(f"    {format_help_line('teach pos <pos_id>')}")
-                    console.print(f"    {format_help_line('teach tray <tray_id> <tray_pos>')}")
+                    console.print(f"[festo.err]✗[/] Unknown command: [bold]{cmd!r}[/]  (type [festo.ok]help[/])")
 
-            elif cmd == "list":
-                if not session.positions:
-                    console.print("[festo.muted]No positions captured yet.[/]")
-                else:
-                    console.print(_positions_table(session.positions))
+            except (KeyError, ValueError, IndexError) as exc:
+                console.print(f"[festo.err]✗[/] {exc}")
+            except Exception as exc:
+                logger.exception("Unexpected error processing command %r", raw)
+                console.print(f"[festo.err]✗[/] Unexpected error: {exc}")
 
-            elif cmd == "save":
-                if len(parts) < 2:
-                    console.print(f"[festo.err]✗[/] Usage: {format_help_line('save <path>')}")
-                    continue
-                session.save(parts[1])
-                console.print(f"[festo.ok]✓[/] {len(session.positions)} position(s) saved → [bold]{parts[1]}[/]")
-
-            elif cmd == "load":
-                if len(parts) < 2:
-                    console.print(f"[festo.err]✗[/] Usage: {format_help_line('load <path>')}")
-                    continue
-                before = len(session.positions)
-                session.load(parts[1])
-                added = len(session.positions) - before
-                console.print(f"[festo.ok]✓[/] {added} position(s) loaded from [bold]{parts[1]}[/]")
-
-            else:
-                console.print(f"[festo.err]✗[/] Unknown command: [bold]{cmd!r}[/]  (type [festo.ok]help[/])")
-
-        except (KeyError, ValueError, IndexError) as exc:
-            console.print(f"[festo.err]✗[/] {exc}")
-        except Exception as exc:
-            logger.exception("Unexpected error processing command %r", raw)
-            console.print(f"[festo.err]✗[/] Unexpected error: {exc}")
     console.print("[festo.ok]✓[/] Quitting program repl successful.")
     return 1
-
-
-def _configure_logging(log_level: str) -> None:
-    """Configure process logging for CLI execution.
-
-    Args:
-        log_level: Logging threshold name, such as ``"INFO"`` or
-            ``"WARNING"``.
-    """
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper(), logging.WARNING),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
 
 
 def _connect_gantry(config_path: Path, gantry_name: str) -> Gantry:
@@ -802,9 +806,10 @@ def register_motion_cli(
     )
     parser.add_argument(
         "--log-level",
-        default="WARNING",
+        default="INHERIT",
+        choices=INHERITED_LOG_LEVEL_CHOICES,
         metavar="LEVEL",
-        help="Python logging level (default: WARNING).",
+        help="Python logging level (default: INHERIT from parent CLI, else OFF).",
     )
     motion_subparsers = parser.add_subparsers(dest="motion_command")
     _add_motion_command_parsers(motion_subparsers)
@@ -846,9 +851,10 @@ def build_standalone_motion_parser(
     )
     parser.add_argument(
         "--log-level",
-        default="WARNING",
+        default="OFF",
+        choices=LOG_LEVEL_CHOICES,
         metavar="LEVEL",
-        help="Python logging level (default: WARNING).",
+        help="Python logging level (default: OFF).",
     )
     subparsers = parser.add_subparsers(dest="motion_command")
     _add_motion_command_parsers(subparsers)
@@ -873,7 +879,7 @@ def dispatch_motion_command(args: argparse.Namespace) -> int:
         ValueError: If no command handler is available in *args*.
     """
     if hasattr(args, "log_level"):
-        _configure_logging(args.log_level)
+        configure_logging(args.log_level)
 
     handler = getattr(args, "_handler", None)
     if handler is None:
