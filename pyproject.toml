@@ -1,14 +1,10 @@
 [project]
 name = "festo-dev-applied-motion"
-version = "0.5.0"
-authors = [
-    { name = "Kyle Wardlow", email = "kyle.wardlow@festo.com" }
-]
+version = "0.6.0"
+authors = [{ name = "Kyle Wardlow", email = "kyle.wardlow@festo.com" }]
 description = "Quality of life library for controlling Festo electrically-driven, motion components"
 requires-python = ">=3.10"
-dependencies = [
-    "festo-edcon>=1.0.1",
-]
+dependencies = ["festo-edcon>=1.0.1"]
 
 [project.scripts]
 applied-motion = "applied_motion.cli.cli:main"
@@ -19,27 +15,21 @@ Repository = "https://github.com/Festo-se/festo-dev-applied-motion.git"
 Issues = "https://github.com/Festo-se/festo-dev-applied-motion/issues"
 
 [project.optional-dependencies]
-cli = [
-    "prompt-toolkit>=3.0.52",
-    "rich>=14.2.0",
-]
+cli = ["prompt-toolkit>=3.0.52", "rich>=14.2.0"]
 
 [build-system]
 requires = ["uv_build>=0.11,<0.13"]
 build-backend = "uv_build"
 
 [dependency-groups]
-teach = [
-    "prompt-toolkit>=3.0",
-    "rich>=13.0",
-]
+teach = ["prompt-toolkit>=3.0", "rich>=13.0"]
 dev = [
     "pytest>=9.0.3",
     "pytest-cov>=6.0.0",
     "pytest-mock>=3.14.0",
     "ruff>=0.15.11",
     "ty>=0.0.34",
-    {include-group = "teach"}
+    { include-group = "teach" },
 ]
 docs = [
     "mkdocs>=1.6.1,<2",
@@ -48,8 +38,8 @@ docs = [
     "mkdocs-include-markdown-plugin>=7.1.5",
     "mkdocs-material>=9.6.14",
     "mkdocstrings[python]>=0.29.1",
-    "mkdocs-codeinclude-plugin>=0.2.1",  
-    "mkdocs-live-edit-plugin"
+    "mkdocs-codeinclude-plugin>=0.2.1",
+    "mkdocs-live-edit-plugin",
 ]
 examples = ["requests"]
 
@@ -71,12 +61,8 @@ cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
 module-name = "applied_motion"
 
 [tool.ty.src]
-include = [
-    "src"
-]
-exclude = [
-    "tests"
-]
+include = ["src"]
+exclude = ["tests"]
 
 [tool.ruff]
 line-length = 120
@@ -97,7 +83,7 @@ show-fixes = true
 [tool.ruff.lint]
 select = ["D", "E4", "E7", "E9", "F", "C901", "B", "S"]
 ignore = ["D203", "D212"]
-exclude = ["tests/*",]
+exclude = ["tests/*"]
 
 [tool.ruff.lint.per-file-ignores]
 # Ignore D100 and D104 in all __init__.py files
