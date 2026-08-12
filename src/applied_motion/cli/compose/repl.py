@@ -11,6 +11,8 @@ from prompt_toolkit.history import InMemoryHistory
 from rich.console import Console
 
 from applied_motion.cli.compose.core import CommandError, CommandGroup, UnknownCommandError, UsageError
+from applied_motion.cli.formatting import format_group_header, format_help_line
+from applied_motion.cli.theme import festo_console
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +61,18 @@ class NamespaceCompleter(Completer):
 
 def render_help(root: CommandGroup) -> str:
     """Render an aggregated help listing for a command tree."""
-    lines = ["[bold cyan]Commands[/]"]
-    lines.extend(f"  {line}" for line in root.format_help())
-    lines.append("  help    Show this reference")
-    lines.append("  quit    Exit")
+    lines = ["[festo.brand]Commands[/]"]
+
+    def _append(group: CommandGroup, indent: int) -> None:
+        for cmd in group.commands.values():
+            lines.append(format_help_line(cmd.usage or cmd.name, cmd.help, indent=indent))
+        for child_name, child in group.children.items():
+            lines.append(format_group_header(child_name, child.help, indent=indent))
+            _append(child, indent + 1)
+
+    _append(root, 0)
+    lines.append(format_help_line("help", "Show this reference"))
+    lines.append(format_help_line("quit", "Exit"))
     return "\n".join(lines)
 
 
@@ -73,7 +83,7 @@ def run_repl(  # noqa: C901
     intro: bool = True,
 ) -> None:
     """Run an interactive REPL over a command tree."""
-    console = console or Console()
+    console = console or festo_console()
     session: PromptSession[str] = PromptSession(history=InMemoryHistory(), completer=NamespaceCompleter(root))
 
     if intro:
@@ -83,7 +93,7 @@ def run_repl(  # noqa: C901
         try:
             raw = session.prompt(prompt).strip()
         except (EOFError, KeyboardInterrupt):
-            console.print("\n[dim]Exiting.[/]")
+            console.print("\n[festo.muted]Exiting.[/]")
             break
 
         if not raw:
@@ -101,18 +111,18 @@ def run_repl(  # noqa: C901
         try:
             root.dispatch(tokens)
         except UsageError as exc:
-            console.print(f"[red]✗[/] {exc}")
+            console.print(f"[festo.err]✗[/] {exc}")
         except UnknownCommandError as exc:
-            console.print(f"[red]✗[/] {exc}  (type [green]help[/])")
+            console.print(f"[festo.err]✗[/] {exc}  (type [festo.ok]help[/])")
         except NotImplementedError as exc:
-            console.print(f"[yellow]![/] Not supported: {exc}")
+            console.print(f"[festo.warn]![/] Not supported: {exc}")
         except AttributeError as exc:
-            console.print(f"[yellow]![/] Not available: {exc}")
+            console.print(f"[festo.warn]![/] Not available: {exc}")
         except (KeyError, ValueError, IndexError, RuntimeError, CommandError) as exc:
-            console.print(f"[red]✗[/] {exc}")
+            console.print(f"[festo.err]✗[/] {exc}")
         except Exception as exc:  # noqa: BLE001
             logger.exception("Unexpected error processing command %r", raw)
-            console.print(f"[red]✗[/] Unexpected error: {exc}")
+            console.print(f"[festo.err]✗[/] Unexpected error: {exc}")
 
 
 __all__ = ["NamespaceCompleter", "render_help", "run_repl"]

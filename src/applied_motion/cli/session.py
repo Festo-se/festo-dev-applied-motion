@@ -137,10 +137,22 @@ class TeachSession:
 
         current = self.gantry.axes[axis_name].get_current_axis_position()
         delta = step_mm if direction == "+" else -step_mm
-        target = current + delta
-
+        raw_target = current + delta
+        axis = self.gantry.axes[axis_name]
+        target = max(axis.min_position, min(axis.max_position, raw_target))
+        if target != raw_target:
+            logger.warning(
+                "TeachSession.jog: target %.3f mm clamped to %.3f mm (axis limits [%.3f, %.3f])",
+                raw_target,
+                target,
+                axis.min_position,
+                axis.max_position,
+            )
+        if abs(target - current) < 1e-3:
+            logger.info("TeachSession.jog: axis=%s already at limit %.3f mm, skipping move", axis_name, target)
+            return self.gantry.get_location()
         logger.info(
-            "TeachSession.jog: axis=%s %s%.3fmm %.3f→%.3f mm vel=%.1f mm/s timeout=%ss",
+            "TeachSession.jog: axis=%s %s%.3fmm %.3f\u2192%.3f mm vel=%.1f mm/s timeout=%ss",
             axis_name,
             direction,
             step_mm,

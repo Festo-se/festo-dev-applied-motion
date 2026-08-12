@@ -69,33 +69,44 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
-from rich.console import Console
 from rich.table import Table, box
+
+from applied_motion.cli.formatting import build_help_block, format_badge, format_bool, format_help_line
+from applied_motion.cli.theme import (
+    FESTO_BLUE_2,
+    FESTO_BLUE_CAERUL,
+    FESTO_GRAY_SUCANUL,
+    FESTO_GRAY_CANUL,
+    FESTO_SIGNAL_ORANGE,
+    FESTO_SIGNAL_RED,
+    festo_console,
+)
 
 from applied_motion.applied_motion import Gantry
 from applied_motion.cli.session import TeachSession
 
-console = Console()
+console = festo_console()
 logger = logging.getLogger(__name__)
 
 _STEP_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 25.0, 50.0]  # mm, cycled by +/-
 _DEFAULT_STEP_IDX = 2  # 1.0 mm
 
-_HELP_TEXT = """
-[bold cyan]Commands[/]
-  [green]jog[/]                               Enter arrow-key jog mode
-  [green]jog[/] [yellow]<axis>[/] [yellow]<+/->[/] [yellow]<step>[/] [dim]\\[vel][/]   Single step-move (mm, default vel=10 mm/s)
-  [green]where[/]                            Print current axis positions
-  [green]home[/]                             Home all axes
-  [green]capture[/] [yellow]<label>[/]                  Record current position as label
-  [green]teach pos[/] [yellow]<pos_id>[/]               (FPosBAPI) TEACH_POS → PLC slot
-  [green]teach tray[/] [yellow]<tray_id>[/] [yellow]<tray_pos>[/]   (FPosBAPI) TEACH_TRAY → PLC
-  [green]list[/]                             List all captured positions
-  [green]save[/] [yellow]<path>[/]                       Write positions to JSON
-  [green]load[/] [yellow]<path>[/]                       Merge positions from JSON
-  [green]help[/]                             Show this reference
-  [green]quit[/]                             Exit
-"""
+_HELP_ENTRIES: list[tuple[str, str]] = [
+    ("jog", "Enter arrow-key jog mode"),
+    ("jog <axis> <+/-> <step> [vel]", "Single step-move (mm, default vel=10 mm/s)"),
+    ("where", "Print current axis positions"),
+    ("home", "Home all axes"),
+    ("capture <label>", "Record current position as label"),
+    ("teach pos <pos_id>", "(FPosBAPI) TEACH_POS → PLC slot"),
+    ("teach tray <tray_id> <tray_pos>", "(FPosBAPI) TEACH_TRAY → PLC"),
+    ("list", "List all captured positions"),
+    ("save <path>", "Write positions to JSON"),
+    ("load <path>", "Merge positions from JSON"),
+    ("help", "Show this reference"),
+    ("quit", "Exit"),
+]
+
+_HELP_TEXT = build_help_block(_HELP_ENTRIES)
 
 _TOP_LEVEL_CMDS = [
     "jog",
@@ -121,9 +132,11 @@ Each extension receives motion command's subparser collection and may call
 
 
 def _location_table(loc: dict[str, float]) -> Table:
-    table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE, padding=(0, 1))
-    table.add_column("Axis", style="bold")
-    table.add_column("Position (mm)", justify="right")
+    table = Table(
+        show_header=True, header_style="festo.brand", box=box.SIMPLE_HEAD, padding=(0, 1), border_style=FESTO_BLUE_2
+    )
+    table.add_column("Axis", style="festo.ok")
+    table.add_column("Position (mm)", justify="right", style="festo.value")
     for axis, pos in loc.items():
         table.add_row(axis, f"{pos:.3f}")
     return table
@@ -133,10 +146,17 @@ def _positions_table(positions: dict[str, dict[str, float]]) -> Table:
     if not positions:
         return Table(show_header=False, box=None)
     axes = list(next(iter(positions.values())).keys())
-    table = Table(show_header=True, header_style="bold cyan", box=box.SIMPLE, padding=(0, 1))
-    table.add_column("Label", style="bold")
+    table = Table(
+        show_header=True,
+        header_style="festo.brand",
+        box=box.SIMPLE_HEAD,
+        padding=(0, 1),
+        border_style=FESTO_BLUE_2,
+        row_styles=["", "festo.muted"],
+    )
+    table.add_column("Label", style="festo.ok")
     for axis in axes:
-        table.add_column(f"{axis} (mm)", justify="right")
+        table.add_column(f"{axis} (mm)", justify="right", style="festo.value")
     for label, pos in positions.items():
         table.add_row(label, *[f"{v:.3f}" for v in pos.values()])
     return table
@@ -158,7 +178,7 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
 
     state: dict = {
         "step_idx": _DEFAULT_STEP_IDX,
-        "status": ("fg:green", "Ready — use arrow keys to jog"),
+        "status": ("ok", "Ready. Use arrow keys to jog."),
         "location": gantry.get_location(),
         "depth_idx": 0,
     }
@@ -169,35 +189,48 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
     def _content() -> FormattedText:
         step = _STEP_SIZES[state["step_idx"]]
         loc = state["location"]
-        status_style, status_msg = state["status"]
+        status_tone, status_msg = state["status"]
+        status_style = {
+            "ok": f"fg:{FESTO_BLUE_CAERUL} bold",
+            "warn": f"fg:{FESTO_SIGNAL_ORANGE} bold",
+            "err": f"fg:{FESTO_SIGNAL_RED} bold",
+            "info": f"fg:{FESTO_BLUE_2} bold",
+        }.get(status_tone, f"fg:{FESTO_BLUE_2}")
+        status_prefix = {
+            "ok": "● OK",
+            "warn": "▲ WARN",
+            "err": "✗ ERROR",
+            "info": "◇ INFO",
+        }.get(status_tone, "◇ INFO")
         active = _active_depth()
         parts: list[tuple[str, str]] = [
-            ("bold", "\n  ── Jog Mode ──  "),
-            ("dim", "(Esc / q to exit)\n\n"),
-            ("bold cyan", "  Position:\n"),
+            (f"fg:{FESTO_BLUE_CAERUL} bold", "\n  JOG MODE  "),
+            (f"fg:{FESTO_GRAY_CANUL}", "(Esc or q to exit)\n\n"),
+            (f"fg:{FESTO_BLUE_CAERUL} bold", "  Position:\n"),
         ]
         for axis, pos in loc.items():
             marker = " ◀" if axis == active and len(depth_axes) > 1 else ""
             parts += [
                 ("", "    "),
-                ("bold", f"{axis:<6}"),
-                ("fg:white", f"{pos:>10.3f} mm{marker}\n"),
+                (f"fg:{FESTO_BLUE_2} bold", f"{axis:<6}"),
+                (f"fg:{FESTO_GRAY_SUCANUL}", f"{pos:>10.3f} mm{marker}\n"),
             ]
         key_hints: list[str] = []
         if len(axis_names) >= 1:
-            key_hints.append(f"  ←/→  {axis_names[0]}")
+            key_hints.append(f"  ←/→ {axis_names[0]}")
         if len(axis_names) >= 2:
-            key_hints.append(f"  ↑/↓  {axis_names[1]}")
+            key_hints.append(f"  ↑/↓ {axis_names[1]}")
         if depth_axes:
-            cycle_hint = "  Tab to cycle" if len(depth_axes) > 1 else ""
-            key_hints.append(f"  PgUp/PgDn  {active}{cycle_hint}")
+            cycle_hint = " Tab cycle" if len(depth_axes) > 1 else ""
+            key_hints.append(f"  PgUp/PgDn {active}{cycle_hint}")
         parts += [
             ("", "\n"),
-            ("bold cyan", "  Step: "),
-            ("bold yellow", f"{step} mm"),
-            ("dim", "  (+ to increase, - to decrease)\n\n"),
-            ("dim", "    ".join(key_hints) + "\n\n"),
-            (status_style, f"  {status_msg}\n"),
+            (f"fg:{FESTO_BLUE_CAERUL} bold", "  Step: "),
+            (f"fg:{FESTO_BLUE_2} bold", f"{step} mm"),
+            (f"fg:{FESTO_GRAY_CANUL}", "  (+ increase, - decrease)\n"),
+            (f"fg:{FESTO_GRAY_CANUL}", "  Tab/Shift+Tab cycle depth axis\n\n"),
+            (f"fg:{FESTO_GRAY_SUCANUL}", "    ".join(key_hints) + "\n\n"),
+            (status_style, f"  {status_prefix}  {status_msg}\n"),
         ]
         return FormattedText(parts)
 
@@ -207,12 +240,12 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
         step = _STEP_SIZES[state["step_idx"]]
         try:
             state["location"] = session.jog(axis_name, direction, step)
-            state["status"] = ("fg:green", f"OK  {direction}{step:.3g} mm on {axis_name}")
+            state["status"] = ("ok", f"{direction}{step:.3g} mm on {axis_name}")
         except (ValueError, KeyError) as exc:
-            state["status"] = ("fg:red", f"Limit / config error: {exc}")
+            state["status"] = ("warn", f"Limit or config error: {exc}")
         except Exception as exc:
             logger.exception("CLI jog mode: jog failed axis=%s direction=%s step=%s", axis_name, direction, step)
-            state["status"] = ("fg:red", f"Error: {exc}")
+            state["status"] = ("err", f"Error: {exc}")
 
     if len(axis_names) >= 1:
 
@@ -253,22 +286,22 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
             @kb.add("tab")
             def _(event) -> None:
                 state["depth_idx"] = (state["depth_idx"] + 1) % len(depth_axes)
-                state["status"] = ("fg:cyan", f"PgUp/PgDn → {depth_axes[state['depth_idx']]}")
+                state["status"] = ("info", f"PgUp/PgDn now controls {depth_axes[state['depth_idx']]}")
 
             @kb.add("s-tab")
             def _(event) -> None:
                 state["depth_idx"] = (state["depth_idx"] - 1) % len(depth_axes)
-                state["status"] = ("fg:cyan", f"PgUp/PgDn → {depth_axes[state['depth_idx']]}")
+                state["status"] = ("info", f"PgUp/PgDn now controls {depth_axes[state['depth_idx']]}")
 
     @kb.add("+")
     def _(event) -> None:
         state["step_idx"] = min(state["step_idx"] + 1, len(_STEP_SIZES) - 1)
-        state["status"] = ("fg:green", f"Step → {_STEP_SIZES[state['step_idx']]} mm")
+        state["status"] = ("ok", f"Step set to {_STEP_SIZES[state['step_idx']]} mm")
 
     @kb.add("-")
     def _(event) -> None:
         state["step_idx"] = max(state["step_idx"] - 1, 0)
-        state["status"] = ("fg:green", f"Step → {_STEP_SIZES[state['step_idx']]} mm")
+        state["status"] = ("ok", f"Step set to {_STEP_SIZES[state['step_idx']]} mm")
 
     @kb.add("escape")
     @kb.add("q")
@@ -280,10 +313,10 @@ def _run_jog_mode(session: TeachSession, gantry: Gantry) -> None:  # noqa
         Application(layout=layout, key_bindings=kb, full_screen=False).run()
     except KeyboardInterrupt:
         pass
-    console.print("[dim]Returned to REPL.[/]")
+    console.print(f"{format_badge('JOG', 'info')} [festo.muted]Returned to REPL.[/]")
 
 
-def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
+def run_repl(session: TeachSession, gantry: Gantry) -> int:  # noqa
     """Launch the interactive teach-in REPL for a connected gantry.
 
     Presents a prompt-toolkit REPL that accepts ``jog``, ``capture``,
@@ -311,7 +344,7 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
         try:
             raw = ps.prompt("motion> ").strip()
         except (EOFError, KeyboardInterrupt):  # noqa
-            console.print("\n[dim]Exiting.[/]")
+            console.print("\n[festo.muted]Exiting.[/]")
             return 130
 
         if not raw:
@@ -322,7 +355,7 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
 
         try:
             if cmd in ("quit", "exit", "q"):
-                console.print("[yellow]✓[/] Quitting program.")
+                console.print("[festo.ok]✓[/] Quitting program.")
                 break
 
             elif cmd == "help":
@@ -334,17 +367,17 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
 
             elif cmd == "home":
                 gantry.home()
-                console.print("[green]✓[/] All axes homed.")
+                console.print("[festo.ok]✓[/] All axes homed.")
 
             elif cmd == "jog":
                 if len(parts) == 1:
                     # No args → enter arrow-key jog TUI
                     _run_jog_mode(session, gantry)
                 elif len(parts) < 4:
+                    console.print(f"{format_badge('USAGE', 'warn')} [festo.brand]jog[/]")
+                    console.print(f"    {format_help_line('jog', 'Enter arrow-key jog mode')}")
                     console.print(
-                        "[red]✗[/] Usage:\n"
-                        "    [green]jog[/]                          Enter arrow-key jog mode\n"
-                        "    [green]jog[/] [yellow]<axis> <+/-> <step>[/] [dim]\\[vel][/]   Single step"
+                        f"    {format_help_line('jog <axis> <+/-> <step> [vel]', 'Single step-move (mm, default vel=10 mm/s)')}"
                     )
                 else:
                     axis = parts[1].upper()
@@ -355,7 +388,7 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
                         loc = session.jog(axis, direction, step, vel)
                         console.print(_location_table(loc))
                     except (ValueError, KeyError) as exc:
-                        console.print(f"[red]✗[/] {exc}")
+                        console.print(f"[festo.err]✗[/] {exc}")
                     except Exception as exc:
                         logger.exception(
                             "CLI command 'jog': failed axis=%s direction=%s step=%s vel=%s",
@@ -364,66 +397,68 @@ def run_repl(session: TeachSession, gantry: Gantry) -> None:  # noqa
                             step,
                             vel,
                         )
-                        console.print(f"[red]✗[/] Move rejected by axis: {exc}")
+                        console.print(f"[festo.err]✗[/] Move rejected by axis: {exc}")
 
             elif cmd == "capture":
                 if len(parts) < 2:
-                    console.print("[red]✗[/] Usage: capture <label>")
+                    console.print(f"[festo.err]✗[/] Usage: {format_help_line('capture <label>')}")
                     continue
                 label = parts[1]
                 session.capture(label)
-                console.print(f"[green]✓[/] Captured [bold]{label!r}[/]")
+                console.print(f"[festo.ok]✓[/] Captured [bold]{label!r}[/]")
 
             elif cmd == "teach":
                 if not gantry.supports_teach():
                     console.print(
-                        "[yellow]![/] [dim]Modbus backend — no PLC teach command available.[/]\n"
-                        "    Use [green]capture[/] to save positions to JSON instead."
+                        f"{format_badge('TEACH DISABLED', 'warn')} [festo.muted]Modbus backend has no PLC teach command.[/]\n"
+                        "    Use [festo.ok]capture[/] to save positions to JSON instead."
                     )
                 elif len(parts) >= 3 and parts[1] == "pos":
                     pos_id = int(parts[2])
                     gantry.teach_pos(pos_id=pos_id)
-                    console.print(f"[green]✓[/] TEACH_POS sent ([cyan]pos_id={pos_id}[/])")
+                    console.print(f"[festo.ok]✓[/] TEACH_POS sent ([festo.ok]pos_id={pos_id}[/])")
                 elif len(parts) >= 4 and parts[1] == "tray":
                     tray_id, tray_pos = int(parts[2]), int(parts[3])
                     gantry.teach_tray(tray_id=tray_id, tray_pos=tray_pos)
                     console.print(
-                        f"[green]✓[/] TEACH_TRAY sent ([cyan]tray_id={tray_id}[/], [cyan]tray_pos={tray_pos}[/])"
+                        f"[festo.ok]✓[/] TEACH_TRAY sent ([festo.ok]tray_id={tray_id}[/], [festo.ok]tray_pos={tray_pos}[/])"
                     )
                 else:
-                    console.print("[red]✗[/] Usage:\n    teach pos <pos_id>\n    teach tray <tray_id> <tray_pos>")
+                    console.print("[festo.err]✗[/] Usage:")
+                    console.print(f"    {format_help_line('teach pos <pos_id>')}")
+                    console.print(f"    {format_help_line('teach tray <tray_id> <tray_pos>')}")
 
             elif cmd == "list":
                 if not session.positions:
-                    console.print("[dim]No positions captured yet.[/]")
+                    console.print("[festo.muted]No positions captured yet.[/]")
                 else:
                     console.print(_positions_table(session.positions))
 
             elif cmd == "save":
                 if len(parts) < 2:
-                    console.print("[red]✗[/] Usage: save <path>")
+                    console.print(f"[festo.err]✗[/] Usage: {format_help_line('save <path>')}")
                     continue
                 session.save(parts[1])
-                console.print(f"[green]✓[/] {len(session.positions)} position(s) saved → [bold]{parts[1]}[/]")
+                console.print(f"[festo.ok]✓[/] {len(session.positions)} position(s) saved → [bold]{parts[1]}[/]")
 
             elif cmd == "load":
                 if len(parts) < 2:
-                    console.print("[red]✗[/] Usage: load <path>")
+                    console.print(f"[festo.err]✗[/] Usage: {format_help_line('load <path>')}")
                     continue
                 before = len(session.positions)
                 session.load(parts[1])
                 added = len(session.positions) - before
-                console.print(f"[green]✓[/] {added} position(s) loaded from [bold]{parts[1]}[/]")
+                console.print(f"[festo.ok]✓[/] {added} position(s) loaded from [bold]{parts[1]}[/]")
 
             else:
-                console.print(f"[red]✗[/] Unknown command: [bold]{cmd!r}[/]  (type [green]help[/])")
+                console.print(f"[festo.err]✗[/] Unknown command: [bold]{cmd!r}[/]  (type [festo.ok]help[/])")
 
         except (KeyError, ValueError, IndexError) as exc:
-            console.print(f"[red]✗[/] {exc}")
+            console.print(f"[festo.err]✗[/] {exc}")
         except Exception as exc:
             logger.exception("Unexpected error processing command %r", raw)
-            console.print(f"[red]✗[/] Unexpected error: {exc}")
-    console.print("[green]✓[/] Quitting program repl successful.")
+            console.print(f"[festo.err]✗[/] Unexpected error: {exc}")
+    console.print("[festo.ok]✓[/] Quitting program repl successful.")
     return 1
 
 
@@ -453,130 +488,208 @@ def _connect_gantry(config_path: Path, gantry_name: str) -> Gantry:
     return Gantry.from_config(config_path, name=gantry_name)
 
 
-def _run_shell(args: argparse.Namespace) -> int:
+def _run_shell(args: argparse.Namespace, gantry: Gantry) -> int:
     """Run interactive teach shell command.
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        console.print(f"[green]✓[/] Connected: [bold]{gantry!r}[/]")
+    console.print(f"{format_badge('CONNECTED', 'ok')} [bold]{gantry!r}[/]")
 
-        on_capture = None
-        if gantry.supports_teach():
+    on_capture = None
+    if gantry.supports_teach():
 
-            def on_capture(label: str, pos: dict[str, float]) -> None:
-                console.print(f"  [dim]Tip: run [green]teach pos <id>[/] to commit [bold]{label!r}[/] to PLC.[/]")
+        def on_capture(label: str, pos: dict[str, float]) -> None:
+            console.print(
+                f"  {format_badge('TIP', 'info')} [festo.muted]run [festo.ok]teach pos <id>[/] to commit [bold]{label!r}[/] to PLC.[/]"
+            )
 
-        session = TeachSession(gantry, on_capture=on_capture)
-        exit_code = run_repl(session, gantry)
-        console.print("[green]✓[/] Program shell exited successfully.")
+    session = TeachSession(gantry, on_capture=on_capture)
+    exit_code = run_repl(session, gantry)
+    console.print("[festo.ok]✓[/] Program shell exited successfully.")
     return exit_code
 
 
-def _run_where(args: argparse.Namespace) -> int:
+def _run_where(args: argparse.Namespace, gantry: Gantry) -> int:
     """Print axis positions once.
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        console.print(_location_table(gantry.get_location()))
+    console.print(_location_table(gantry.get_location()))
     return 0
 
 
-def _run_home(args: argparse.Namespace) -> int:
+def _run_home(args: argparse.Namespace, gantry: Gantry) -> int:
     """Home all axes once.
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        gantry.home()
-        console.print("[green]✓[/] All axes homed.")
+    gantry.home()
+    console.print("[festo.ok]✓[/] All axes homed.")
     return 0
 
 
-def _run_status(args: argparse.Namespace) -> int:
+def _run_status(args: argparse.Namespace, gantry: Gantry) -> int:
     """Print gantry status snapshot.
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        status = gantry.get_status()
+    status = gantry.get_status()
     if args.as_json:
         console.print_json(data=status)
     else:
-        console.print_json(data=status)
+        console.print(f"[festo.brand]Gantry status[/] [festo.muted]({status.get('backend', 'unknown')})[/]")
+
+        summary = status.get("summary", {}) if isinstance(status, dict) else {}
+        summary_table = Table(
+            show_header=True,
+            header_style="festo.brand",
+            box=box.SIMPLE_HEAD,
+            border_style=FESTO_BLUE_2,
+            padding=(0, 1),
+            row_styles=["", "festo.muted"],
+        )
+        summary_table.add_column("Summary", style="festo.ok")
+        summary_table.add_column("Value", style="festo.value")
+        healthy = summary.get("healthy")
+        healthy_badge = format_badge("HEALTHY", "ok") if healthy is True else format_badge("ATTENTION", "err")
+        summary_table.add_row("health", healthy_badge)
+        summary_table.add_row("supports teach", format_bool(status.get("supports_teach")))
+        summary_table.add_row("all homed", format_bool(summary.get("all_homed")))
+        summary_table.add_row("all stopped", format_bool(summary.get("all_stopped")))
+        summary_table.add_row("all ready", format_bool(summary.get("all_ready_for_motion")))
+        summary_table.add_row("axis count", str(summary.get("axis_count", "n/a")))
+        console.print(summary_table)
+
+        axes = status.get("axes", {}) if isinstance(status, dict) else {}
+        if isinstance(axes, dict) and axes:
+            axis_table = Table(
+                show_header=True,
+                header_style="festo.brand",
+                box=box.SIMPLE_HEAD,
+                border_style=FESTO_BLUE_2,
+                padding=(0, 1),
+                row_styles=["", "festo.muted"],
+            )
+            axis_table.add_column("Axis", style="festo.ok")
+            axis_table.add_column("Position (mm)", justify="right", style="festo.value")
+            axis_table.add_column("Homed", style="festo.value")
+            axis_table.add_column("Stopped", style="festo.value")
+            axis_table.add_column("Ready", style="festo.value")
+            axis_table.add_column("Error", style="festo.value")
+            for axis_name, axis_state in axes.items():
+                if not isinstance(axis_state, dict):
+                    continue
+                pos = axis_state.get("position_mm")
+                pos_text = "n/a" if pos is None else f"{float(pos):.3f}"
+                error_text = axis_state.get("error")
+                error_cell = "[festo.muted]—[/]" if not error_text else f"[festo.err]{error_text}[/]"
+                axis_table.add_row(
+                    str(axis_name),
+                    pos_text,
+                    format_bool(axis_state.get("is_homed")),
+                    format_bool(axis_state.get("is_stopped")),
+                    format_bool(axis_state.get("ready_for_motion")),
+                    error_cell,
+                )
+            console.print(axis_table)
+
+        controller = status.get("controller", {}) if isinstance(status, dict) else {}
+        if isinstance(controller, dict) and any(value is not None for value in controller.values()):
+            controller_table = Table(
+                show_header=True,
+                header_style="festo.brand",
+                box=box.SIMPLE_HEAD,
+                border_style=FESTO_BLUE_2,
+                padding=(0, 1),
+                row_styles=["", "festo.muted"],
+            )
+            controller_table.add_column("Controller", style="festo.ok")
+            controller_table.add_column("Value", style="festo.value")
+            controller_table.add_row("sys status", str(controller.get("sys_status") or "n/a"))
+            controller_table.add_row("is error", format_bool(controller.get("is_error")))
+            controller_table.add_row("fpb error", str(controller.get("fpb_error") or "n/a"))
+            controller_table.add_row("read error", str(controller.get("read_err") or "n/a"))
+            controller_error = controller.get("error")
+            controller_table.add_row(
+                "error", "[festo.muted]—[/]" if controller_error is None else f"[festo.err]{controller_error}[/]"
+            )
+            console.print(controller_table)
     return 0
 
 
-def _run_jog(args: argparse.Namespace) -> int:
+def _run_jog(args: argparse.Namespace, gantry: Gantry) -> int:
     """Execute one jog command in non-interactive mode.
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        session = TeachSession(gantry)
-        location = session.jog(args.axis.upper(), args.direction, args.step, args.velocity, timeout=args.timeout)
-        console.print(_location_table(location))
+    session = TeachSession(gantry)
+    location = session.jog(args.axis.upper(), args.direction, args.step, args.velocity, timeout=args.timeout)
+    console.print(_location_table(location))
     return 0
 
 
-def _run_teach_pos(args: argparse.Namespace) -> int:
+def _run_teach_pos(args: argparse.Namespace, gantry: Gantry) -> int:
     """Execute PLC TEACH_POS command.
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        if not gantry.supports_teach():
-            raise NotImplementedError("Configured backend does not support TEACH_POS")
-        gantry.teach_pos(pos_id=args.pos_id)
-        console.print(f"[green]✓[/] TEACH_POS sent ([cyan]pos_id={args.pos_id}[/])")
+    if not gantry.supports_teach():
+        raise NotImplementedError("Configured backend does not support TEACH_POS")
+    gantry.teach_pos(pos_id=args.pos_id)
+    console.print(f"[festo.ok]✓[/] TEACH_POS sent ([festo.ok]pos_id={args.pos_id}[/])")
     return 0
 
 
-def _run_teach_tray(args: argparse.Namespace) -> int:
+def _run_teach_tray(args: argparse.Namespace, gantry: Gantry) -> int:
     """Execute PLC TEACH_TRAY command.
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        if not gantry.supports_teach():
-            raise NotImplementedError("Configured backend does not support TEACH_TRAY")
-        gantry.teach_tray(tray_id=args.tray_id, tray_pos=args.tray_pos)
-        console.print(
-            f"[green]✓[/] TEACH_TRAY sent ([cyan]tray_id={args.tray_id}[/], [cyan]tray_pos={args.tray_pos}[/])"
-        )
+    if not gantry.supports_teach():
+        raise NotImplementedError("Configured backend does not support TEACH_TRAY")
+    gantry.teach_tray(tray_id=args.tray_id, tray_pos=args.tray_pos)
+    console.print(
+        f"[festo.ok]✓[/] TEACH_TRAY sent ([festo.ok]tray_id={args.tray_id}[/], [festo.ok]tray_pos={args.tray_pos}[/])"
+    )
     return 0
 
 
-def _run_jog_tui(args: argparse.Namespace) -> int:
+def _run_jog_tui(args: argparse.Namespace, gantry: Gantry) -> int:
     """Launch arrow-key jog TUI directly without entering the teach REPL.
 
     Connects to the gantry, then starts the interactive jog mode where
@@ -584,14 +697,14 @@ def _run_jog_tui(args: argparse.Namespace) -> int:
 
     Args:
         args: Parsed CLI arguments.
+        gantry: Connected gantry instance.
 
     Returns:
         Process exit code.
     """
-    with _connect_gantry(args.config, args.gantry_name) as gantry:
-        console.print(f"[green]✓[/] Connected: [bold]{gantry!r}[/]")
-        session = TeachSession(gantry)
-        _run_jog_mode(session, gantry)
+    console.print(f"{format_badge('CONNECTED', 'ok')} [bold]{gantry!r}[/]")
+    session = TeachSession(gantry)
+    _run_jog_mode(session, gantry)
     return 0
 
 
@@ -729,6 +842,9 @@ def build_standalone_motion_parser(
 def dispatch_motion_command(args: argparse.Namespace) -> int:
     """Dispatch parsed motion command namespace.
 
+    Initialises the gantry once and passes it to the selected handler.
+    Guarantees ``gantry.close()`` is called on exit regardless of outcome.
+
     Args:
         args: Parsed argument namespace from a motion parser.
 
@@ -744,7 +860,11 @@ def dispatch_motion_command(args: argparse.Namespace) -> int:
     handler = getattr(args, "_handler", None)
     if handler is None:
         raise ValueError("No motion command selected")
-    return handler(args)
+    gantry = _connect_gantry(args.config, args.gantry_name)
+    try:
+        return handler(args, gantry)
+    finally:
+        gantry.close()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -759,18 +879,19 @@ def main(argv: list[str] | None = None) -> None:
         args._handler = _run_shell
     exit_code = 1
     try:
-        console.print(f"[dim]Loading config:[/] {args.config}")
+        console.print(f"[festo.muted]Loading config:[/] {args.config}")
         exit_code = dispatch_motion_command(args)
     except KeyboardInterrupt:
-        console.print("\n[dim]Interrupted.[/]")
+        console.print("\n[festo.muted]Interrupted.[/]")
         sys.exit(130)
     except Exception as exc:
         logger.debug("CLI fatal error", exc_info=True)
-        console.print(f"[red]✗[/] {exc}")
+        console.print(f"[festo.err]✗[/] {exc}")
         sys.exit(1)
 
     if exit_code:
-        console.print(f"[green]✓[/] Exit code received, exiting {exit_code}")
+        tone = "warn" if exit_code == 130 else "err"
+        console.print(f"{format_badge('EXIT', tone)} [festo.muted]code {exit_code}[/]")
         console.print("Ctrl+c to end shell")
         sys.exit(exit_code)
 
