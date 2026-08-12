@@ -156,8 +156,15 @@ def axis_mock(mocker):
     def _fake_mh_init(self, com):
         # Provide the velocity-bound attributes that EdconAxis.__init__
         # reads immediately after super().__init__() returns.
+        
+        self.com = com
         self.min_velocity = _MOCK_MIN_VELOCITY
         self.max_velocity = _MOCK_MAX_VELOCITY
+
+        # Cached drive unit-scale exponents normally obtained during
+        # initialization from PNUs 11724 and 11725.
+        self._pos_scale_exp = -6
+        self._vel_scale_exp = -3
 
     mocker.patch.object(MotionHandler, "__init__", _fake_mh_init)
     mocker.patch.object(MotionHandler, "acknowledge_faults")

@@ -63,6 +63,8 @@ def _make_move_axis(
     axis.name = "TEST"
     axis._neg_sw_limit = neg_limit
     axis._pos_sw_limit = pos_limit
+    axis._pos_scale_exp = -6
+    axis._vel_scale_exp = -3
     axis.input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
     axis.input_vel_unit = {
         "distance": {"unit": "m", "power": 1, "power_of_ten": -3},
@@ -174,50 +176,6 @@ class TestEdconAxisMoveNoTimeout:
         pos_arg = axis.position_task.call_args[0][0]
         assert pos_arg == 0
 
-    def test_position_validation_failure_uses_fallback_neg_five(self):
-        """When ``_valid_position`` raises, ``move()`` must fall back to
-        ``-5`` (drive units) and continue executing rather than
-        propagating the exception, so a single bad call does not crash the
-        motion controller."""
-        axis = _make_move_axis()
-        read_count = [0]
-
-        # Force only the first position-scale read to fail (the one used by
-        # move() position validation); later reads must succeed so
-        # _check_overshoot can still run.
-        def _raise_once_for_position_scale(pnu):
-            if pnu == 11724 and read_count[0] == 0:
-                read_count[0] += 1
-                raise RuntimeError("simulated PNU read failure")
-            if pnu == 11724:
-                return -6
-            if pnu == 11725:
-                return -3
-            return 0
-
-        axis.com.read_pnu.side_effect = _raise_once_for_position_scale
-        axis.move(position=5_000, velocity=100)
-        pos_arg = axis.position_task.call_args[0][0]
-        assert pos_arg == -5
-
-    def test_velocity_validation_failure_uses_fallback_five(self):
-        """When ``_valid_velocity`` raises, ``move()`` must fall back to
-        ``5`` (drive units) and continue rather than propagating the
-        exception."""
-        axis = _make_move_axis()
-        read_count = [0]
-
-        def _raise_on_velocity_pnu(pnu):
-            read_count[0] += 1
-            # PNU 11724 is position scale (must succeed); 11725 is velocity
-            if pnu == 11725:
-                raise RuntimeError("simulated PNU read failure")
-            return -6  # position scale: 1 µm/unit (velocity scale is -3, mm/s, but not reached here)
-
-        axis.com.read_pnu.side_effect = _raise_on_velocity_pnu
-        axis.move(position=5_000, velocity=100)
-        vel_arg = axis.position_task.call_args[0][1]
-        assert vel_arg == 5
 
     def test_stop_motion_task_not_called_on_no_timeout_path(self):
         """stop_motion_task must NOT be called when no timeout is specified

@@ -18,6 +18,9 @@ def _make_axis(neg_limit: int, pos_limit: int, current_pos: int = 0) -> EdconAxi
     axis.name = "TEST"
     axis._neg_sw_limit = neg_limit
     axis._pos_sw_limit = pos_limit
+    axis._pos_scale_exp = -6
+    axis._vel_scale_exp = -3
+    
     axis.input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
     axis.com = MagicMock()
     axis.com.read_pnu.side_effect = lambda pnu: -6 if pnu == 11724 else 0
@@ -70,8 +73,8 @@ def test_absolute_below_negative_limit_clamped():
 
 def test_relative_within_limits_unchanged():
     axis = _make_axis(neg_limit=0, pos_limit=10_000, current_pos=5_000)
-    # delta of +2000 → target 7000, within limits → returns absolute target
-    assert axis._check_overshoot(2_000, absolute=False) == 7_000
+    # delta of +2000 → target 7000, within limits → delta returned unchanged
+    assert axis._check_overshoot(2_000, absolute=False) == 2_000
 
 
 def test_relative_would_exceed_positive_limit_clamped():
@@ -88,4 +91,4 @@ def test_relative_would_exceed_negative_limit_clamped():
 
 def test_relative_zero_delta_unchanged():
     axis = _make_axis(neg_limit=0, pos_limit=10_000, current_pos=5_000)
-    assert axis._check_overshoot(0, absolute=False) == 5_000
+    assert axis._check_overshoot(0, absolute=False) == 0

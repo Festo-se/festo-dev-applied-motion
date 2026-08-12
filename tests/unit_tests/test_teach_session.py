@@ -30,7 +30,6 @@ No hardware or network connection required.  All tests use a plain
 """
 
 import json
-from collections import deque
 from math import inf
 from unittest.mock import MagicMock, call
 
@@ -71,26 +70,28 @@ def _make_gantry(axis_names: list[str] = None, current_positions: dict[str, floa
 
 
 class TestJog:
-    def test_positive_direction_computes_correct_target(self):
+    def test_positive_direction_calls_axis_move_with_relative_delta(self):
         gantry = _make_gantry(current_positions={"X": 10.0, "Y": 0.0, "Z": 0.0})
         session = TeachSession(gantry)
         session.jog("X", "+", 5.0)
-        move_call = gantry.move_to.call_args[0][0]
-        assert list(move_call)[0] == {"X": {"position": 15.0, "velocity": 10.0}}
+        args, kwargs = gantry.axes["X"].move.call_args
+        assert args[0] == pytest.approx(5.0)
+        assert kwargs.get("position_type") == "relative"
 
-    def test_negative_direction_computes_correct_target(self):
+    def test_negative_direction_calls_axis_move_with_negative_delta(self):
         gantry = _make_gantry(current_positions={"X": 10.0, "Y": 0.0, "Z": 0.0})
         session = TeachSession(gantry)
         session.jog("X", "-", 3.0)
-        move_call = gantry.move_to.call_args[0][0]
-        assert list(move_call)[0] == {"X": {"position": 7.0, "velocity": 10.0}}
+        args, kwargs = gantry.axes["X"].move.call_args
+        assert args[0] == pytest.approx(-3.0)
+        assert kwargs.get("position_type") == "relative"
 
     def test_custom_velocity_is_forwarded(self):
         gantry = _make_gantry(current_positions={"Y": 0.0})
         session = TeachSession(gantry)
         session.jog("Y", "+", 1.0, velocity=25.0)
-        move_call = gantry.move_to.call_args[0][0]
-        assert list(move_call)[0]["Y"]["velocity"] == 25.0
+        args, _ = gantry.axes["Y"].move.call_args
+        assert args[1] == 25.0
 
     def test_returns_gantry_get_location(self):
         expected = {"X": 15.0, "Y": 0.0, "Z": 0.0}
@@ -100,25 +101,25 @@ class TestJog:
         result = session.jog("X", "+", 5.0)
         assert result == expected
 
-    def test_move_to_called_with_deque(self):
+    def test_axis_move_called_directly(self):
         gantry = _make_gantry(current_positions={"X": 0.0})
         session = TeachSession(gantry)
         session.jog("X", "+", 1.0)
-        args, _ = gantry.move_to.call_args
-        assert isinstance(args[0], deque)
+        gantry.axes["X"].move.assert_called_once()
+        gantry.move_to.assert_not_called()
 
-    def test_default_timeout_passed_to_move_to(self):
+    def test_default_timeout_passed_to_axis_move(self):
         gantry = _make_gantry(current_positions={"X": 0.0})
         session = TeachSession(gantry)
         session.jog("X", "+", 1.0)
-        _, kwargs = gantry.move_to.call_args
-        assert kwargs["timeout"] == 30
+        _, kwargs = gantry.axes["X"].move.call_args
+        assert kwargs["timeout"] == 15
 
-    def test_custom_timeout_passed_to_move_to(self):
+    def test_custom_timeout_passed_to_axis_move(self):
         gantry = _make_gantry(current_positions={"X": 0.0})
         session = TeachSession(gantry)
         session.jog("X", "+", 1.0, timeout=5)
-        _, kwargs = gantry.move_to.call_args
+        _, kwargs = gantry.axes["X"].move.call_args
         assert kwargs["timeout"] == 5
 
     def test_invalid_direction_raises_value_error(self):

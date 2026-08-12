@@ -28,6 +28,8 @@ def _make_axis(system_power_of_ten: int) -> EdconAxis:
     axis.name = "TEST"
     axis.com = MagicMock()
     axis.com.read_pnu.return_value = system_power_of_ten
+    axis._pos_scale_exp = system_power_of_ten
+    axis._vel_scale_exp = system_power_of_ten
     return axis
 
 
@@ -104,6 +106,8 @@ def _make_axis_with_super_position(system_power_of_ten: int, raw_position: int) 
     axis.name = "TEST"
     axis.com = MagicMock()
     axis.com.read_pnu.return_value = system_power_of_ten
+    axis._pos_scale_exp = system_power_of_ten
+    axis._vel_scale_exp = -3
     # Patch the method resolution order so that super().current_position() returns the raw value
     # without touching real hardware.
     with pytest.MonkeyPatch().context() as mp:
@@ -121,13 +125,15 @@ def test_get_current_axis_position_converts_drive_units_to_mm(mocker):
     value is in mm."""
     from edcon.edrive.motion_handler import MotionHandler
 
+    mocker.patch.object(MotionHandler, "current_position", return_value=5_000)
     axis = object.__new__(EdconAxis)
     axis.name = "TEST"
     axis.com = MagicMock()
+    axis._pos_scale_exp = -6
+    axis._vel_scale_exp = -3
     # Drive configured in 0.001 mm steps (power_of_ten = -6)
     axis.com.read_pnu.return_value = -6
 
-    mocker.patch.object(MotionHandler, "current_position", return_value=5_000)
 
     result = axis.get_current_axis_position()
     # 5000 drive units @ 0.001 mm/unit → 5 mm
@@ -139,12 +145,14 @@ def test_get_current_axis_position_identity_when_drive_uses_mm(mocker):
     the raw position value must pass through unchanged."""
     from edcon.edrive.motion_handler import MotionHandler
 
+    mocker.patch.object(MotionHandler, "current_position", return_value=1_234)
     axis = object.__new__(EdconAxis)
     axis.name = "TEST"
     axis.com = MagicMock()
+    
     axis.com.read_pnu.return_value = -3  # drive unit = mm
-
-    mocker.patch.object(MotionHandler, "current_position", return_value=1_234)
+    axis._pos_scale_exp = -3
+    axis._vel_scale_exp = -3
 
     result = axis.get_current_axis_position()
     assert result == pytest.approx(1_234.0)
@@ -154,12 +162,13 @@ def test_get_current_axis_position_zero(mocker):
     """A raw position of zero must return 0.0 regardless of the drive scale."""
     from edcon.edrive.motion_handler import MotionHandler
 
+    mocker.patch.object(MotionHandler, "current_position", return_value=0)
     axis = object.__new__(EdconAxis)
     axis.name = "TEST"
     axis.com = MagicMock()
     axis.com.read_pnu.return_value = -5
-
-    mocker.patch.object(MotionHandler, "current_position", return_value=0)
+    axis._pos_scale_exp = -5
+    axis._vel_scale_exp = -3
 
     assert axis.get_current_axis_position() == pytest.approx(0.0)
 
@@ -168,12 +177,13 @@ def test_get_current_axis_position_negative(mocker):
     """Negative raw positions must be converted correctly (negative mm)."""
     from edcon.edrive.motion_handler import MotionHandler
 
+    mocker.patch.object(MotionHandler, "current_position", return_value=-3_000)
     axis = object.__new__(EdconAxis)
     axis.name = "TEST"
     axis.com = MagicMock()
     axis.com.read_pnu.return_value = -5  # 0.01 mm resolution
-
-    mocker.patch.object(MotionHandler, "current_position", return_value=-3_000)
+    axis._pos_scale_exp = -5
+    axis._vel_scale_exp = -3
 
     # -3000 * 0.01 mm = -30 mm
     assert axis.get_current_axis_position() == pytest.approx(-30.0)
@@ -189,11 +199,12 @@ def test_current_position_returns_raw_drive_value(mocker):
     returns, unmodified, so it remains a transparent pass-through."""
     from edcon.edrive.motion_handler import MotionHandler
 
+    mocker.patch.object(MotionHandler, "current_position", return_value=7_500)
     axis = object.__new__(EdconAxis)
     axis.name = "TEST"
     axis.com = MagicMock()
-
-    mocker.patch.object(MotionHandler, "current_position", return_value=7_500)
+    axis._pos_scale_exp = -6
+    axis._vel_scale_exp = -3
 
     assert axis.current_position() == 7_500
 
@@ -205,11 +216,12 @@ def test_current_position_emits_warning(mocker, caplog):
     import logging
     from edcon.edrive.motion_handler import MotionHandler
 
+    mocker.patch.object(MotionHandler, "current_position", return_value=0)
     axis = object.__new__(EdconAxis)
     axis.name = "X"
     axis.com = MagicMock()
-
-    mocker.patch.object(MotionHandler, "current_position", return_value=0)
+    axis._pos_scale_exp = -6
+    axis._vel_scale_exp = -3
 
     with caplog.at_level(logging.WARNING, logger="applied_motion.gantry"):
         axis.current_position()
