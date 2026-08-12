@@ -139,6 +139,12 @@ class TeachSession:
         delta = step_mm if direction == "+" else -step_mm
         raw_target = current + delta
         axis = self.gantry.axes[axis_name]
+        logger.info(
+            "TeachSession.jog: axis=%s limits=[%.3f, %.3f] mm",
+            axis_name,
+            axis.min_position,
+            axis.max_position,
+        )
         target = max(axis.min_position, min(axis.max_position, raw_target))
         if target != raw_target:
             logger.warning(

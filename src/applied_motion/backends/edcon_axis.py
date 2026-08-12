@@ -20,7 +20,6 @@ with the FPosBAPI backend instead.
 """
 
 import logging
-import time
 from math import inf
 
 from threading import Thread
@@ -366,7 +365,12 @@ class EdconAxis(MotionHandler):
             if move_thread.is_alive():
                 logger.warning("Axis '%s': move timed out after %ss — sending stop motion task", self.name, timeout)
                 self.stop_motion_task()
-                time.sleep(0.05)
+                # Wait for the thread to actually exit before returning; 50 ms is not enough.
+                move_thread.join(timeout=timeout)
+                if move_thread.is_alive():
+                    logger.error(
+                        f"Axis '%s': position_task thread still alive {timeout}s after stop command", self.name
+                    )
             else:
                 result = _result_box[0] if _result_box else False  # TODO: AllTrue?
 
