@@ -266,7 +266,6 @@ class TestInteractiveOutputStability:
         fake_gantry.axes = {}
 
         monkeypatch.setattr(cli, "PromptSession", _PromptSessionStub)
-        monkeypatch.setattr(cli, "patch_stdout", lambda raw=True: _PatchStdoutStub())
         monkeypatch.setattr(cli.console, "print", lambda *args, **kwargs: None)
 
         exit_code = cli.run_repl(__import__("unittest.mock", fromlist=["MagicMock"]).MagicMock(), fake_gantry)

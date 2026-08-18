@@ -1,0 +1,99 @@
+{
+    "_comment": "Festo applied-motion system config with integrated gripper. Spec 3.0. Gripper mounted on gantry Z-axis for tool-changing.",
+    "spec_version": "3.0",
+    "system_config": {
+        "metadata": {}
+    },
+    "component_config": {
+        "metadata": {},
+        "components": {
+            "gantry_1": {
+                "_comment": "3-axis gantry (X, Y, Z). Z-axis carries gripper for tool changing.",
+                "component_spec_version": "2.0",
+                "component_class": "gantry",
+                "control_mode": "python",
+                "backend": "fposbapi",
+                "interface": {
+                    "type": "tcp/ip",
+                    "ip": "192.168.0.50",
+                    "port": 502
+                },
+                "axes": {},
+                "axis_order": [
+                    "X",
+                    "Y",
+                    "Z"
+                ],
+                "concurrent_axes": null
+            },
+            "gripper_tool": {
+                "_comment": "Gripper mounted on Z-axis for automated tool changes. CPX-E controlled.",
+                "component_spec_version": "2.0",
+                "component_class": "gripper",
+                "uuid": "0000-000000000-000000-100",
+                "type": "parallel",
+                "positioning": [
+                    "discrete",
+                    {
+                        "positions": 2
+                    }
+                ],
+                "control_signal": "digital",
+                "tool_id": 1,
+                "mount_gantry": {
+                    "name": "gantry_1",
+                    "uuid": "0000-000000000-000000-200"
+                },
+                "mount_axis": {
+                    "name": "Z",
+                    "index": 2,
+                    "uuid": "0000-000000000-000000-202"
+                },
+                "mount_axis_control": {
+                    "type": "CODESYS-PLC",
+                    "control_mode": "python",
+                    "control_package": "festo-applied-motion",
+                    "control_library": "applied_motion",
+                    "control_module": "Gantry",
+                    "control_backend": "fposbapi_client",
+                    "index": 2
+                },
+                "control_mode": "python",
+                "control_library": "cpx_io",
+                "control_system": "cpx_system.cpx_e",
+                "control_backend": "tcp/ip",
+                "control_modules": {
+                    "controller": {
+                        "control_library": "cpx_io",
+                        "control_system": "cpx_system.cpx_e",
+                        "control_module": {
+                            "cpx_e": "CpxE"
+                        },
+                        "controller": {
+                            "eep": "CpxEEp"
+                        },
+                        "ip": "192.168.0.41",
+                        "modules": [
+                            {
+                                "eep": "CpxEEp"
+                            },
+                            {
+                                "e16di": "CpxE16Di"
+                            },
+                            {
+                                "e8do": "CpxE8Do"
+                            },
+                            {
+                                "e4iol": "CpxE4Iol"
+                            }
+                        ]
+                    }
+                },
+                "control_signal_channels": {
+                    "grip": 1,
+                    "release": 0
+                }
+            }
+        }
+    }
+}
