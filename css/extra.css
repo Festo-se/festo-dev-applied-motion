@@ -1,0 +1,434 @@
+[data-md-color-scheme="default"] {
+    --md-primary-fg-color: #0091DC;
+    --md-primary-fg-color--light: #E5E8EB;
+    --md-primary-fg-color--dark: #000000;
+    --md-accent-fg-color: #333333;
+    --md-accent-bg-color: #B6BEC6;
+    --md-accent-fg-color--transparent: #ffb7031f;
+    --md-default-fg-color: #1b1029;
+    --md-default-fg-color--light: #4d3b60;
+    --md-default-fg-color--lighter: #7b6b8f;
+    --md-default-bg-color: #fffafc;
+    --md-code-fg-color: #1c1230;
+    --md-code-bg-color: #f5c6e0;
+    --md-code-hl-color: #fff0bf;
+    --md-code-hl-number-color: #d81b60;
+    --md-code-hl-special-color: #7c4dff;
+    --md-code-hl-function-color: #0097a7;
+    --md-code-hl-constant-color: #ff6f00;
+    --md-code-hl-keyword-color: #d81b60;
+    --md-typeset-a-color: #d81b60;
+    --md-typeset-mark-color: #ffb70340;
+
+    --doc-symbol-parameter-fg-color: #6a00f4;
+    --doc-symbol-type_parameter-fg-color: #6a00f4;
+    --doc-symbol-attribute-fg-color: #0077ff;
+    --doc-symbol-function-fg-color: #00a86b;
+    --doc-symbol-method-fg-color: #00a86b;
+    --doc-symbol-class-fg-color: #ff006e;
+    --doc-symbol-type_alias-fg-color: #ff006e;
+    --doc-symbol-module-fg-color: #ff7b00;
+
+    --doc-symbol-parameter-bg-color: #6a00f41a;
+    --doc-symbol-type_parameter-bg-color: #6a00f41a;
+    --doc-symbol-attribute-bg-color: #0077ff1a;
+    --doc-symbol-function-bg-color: #00a86b1a;
+    --doc-symbol-method-bg-color: #00a86b1a;
+    --doc-symbol-class-bg-color: #ff006e1a;
+    --doc-symbol-type_alias-bg-color: #ff006e1a;
+    --doc-symbol-module-bg-color: #ff7b001a;
+
+    --am-header-bg: #333333;
+    --am-header-fg: #fffafc;
+    --am-header-fg-muted: #f3e8ff;
+    --am-header-search-bg: #4a4a4a;
+    --am-header-search-fg: #ffffff;
+    --am-header-search-placeholder: #d9d9d9;
+    --am-header-search-border: #6f6f6f;
+}
+
+[data-md-color-scheme="slate"] {
+    --md-primary-fg-color: #0091DC;
+    --md-primary-fg-color--light: #000000;
+    --md-primary-fg-color--dark: #E5E8EB;
+    --md-accent-fg-color: #B6BEC6;
+    --md-accent-bg-color: #333333;
+    --md-accent-fg-color--transparent: #c6ff001f;
+    --md-default-fg-color: #f5f7ff;
+    --md-default-fg-color--light: #d0d8ff;
+    --md-default-fg-color--lighter: #9fa8da;
+
+    --md-code-fg-color: #f8f4ff;
+    --md-code-bg-color: #0070cc;
+    --md-code-hl-color: #26324a;
+    --md-code-hl-number-color: #ffb86c;
+    --md-code-hl-special-color: #ff79c6;
+    --md-code-hl-function-color: #8be9fd;
+    --md-code-hl-constant-color: #f1fa8c;
+    --md-code-hl-keyword-color: #ff79c6;
+    --md-typeset-a-color: #c6ff00;
+    --md-typeset-mark-color: #ffc10740;
+
+    --doc-symbol-parameter-fg-color: #ffa8cc;
+    --doc-symbol-type_parameter-fg-color: #ffa8cc;
+    --doc-symbol-attribute-fg-color: #8ec5ff;
+    --doc-symbol-function-fg-color: #6ef3a5;
+    --doc-symbol-method-fg-color: #6ef3a5;
+    --doc-symbol-class-fg-color: #f2f7a1;
+    --doc-symbol-type_alias-fg-color: #f2f7a1;
+    --doc-symbol-module-fg-color: #ff9f1c;
+
+    --doc-symbol-parameter-bg-color: #ffa8cc1a;
+    --doc-symbol-type_parameter-bg-color: #ffa8cc1a;
+    --doc-symbol-attribute-bg-color: #8ec5ff1a;
+    --doc-symbol-function-bg-color: #6ef3a51a;
+    --doc-symbol-method-bg-color: #6ef3a51a;
+    --doc-symbol-class-bg-color: #f2f7a11a;
+    --doc-symbol-type_alias-bg-color: #f2f7a11a;
+    --doc-symbol-module-bg-color: #ff9f1c1a;
+
+    --am-header-bg: #121826;
+    --am-header-fg: #f7fbff;
+    --am-header-fg-muted: #d0d8ff;
+    --am-header-search-bg: #1f2940;
+    --am-header-search-fg: #f7fbff;
+    --am-header-search-placeholder: #b9c5ef;
+    --am-header-search-border: #43557f;
+}
+
+/* .md-header {
+    background: linear-gradient(90deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+} */
+
+.md-header {
+    background-color: var(--am-header-bg);
+}
+
+.md-header__title,
+.md-header__topic,
+.md-header__button {
+    color: var(--am-header-fg);
+}
+
+.md-header__option,
+.md-header__source,
+.md-header-nav__button,
+.md-search__icon,
+.md-search__output {
+    color: var(--am-header-fg-muted);
+}
+
+.md-header__button:hover,
+.md-header__button:focus,
+.md-header__option:hover,
+.md-header__option:focus,
+.md-search__icon:hover,
+.md-search__icon:focus {
+    color: var(--am-header-fg);
+}
+
+.md-search__form {
+    background-color: var(--am-header-search-bg);
+    border: 1px solid var(--am-header-search-border);
+}
+
+.md-search__input {
+    color: var(--am-header-search-fg);
+    caret-color: var(--md-accent-fg-color);
+}
+
+.md-search__input::placeholder {
+    color: var(--am-header-search-placeholder);
+    opacity: 1;
+}
+
+.md-search__form:hover,
+.md-search__form:focus-within {
+    border-color: var(--md-accent-fg-color);
+}
+
+.md-grid {
+    max-width: 80rem;
+}
+
+.md-typeset a,
+.md-typeset a:focus,
+.md-typeset a:hover {
+    color: var(--md-typeset-a-color);
+}
+
+.md-typeset code,
+.md-typeset kbd,
+.md-typeset pre>code {
+    background-color: var(--md-code-bg-color);
+    color: var(--md-code-fg-color);
+}
+
+.md-typeset mark {
+    background-color: var(--md-typeset-mark-color);
+}
+
+.md-typeset h1 {
+    color: var(--md-primary-fg-color);
+}
+
+.md-typeset h2 {
+    color: var(--md-accent-fg-color);
+}
+
+.md-typeset h3 {
+    color: var(--md-code-hl-special-color);
+}
+
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+    color: var(--md-code-hl-function-color);
+}
+
+@font-face {
+    font-family: "MetaPro";
+    src: url("https://www.festo.com/Fonts/FestoW05-Regular.woff2") format("woff2"), url("https://www.festo.com/Fonts/FestoW05-Regular.woff") format("woff");
+}
+
+/* MetaPro bold */
+@font-face {
+    font-family: "MetaPro";
+    font-weight: bold;
+    src: url("https://www.festo.com/Fonts/FestoW05-Bold.woff2") format("woff2"), url("https://www.festo.com/Fonts/FestoW05-Bold.woff") format("woff");
+}
+
+body {
+    font-family: "MetaPro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+        sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+.md-typeset .doc {
+    color: var(--md-default-fg-color);
+}
+
+.md-typeset .doc-object {
+    margin: 1rem 0;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--md-accent-fg-color--transparent);
+    border-radius: 0.9rem;
+    background: linear-gradient(180deg, var(--md-primary-fg-color--light) 0%, transparent 22%);
+    box-shadow: 0 0.5rem 1.5rem #00000014;
+}
+
+.md-typeset .doc-object.doc-module {
+    border-left: 0.35rem solid var(--doc-symbol-module-fg-color);
+}
+
+.md-typeset .doc-object.doc-class {
+    border-left: 0.35rem solid var(--doc-symbol-class-fg-color);
+}
+
+.md-typeset .doc-object.doc-function,
+.md-typeset .doc-object.doc-method {
+    border-left: 0.35rem solid var(--doc-symbol-function-fg-color);
+}
+
+.md-typeset .doc-object.doc-attribute,
+.md-typeset .doc-object.doc-type_alias {
+    border-left: 0.35rem solid var(--doc-symbol-attribute-fg-color);
+}
+
+.md-typeset .doc-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+    color: var(--md-default-fg-color);
+}
+
+.md-typeset .doc-object-name {
+    font-weight: 800;
+}
+
+/* color heading text by kind — must beat h1/h2/h3 rules above */
+.md-typeset .doc-heading .doc-module-name {
+    color: var(--doc-symbol-module-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-class-name {
+    color: var(--doc-symbol-class-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-function-name {
+    color: var(--doc-symbol-function-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-attribute-name {
+    color: var(--doc-symbol-attribute-fg-color) !important;
+}
+
+.md-typeset .doc-heading .doc-type_alias-name {
+    color: var(--doc-symbol-type_alias-fg-color) !important;
+}
+
+/* parameter names in list-style docstring sections */
+.md-typeset .doc-section-title+dl>dt {
+    color: var(--doc-symbol-parameter-fg-color);
+    font-weight: 700;
+}
+
+/* parameter names in signature (positional/keyword) */
+.md-typeset .doc-signature .n:not([class*="other"]) {
+    color: var(--md-code-hl-function-color);
+}
+
+.md-typeset .doc-symbol {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.05rem 0.45rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
+.md-typeset .doc-symbol-parameter,
+.md-typeset .doc-symbol-type_parameter {
+    color: var(--doc-symbol-parameter-fg-color);
+    background: var(--doc-symbol-parameter-bg-color);
+}
+
+.md-typeset .doc-symbol-attribute {
+    color: var(--doc-symbol-attribute-fg-color);
+    background: var(--doc-symbol-attribute-bg-color);
+}
+
+.md-typeset .doc-symbol-function,
+.md-typeset .doc-symbol-method {
+    color: var(--doc-symbol-function-fg-color);
+    background: var(--doc-symbol-function-bg-color);
+}
+
+.md-typeset .doc-symbol-class,
+.md-typeset .doc-symbol-type_alias {
+    color: var(--doc-symbol-class-fg-color);
+    background: var(--doc-symbol-class-bg-color);
+}
+
+.md-typeset .doc-symbol-module {
+    color: var(--doc-symbol-module-fg-color);
+    background: var(--doc-symbol-module-bg-color);
+}
+
+.md-typeset .doc-signature {
+    margin-top: 0.6rem;
+    padding: 0.8rem 0.95rem;
+    border: 1px solid var(--md-accent-fg-color--transparent);
+    border-radius: 0.75rem;
+    background: var(--md-code-bg-color);
+    overflow-x: auto;
+}
+
+.md-typeset .doc-signature code {
+    background: transparent;
+}
+
+.md-typeset .doc-signature .o {
+    color: var(--md-code-hl-special-color);
+}
+
+.md-typeset .doc-signature .k,
+.md-typeset .doc-signature .kn,
+.md-typeset .doc-signature .ow {
+    color: var(--md-code-hl-keyword-color);
+}
+
+.md-typeset .doc-signature .c,
+.md-typeset .doc-signature .ch,
+.md-typeset .doc-signature .cm,
+.md-typeset .doc-signature .cp,
+.md-typeset .doc-signature .c1 {
+    color: var(--md-default-fg-color--lighter);
+}
+
+.md-typeset .doc-signature .kc,
+.md-typeset .doc-signature .mi,
+.md-typeset .doc-signature .mf,
+.md-typeset .doc-signature .il {
+    color: var(--md-code-hl-constant-color);
+}
+
+.md-typeset .doc-signature .n>a[href^="https://docs.python.org/"][href*="/functions.html#"],
+.md-typeset .doc-signature .n>a[href^="https://docs.python.org/"][href*="/stdtypes.html#"] {
+    color: var(--md-code-hl-constant-color);
+}
+
+.md-typeset .doc-section-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 1rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 2px solid var(--md-accent-fg-color);
+    color: var(--md-primary-fg-color);
+}
+
+.md-typeset .doc-section-item {
+    color: var(--md-default-fg-color);
+}
+
+.md-typeset .doc-md-description {
+    color: var(--md-default-fg-color);
+}
+
+.md-typeset .doc-labels {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.md-typeset .doc-label {
+    border-radius: 999px;
+    padding: 0.12rem 0.55rem;
+    font-weight: 700;
+    color: var(--md-default-bg-color);
+}
+
+.md-typeset .doc-label-private {
+    background-color: #ff006e;
+}
+
+.md-typeset .doc-label-special {
+    background-color: #7c4dff;
+}
+
+.md-typeset .doc-label-property {
+    background-color: #ffb703;
+    color: #1b1029;
+}
+
+.md-typeset .doc-label-read-only {
+    background-color: #00a86b;
+}
+
+div.doc-contents:not(.first) {
+    padding-left: 1.25rem;
+    border-left: 0.12rem solid var(--md-accent-fg-color--transparent);
+}
+
+.md-typeset .highlight .o {
+    color: var(--md-code-hl-special-color);
+}
+
+.md-typeset .highlight .k,
+.md-typeset .highlight .kn,
+.md-typeset .highlight .ow {
+    color: var(--md-code-hl-keyword-color);
+}
+
+.md-typeset .highlight .kc,
+.md-typeset .highlight .mi,
+.md-typeset .highlight .mf,
+.md-typeset .highlight .il {
+    color: var(--md-code-hl-constant-color);
+}
+
+.md-typeset .highlight .n>a[href^="https://docs.python.org/"][href*="/functions.html#"],
+.md-typeset .highlight .n>a[href^="https://docs.python.org/"][href*="/stdtypes.html#"] {
+    color: var(--md-code-hl-constant-color);
+}

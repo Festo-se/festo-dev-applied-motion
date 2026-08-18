@@ -1,0 +1,2969 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://festo-se.github.io/festo-dev-applied-motion/autoapi/applied_motion/cli/cli/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../compose/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../../img/method.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>cli - Festo Applied Motion -- Python-based control for Festo electrically-driven motion components</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../../../css/extra.css">
+    
+      <link rel="stylesheet" href="https://www.festo.com/fonts/fonts.css">
+    
+    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#applied_motion.cli.cli" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../../.." title="Festo Applied Motion -- Python-based control for Festo electrically-driven motion components" class="md-header__button md-logo" aria-label="Festo Applied Motion -- Python-based control for Festo electrically-driven motion components" data-md-component="logo">
+      
+  <img src="../../../../img/Festo_Logo_Caerul_Web.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Festo Applied Motion -- Python-based control for Festo electrically-driven motion components
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              cli
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="amber"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="lime"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Festo-se/festo-dev-applied-motion" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../../.." title="Festo Applied Motion -- Python-based control for Festo electrically-driven motion components" class="md-nav__button md-logo" aria-label="Festo Applied Motion -- Python-based control for Festo electrically-driven motion components" data-md-component="logo">
+      
+  <img src="../../../../img/Festo_Logo_Caerul_Web.svg" alt="logo">
+
+    </a>
+    Festo Applied Motion -- Python-based control for Festo electrically-driven motion components
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Festo-se/festo-dev-applied-motion" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../user-guide/fposbapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FPosBAPI Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../user-guide/edcon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    festo-edcon / Modbus Backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../user-guide/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/fposbapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FPosBAPI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../examples/edcon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    festo-edcon / Modbus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Festo Resources
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Festo Resources
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://www.festo.com/us/en/p/servo-drive-for-synchronous-motors-id_CMMT-ST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CMMT Product Page
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issues Tracker
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Issues Tracker
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/Festo-se/festo-dev-applied-motion/issues" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Report an Issue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    applied_motion
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    applied_motion
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../applied_motion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    applied_motion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_2" id="__nav_7_1_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    backends
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    backends
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/axis_protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    axis_protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/edcon_axis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    edcon_axis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/fposbapi_axis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fposbapi_axis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/fposbapi_client/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fposbapi_client
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/gantry_backend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    gantry_backend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_3" id="__nav_7_1_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cli
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    cli
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cli
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cli
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cli
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="cli">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli--commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli--jog-mode-key-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jog mode key bindings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.MotionCliExtension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MotionCliExtension
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.run_repl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run_repl
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.register_motion_cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register_motion_cli
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.build_standalone_motion_parser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_standalone_motion_parser
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.dispatch_motion_command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dispatch_motion_command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        main
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_3_2" id="__nav_7_1_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    compose
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_7_1_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    compose
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compose/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    core
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compose/repl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    repl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formatting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    formatting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logging_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    logging_utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../session/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    session
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    theme
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gantry_factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    gantry_factory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cli
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="cli">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli--commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli--jog-mode-key-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jog mode key bindings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.MotionCliExtension" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MotionCliExtension
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.run_repl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run_repl
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.register_motion_cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        register_motion_cli
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.build_standalone_motion_parser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_standalone_motion_parser
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.dispatch_motion_command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dispatch_motion_command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#applied_motion.cli.cli.main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        main
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>cli</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="applied_motion.cli.cli" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">cli</span>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Interactive commissioning and motion REPL for gantry operation.</p>
+<p>Requires the <code>cli</code> optional-dependency extra::</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>pip install festo-dev-applied-motion[cli]
+</code></pre></div></td></tr></table></div>
+<p>Launch via the installed entry point::</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>applied-motion --config gantry.json
+</code></pre></div></td></tr></table></div>
+<p>Or directly::</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span></pre></div></td><td class="code"><div><pre><span></span><code>python -m applied_motion.cli.cli --config gantry.json
+</code></pre></div></td></tr></table></div>
+<h4 id="applied_motion.cli.cli--commands">Commands</h4>
+<p>The REPL accepts the following commands (tab-completion and command
+history are provided by <code>prompt_toolkit</code>):</p>
+<p>======================================  ======================================
+Command                                 Effect
+======================================  ======================================
+<code>jog</code>                                 Enter arrow-key jog mode (see below)
+<code>jog &lt;axis&gt; &lt;+/-&gt; &lt;step&gt; [vel]</code>       Single step-move, then return to REPL
+<code>where</code>                               Print current axis positions
+<code>home</code>                                Home all axes
+<code>capture &lt;label&gt;</code>                     Record current position as <em>label</em>
+<code>teach pos &lt;pos_id&gt;</code>                  (FPosBAPI only) Send TEACH_POS to PLC # TODO: INclude tool id
+<code>teach tray &lt;tray_id&gt; &lt;tray_pos&gt;</code>     (FPosBAPI only) Send TEACH_TRAY to PLC
+<code>list</code>                                List all captured positions
+<code>save &lt;path&gt;</code>                         Write positions to a JSON file
+<code>load &lt;path&gt;</code>                         Merge positions from a JSON file
+<code>loglevel [OFF|DEBUG|INFO|WARNING|ERROR|CRITICAL]</code>  Show or change current log level
+<code>help</code>                                Print this command reference
+<code>quit</code>                                Exit the REPL
+======================================  ======================================</p>
+<h4 id="applied_motion.cli.cli--jog-mode-key-bindings">Jog mode key bindings</h4>
+<p>=====================  ================================================
+Key                    Action
+=====================  ================================================
+← / →                  Step axis[0] (typically X) negative / positive
+↑ / ↓                  Step axis[1] (typically Y) positive / negative
+Page Up / Page Down    Step axis[2] (typically Z) positive / negative
+<code>+</code>                  Increase step size (cycles 0.1→0.5→1→5→10→50 mm)
+<code>-</code>                  Decrease step size
+<code>Tab</code>                Cycle PgUp/PgDn target to next depth axis (3+ axes)
+<code>Shift+Tab</code>          Cycle PgUp/PgDn target to previous depth axis
+<code>Esc</code> or <code>q</code>       Exit jog mode, return to REPL
+=====================  ================================================</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="applied_motion.cli.cli.MotionCliExtension" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">MotionCliExtension</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">MotionCliExtension</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">_SubParsersAction</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Extension hook signature for adding extra motion subcommands.</p>
+<p>Each extension receives motion command's subparser collection and may call
+<code>add_parser</code> to register additional nested commands.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="applied_motion.cli.cli.run_repl" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">run_repl</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_repl</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">MotionSession</span><span class="p">,</span> <span class="n">gantry</span><span class="p">:</span> <span class="n">Gantry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Launch the interactive teach-in REPL for a connected gantry.</p>
+<p>Presents a prompt-toolkit REPL that accepts <code>jog</code>, <code>capture</code>,
+<code>where</code>, <code>home</code>, <code>teach pos</code>, <code>teach tray</code>, <code>list</code>, <code>save</code>,
+<code>load</code>, <code>help</code>, and <code>quit</code> commands.  Tab-completion and command
+history are provided automatically.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>session</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;MotionSession&lt;/span&gt; (&lt;code&gt;applied_motion.cli.session.MotionSession&lt;/code&gt;)" href="../session/#applied_motion.cli.session.MotionSession">MotionSession</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;MotionSession&lt;/span&gt;" href="../session/#applied_motion.cli.session.MotionSession"><code>MotionSession</code></a>
+instance backed by a connected, homed gantry.  Captured
+positions accumulate in <code>session.positions</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>gantry</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Gantry&lt;/span&gt; (&lt;code&gt;applied_motion.applied_motion.Gantry&lt;/code&gt;)" href="../../applied_motion/#applied_motion.applied_motion.Gantry">Gantry</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The connected <a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Gantry&lt;/span&gt;" href="../../applied_motion/#applied_motion.applied_motion.Gantry"><code>Gantry</code></a>
+instance whose axes define the tab-completion candidates and
+receive motion commands.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/applied_motion/cli/cli.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-347">347</a></span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
+<span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span>
+<span class="normal"><a href="#__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#__codelineno-0-413">413</a></span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span>
+<span class="normal"><a href="#__codelineno-0-416">416</a></span>
+<span class="normal"><a href="#__codelineno-0-417">417</a></span>
+<span class="normal"><a href="#__codelineno-0-418">418</a></span>
+<span class="normal"><a href="#__codelineno-0-419">419</a></span>
+<span class="normal"><a href="#__codelineno-0-420">420</a></span>
+<span class="normal"><a href="#__codelineno-0-421">421</a></span>
+<span class="normal"><a href="#__codelineno-0-422">422</a></span>
+<span class="normal"><a href="#__codelineno-0-423">423</a></span>
+<span class="normal"><a href="#__codelineno-0-424">424</a></span>
+<span class="normal"><a href="#__codelineno-0-425">425</a></span>
+<span class="normal"><a href="#__codelineno-0-426">426</a></span>
+<span class="normal"><a href="#__codelineno-0-427">427</a></span>
+<span class="normal"><a href="#__codelineno-0-428">428</a></span>
+<span class="normal"><a href="#__codelineno-0-429">429</a></span>
+<span class="normal"><a href="#__codelineno-0-430">430</a></span>
+<span class="normal"><a href="#__codelineno-0-431">431</a></span>
+<span class="normal"><a href="#__codelineno-0-432">432</a></span>
+<span class="normal"><a href="#__codelineno-0-433">433</a></span>
+<span class="normal"><a href="#__codelineno-0-434">434</a></span>
+<span class="normal"><a href="#__codelineno-0-435">435</a></span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span>
+<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
+<span class="normal"><a href="#__codelineno-0-460">460</a></span>
+<span class="normal"><a href="#__codelineno-0-461">461</a></span>
+<span class="normal"><a href="#__codelineno-0-462">462</a></span>
+<span class="normal"><a href="#__codelineno-0-463">463</a></span>
+<span class="normal"><a href="#__codelineno-0-464">464</a></span>
+<span class="normal"><a href="#__codelineno-0-465">465</a></span>
+<span class="normal"><a href="#__codelineno-0-466">466</a></span>
+<span class="normal"><a href="#__codelineno-0-467">467</a></span>
+<span class="normal"><a href="#__codelineno-0-468">468</a></span>
+<span class="normal"><a href="#__codelineno-0-469">469</a></span>
+<span class="normal"><a href="#__codelineno-0-470">470</a></span>
+<span class="normal"><a href="#__codelineno-0-471">471</a></span>
+<span class="normal"><a href="#__codelineno-0-472">472</a></span>
+<span class="normal"><a href="#__codelineno-0-473">473</a></span>
+<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+<span class="normal"><a href="#__codelineno-0-475">475</a></span>
+<span class="normal"><a href="#__codelineno-0-476">476</a></span>
+<span class="normal"><a href="#__codelineno-0-477">477</a></span>
+<span class="normal"><a href="#__codelineno-0-478">478</a></span>
+<span class="normal"><a href="#__codelineno-0-479">479</a></span>
+<span class="normal"><a href="#__codelineno-0-480">480</a></span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span>
+<span class="normal"><a href="#__codelineno-0-482">482</a></span>
+<span class="normal"><a href="#__codelineno-0-483">483</a></span>
+<span class="normal"><a href="#__codelineno-0-484">484</a></span>
+<span class="normal"><a href="#__codelineno-0-485">485</a></span>
+<span class="normal"><a href="#__codelineno-0-486">486</a></span>
+<span class="normal"><a href="#__codelineno-0-487">487</a></span>
+<span class="normal"><a href="#__codelineno-0-488">488</a></span>
+<span class="normal"><a href="#__codelineno-0-489">489</a></span>
+<span class="normal"><a href="#__codelineno-0-490">490</a></span>
+<span class="normal"><a href="#__codelineno-0-491">491</a></span>
+<span class="normal"><a href="#__codelineno-0-492">492</a></span>
+<span class="normal"><a href="#__codelineno-0-493">493</a></span>
+<span class="normal"><a href="#__codelineno-0-494">494</a></span>
+<span class="normal"><a href="#__codelineno-0-495">495</a></span>
+<span class="normal"><a href="#__codelineno-0-496">496</a></span>
+<span class="normal"><a href="#__codelineno-0-497">497</a></span>
+<span class="normal"><a href="#__codelineno-0-498">498</a></span>
+<span class="normal"><a href="#__codelineno-0-499">499</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_repl</span><span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="n">MotionSession</span><span class="p">,</span> <span class="n">gantry</span><span class="p">:</span> <span class="n">Gantry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>  <span class="c1"># noqa</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Launch the interactive teach-in REPL for a connected gantry.</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a><span class="sd">    Presents a prompt-toolkit REPL that accepts ``jog``, ``capture``,</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a><span class="sd">    ``where``, ``home``, ``teach pos``, ``teach tray``, ``list``, ``save``,</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="sd">    ``load``, ``help``, and ``quit`` commands.  Tab-completion and command</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="sd">    history are provided automatically.</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">        session: A [`MotionSession`][applied_motion.cli.session.MotionSession]</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">            instance backed by a connected, homed gantry.  Captured</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="sd">            positions accumulate in ``session.positions``.</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="sd">        gantry: The connected [`Gantry`][applied_motion.applied_motion.Gantry]</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a><span class="sd">            instance whose axes define the tab-completion candidates and</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="sd">            receive motion commands.</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>    <span class="n">axis_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">gantry</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="n">ps</span><span class="p">:</span> <span class="n">PromptSession</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">PromptSession</span><span class="p">(</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>        <span class="n">history</span><span class="o">=</span><span class="n">InMemoryHistory</span><span class="p">(),</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="n">completer</span><span class="o">=</span><span class="n">_build_completer</span><span class="p">(</span><span class="n">axis_names</span><span class="p">),</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="p">)</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">_HELP_TEXT</span><span class="p">)</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>    <span class="n">previous_disable</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">disable</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>    <span class="n">logging</span><span class="o">.</span><span class="n">disable</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">)</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>                <span class="n">raw</span> <span class="o">=</span> <span class="n">ps</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span><span class="s2">&quot;motion&gt; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a>            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">KeyboardInterrupt</span><span class="p">):</span>  <span class="c1"># noqa</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a>                <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[festo.muted]Exiting.[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>                <span class="k">return</span> <span class="mi">130</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">raw</span><span class="p">:</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>                <span class="k">continue</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>            <span class="n">parts</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>            <span class="n">cmd</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>                <span class="k">if</span> <span class="n">cmd</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;quit&quot;</span><span class="p">,</span> <span class="s2">&quot;exit&quot;</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;[festo.ok]✓[/] Quitting program.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>                    <span class="k">break</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;help&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">_HELP_TEXT</span><span class="p">)</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;where&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a>                    <span class="n">loc</span> <span class="o">=</span> <span class="n">gantry</span><span class="o">.</span><span class="n">get_location</span><span class="p">()</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">_location_table</span><span class="p">(</span><span class="n">loc</span><span class="p">))</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;home&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a>                    <span class="n">gantry</span><span class="o">.</span><span class="n">home</span><span class="p">()</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;[festo.ok]✓[/] All axes homed.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;jog&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a>                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>                        <span class="c1"># No args → enter arrow-key jog TUI</span>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a>                        <span class="n">_run_jog_mode</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">gantry</span><span class="p">)</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a>                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">format_badge</span><span class="p">(</span><span class="s1">&#39;USAGE&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;warn&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> [festo.brand]jog[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">format_help_line</span><span class="p">(</span><span class="s1">&#39;jog&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;Enter arrow-key jog mode&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>                            <span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">format_help_line</span><span class="p">(</span><span class="s1">&#39;jog &lt;axis&gt; &lt;+/-&gt; &lt;step&gt; [vel]&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;Single step-move (mm, default vel=10 mm/s)&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>                        <span class="p">)</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>                    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>                        <span class="n">axis</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>                        <span class="n">direction</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>                        <span class="n">step</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>                        <span class="n">vel</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">4</span> <span class="k">else</span> <span class="mf">10.0</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>                        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>                            <span class="n">loc</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">jog</span><span class="p">(</span><span class="n">axis</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">vel</span><span class="p">)</span>
+<a id="__codelineno-0-420" name="__codelineno-0-420"></a>                            <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">_location_table</span><span class="p">(</span><span class="n">loc</span><span class="p">))</span>
+<a id="__codelineno-0-421" name="__codelineno-0-421"></a>                        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-422" name="__codelineno-0-422"></a>                            <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-423" name="__codelineno-0-423"></a>                        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-424" name="__codelineno-0-424"></a>                            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
+<a id="__codelineno-0-425" name="__codelineno-0-425"></a>                                <span class="s2">&quot;CLI command &#39;jog&#39;: failed axis=</span><span class="si">%s</span><span class="s2"> direction=</span><span class="si">%s</span><span class="s2"> step=</span><span class="si">%s</span><span class="s2"> vel=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-426" name="__codelineno-0-426"></a>                                <span class="n">axis</span><span class="p">,</span>
+<a id="__codelineno-0-427" name="__codelineno-0-427"></a>                                <span class="n">direction</span><span class="p">,</span>
+<a id="__codelineno-0-428" name="__codelineno-0-428"></a>                                <span class="n">step</span><span class="p">,</span>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a>                                <span class="n">vel</span><span class="p">,</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>                            <span class="p">)</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a>                            <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] Move rejected by axis: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;capture&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a>                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] Usage: </span><span class="si">{</span><span class="n">format_help_line</span><span class="p">(</span><span class="s1">&#39;capture &lt;label&gt;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a>                        <span class="k">continue</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a>                    <span class="n">label</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a>                    <span class="n">session</span><span class="o">.</span><span class="n">capture</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.ok]✓[/] Captured [bold]</span><span class="si">{</span><span class="n">label</span><span class="si">!r}</span><span class="s2">[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;teach&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a>                    <span class="k">if</span> <span class="ow">not</span> <span class="n">gantry</span><span class="o">.</span><span class="n">supports_teach</span><span class="p">():</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>                            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">format_badge</span><span class="p">(</span><span class="s1">&#39;TEACH DISABLED&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;warn&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2"> [festo.muted]Modbus backend has no PLC teach command.[/]</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a>                            <span class="s2">&quot;    Use [festo.ok]capture[/] to save positions to JSON instead.&quot;</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>                        <span class="p">)</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;pos&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a>                        <span class="n">pos_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a>                        <span class="n">gantry</span><span class="o">.</span><span class="n">teach_pos</span><span class="p">(</span><span class="n">pos_id</span><span class="o">=</span><span class="n">pos_id</span><span class="p">)</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.ok]✓[/] TEACH_POS sent ([festo.ok]pos_id=</span><span class="si">{</span><span class="n">pos_id</span><span class="si">}</span><span class="s2">[/])&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>                    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;tray&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a>                        <span class="n">tray_id</span><span class="p">,</span> <span class="n">tray_pos</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a>                        <span class="n">gantry</span><span class="o">.</span><span class="n">teach_tray</span><span class="p">(</span><span class="n">tray_id</span><span class="o">=</span><span class="n">tray_id</span><span class="p">,</span> <span class="n">tray_pos</span><span class="o">=</span><span class="n">tray_pos</span><span class="p">)</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a>                            <span class="sa">f</span><span class="s2">&quot;[festo.ok]✓[/] TEACH_TRAY sent ([festo.ok]tray_id=</span><span class="si">{</span><span class="n">tray_id</span><span class="si">}</span><span class="s2">[/], [festo.ok]tray_pos=</span><span class="si">{</span><span class="n">tray_pos</span><span class="si">}</span><span class="s2">[/])&quot;</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a>                        <span class="p">)</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a>                    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;[festo.err]✗[/] Usage:&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">format_help_line</span><span class="p">(</span><span class="s1">&#39;teach pos &lt;pos_id&gt;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="n">format_help_line</span><span class="p">(</span><span class="s1">&#39;teach tray &lt;tray_id&gt; &lt;tray_pos&gt;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;list&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a>                    <span class="k">if</span> <span class="ow">not</span> <span class="n">session</span><span class="o">.</span><span class="n">positions</span><span class="p">:</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;[festo.muted]No positions captured yet.[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a>                    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">_positions_table</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">positions</span><span class="p">))</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;save&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a>                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] Usage: </span><span class="si">{</span><span class="n">format_help_line</span><span class="p">(</span><span class="s1">&#39;save &lt;path&gt;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>                        <span class="k">continue</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>                    <span class="n">session</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.ok]✓[/] </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">positions</span><span class="p">)</span><span class="si">}</span><span class="s2"> position(s) saved → [bold]</span><span class="si">{</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;load&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a>                        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] Usage: </span><span class="si">{</span><span class="n">format_help_line</span><span class="p">(</span><span class="s1">&#39;load &lt;path&gt;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a>                        <span class="k">continue</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a>                    <span class="n">before</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">positions</span><span class="p">)</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a>                    <span class="n">session</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a>                    <span class="n">added</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">positions</span><span class="p">)</span> <span class="o">-</span> <span class="n">before</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.ok]✓[/] </span><span class="si">{</span><span class="n">added</span><span class="si">}</span><span class="s2"> position(s) loaded from [bold]</span><span class="si">{</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a>                <span class="k">elif</span> <span class="n">cmd</span> <span class="o">==</span> <span class="s2">&quot;loglevel&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.ok]✓[/] </span><span class="si">{</span><span class="n">set_runtime_log_level</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>                <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>                    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] Unknown command: [bold]</span><span class="si">{</span><span class="n">cmd</span><span class="si">!r}</span><span class="s2">[/]  (type [festo.ok]help[/])&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>            <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>                <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Unexpected error processing command </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">raw</span><span class="p">)</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a>                <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] Unexpected error: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>        <span class="n">logging</span><span class="o">.</span><span class="n">disable</span><span class="p">(</span><span class="n">previous_disable</span><span class="p">)</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>    <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;[festo.ok]✓[/] Quitting program repl successful.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a>    <span class="k">return</span> <span class="mi">1</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="applied_motion.cli.cli.register_motion_cli" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">register_motion_cli</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">register_motion_cli</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">parent_subparsers</span><span class="p">:</span> <span class="n">_SubParsersAction</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">command_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;motion&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">extensions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">MotionCliExtension</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Attach motion CLI subtree to parent parser.</p>
+<p>Designed for higher-level system CLIs that compose multiple domains
+(for example <code>motion</code> and <code>fluid</code>) side-by-side.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parent_subparsers</code>
+            </td>
+            <td>
+                  <code><span title="argparse._SubParsersAction">_SubParsersAction</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Parent parser subcommand registry.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>command_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name used for mounted motion command subtree.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;motion&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extensions</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;MotionCliExtension&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;applied_motion.cli.cli.MotionCliExtension&lt;/code&gt;)" href="#applied_motion.cli.cli.MotionCliExtension">MotionCliExtension</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional extension hooks that can add extra motion
+subcommands.</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="argparse.ArgumentParser">ArgumentParser</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mounted motion command parser.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/applied_motion/cli/cli.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-775">775</a></span>
+<span class="normal"><a href="#__codelineno-0-776">776</a></span>
+<span class="normal"><a href="#__codelineno-0-777">777</a></span>
+<span class="normal"><a href="#__codelineno-0-778">778</a></span>
+<span class="normal"><a href="#__codelineno-0-779">779</a></span>
+<span class="normal"><a href="#__codelineno-0-780">780</a></span>
+<span class="normal"><a href="#__codelineno-0-781">781</a></span>
+<span class="normal"><a href="#__codelineno-0-782">782</a></span>
+<span class="normal"><a href="#__codelineno-0-783">783</a></span>
+<span class="normal"><a href="#__codelineno-0-784">784</a></span>
+<span class="normal"><a href="#__codelineno-0-785">785</a></span>
+<span class="normal"><a href="#__codelineno-0-786">786</a></span>
+<span class="normal"><a href="#__codelineno-0-787">787</a></span>
+<span class="normal"><a href="#__codelineno-0-788">788</a></span>
+<span class="normal"><a href="#__codelineno-0-789">789</a></span>
+<span class="normal"><a href="#__codelineno-0-790">790</a></span>
+<span class="normal"><a href="#__codelineno-0-791">791</a></span>
+<span class="normal"><a href="#__codelineno-0-792">792</a></span>
+<span class="normal"><a href="#__codelineno-0-793">793</a></span>
+<span class="normal"><a href="#__codelineno-0-794">794</a></span>
+<span class="normal"><a href="#__codelineno-0-795">795</a></span>
+<span class="normal"><a href="#__codelineno-0-796">796</a></span>
+<span class="normal"><a href="#__codelineno-0-797">797</a></span>
+<span class="normal"><a href="#__codelineno-0-798">798</a></span>
+<span class="normal"><a href="#__codelineno-0-799">799</a></span>
+<span class="normal"><a href="#__codelineno-0-800">800</a></span>
+<span class="normal"><a href="#__codelineno-0-801">801</a></span>
+<span class="normal"><a href="#__codelineno-0-802">802</a></span>
+<span class="normal"><a href="#__codelineno-0-803">803</a></span>
+<span class="normal"><a href="#__codelineno-0-804">804</a></span>
+<span class="normal"><a href="#__codelineno-0-805">805</a></span>
+<span class="normal"><a href="#__codelineno-0-806">806</a></span>
+<span class="normal"><a href="#__codelineno-0-807">807</a></span>
+<span class="normal"><a href="#__codelineno-0-808">808</a></span>
+<span class="normal"><a href="#__codelineno-0-809">809</a></span>
+<span class="normal"><a href="#__codelineno-0-810">810</a></span>
+<span class="normal"><a href="#__codelineno-0-811">811</a></span>
+<span class="normal"><a href="#__codelineno-0-812">812</a></span>
+<span class="normal"><a href="#__codelineno-0-813">813</a></span>
+<span class="normal"><a href="#__codelineno-0-814">814</a></span>
+<span class="normal"><a href="#__codelineno-0-815">815</a></span>
+<span class="normal"><a href="#__codelineno-0-816">816</a></span>
+<span class="normal"><a href="#__codelineno-0-817">817</a></span>
+<span class="normal"><a href="#__codelineno-0-818">818</a></span>
+<span class="normal"><a href="#__codelineno-0-819">819</a></span>
+<span class="normal"><a href="#__codelineno-0-820">820</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-775" name="__codelineno-0-775"></a><span class="k">def</span><span class="w"> </span><span class="nf">register_motion_cli</span><span class="p">(</span>
+<a id="__codelineno-0-776" name="__codelineno-0-776"></a>    <span class="n">parent_subparsers</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">_SubParsersAction</span><span class="p">,</span>
+<a id="__codelineno-0-777" name="__codelineno-0-777"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-778" name="__codelineno-0-778"></a>    <span class="n">command_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;motion&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-779" name="__codelineno-0-779"></a>    <span class="n">extensions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">MotionCliExtension</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+<a id="__codelineno-0-780" name="__codelineno-0-780"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">:</span>
+<a id="__codelineno-0-781" name="__codelineno-0-781"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Attach motion CLI subtree to parent parser.</span>
+<a id="__codelineno-0-782" name="__codelineno-0-782"></a>
+<a id="__codelineno-0-783" name="__codelineno-0-783"></a><span class="sd">    Designed for higher-level system CLIs that compose multiple domains</span>
+<a id="__codelineno-0-784" name="__codelineno-0-784"></a><span class="sd">    (for example ``motion`` and ``fluid``) side-by-side.</span>
+<a id="__codelineno-0-785" name="__codelineno-0-785"></a>
+<a id="__codelineno-0-786" name="__codelineno-0-786"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-787" name="__codelineno-0-787"></a><span class="sd">        parent_subparsers: Parent parser subcommand registry.</span>
+<a id="__codelineno-0-788" name="__codelineno-0-788"></a><span class="sd">        command_name: Name used for mounted motion command subtree.</span>
+<a id="__codelineno-0-789" name="__codelineno-0-789"></a><span class="sd">        extensions: Optional extension hooks that can add extra motion</span>
+<a id="__codelineno-0-790" name="__codelineno-0-790"></a><span class="sd">            subcommands.</span>
+<a id="__codelineno-0-791" name="__codelineno-0-791"></a>
+<a id="__codelineno-0-792" name="__codelineno-0-792"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-793" name="__codelineno-0-793"></a><span class="sd">        Mounted motion command parser.</span>
+<a id="__codelineno-0-794" name="__codelineno-0-794"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-795" name="__codelineno-0-795"></a>    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="n">command_name</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Motion control commands&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-796" name="__codelineno-0-796"></a>    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+<a id="__codelineno-0-797" name="__codelineno-0-797"></a>        <span class="s2">&quot;--config&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-798" name="__codelineno-0-798"></a>        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-799" name="__codelineno-0-799"></a>        <span class="nb">type</span><span class="o">=</span><span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-800" name="__codelineno-0-800"></a>        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;PATH&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-801" name="__codelineno-0-801"></a>        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to gantry JSON configuration file.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-802" name="__codelineno-0-802"></a>    <span class="p">)</span>
+<a id="__codelineno-0-803" name="__codelineno-0-803"></a>    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+<a id="__codelineno-0-804" name="__codelineno-0-804"></a>        <span class="s2">&quot;--gantry-name&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-805" name="__codelineno-0-805"></a>        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;gantry_1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-806" name="__codelineno-0-806"></a>        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-807" name="__codelineno-0-807"></a>        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Gantry component name in config (default: gantry_1).&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-808" name="__codelineno-0-808"></a>    <span class="p">)</span>
+<a id="__codelineno-0-809" name="__codelineno-0-809"></a>    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+<a id="__codelineno-0-810" name="__codelineno-0-810"></a>        <span class="s2">&quot;--log-level&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-811" name="__codelineno-0-811"></a>        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;INHERIT&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-812" name="__codelineno-0-812"></a>        <span class="n">choices</span><span class="o">=</span><span class="n">INHERITED_LOG_LEVEL_CHOICES</span><span class="p">,</span>
+<a id="__codelineno-0-813" name="__codelineno-0-813"></a>        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;LEVEL&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-814" name="__codelineno-0-814"></a>        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Python logging level (default: INHERIT from parent CLI, else OFF).&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-815" name="__codelineno-0-815"></a>    <span class="p">)</span>
+<a id="__codelineno-0-816" name="__codelineno-0-816"></a>    <span class="n">motion_subparsers</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">dest</span><span class="o">=</span><span class="s2">&quot;motion_command&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-817" name="__codelineno-0-817"></a>    <span class="n">_add_motion_command_parsers</span><span class="p">(</span><span class="n">motion_subparsers</span><span class="p">)</span>
+<a id="__codelineno-0-818" name="__codelineno-0-818"></a>    <span class="k">for</span> <span class="n">extension</span> <span class="ow">in</span> <span class="n">extensions</span><span class="p">:</span>
+<a id="__codelineno-0-819" name="__codelineno-0-819"></a>        <span class="n">extension</span><span class="p">(</span><span class="n">motion_subparsers</span><span class="p">)</span>
+<a id="__codelineno-0-820" name="__codelineno-0-820"></a>    <span class="k">return</span> <span class="n">parser</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="applied_motion.cli.cli.build_standalone_motion_parser" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build_standalone_motion_parser</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build_standalone_motion_parser</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">prog</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;applied-motion&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">extensions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">MotionCliExtension</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Build standalone motion CLI parser.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>prog</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Program name shown in help output.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;applied-motion&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extensions</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<a class="autorefs autorefs-internal" title="&lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;MotionCliExtension&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;applied_motion.cli.cli.MotionCliExtension&lt;/code&gt;)" href="#applied_motion.cli.cli.MotionCliExtension">MotionCliExtension</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional extension hooks for additional subcommands.</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="argparse.ArgumentParser">ArgumentParser</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Fully configured standalone parser.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/applied_motion/cli/cli.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-823">823</a></span>
+<span class="normal"><a href="#__codelineno-0-824">824</a></span>
+<span class="normal"><a href="#__codelineno-0-825">825</a></span>
+<span class="normal"><a href="#__codelineno-0-826">826</a></span>
+<span class="normal"><a href="#__codelineno-0-827">827</a></span>
+<span class="normal"><a href="#__codelineno-0-828">828</a></span>
+<span class="normal"><a href="#__codelineno-0-829">829</a></span>
+<span class="normal"><a href="#__codelineno-0-830">830</a></span>
+<span class="normal"><a href="#__codelineno-0-831">831</a></span>
+<span class="normal"><a href="#__codelineno-0-832">832</a></span>
+<span class="normal"><a href="#__codelineno-0-833">833</a></span>
+<span class="normal"><a href="#__codelineno-0-834">834</a></span>
+<span class="normal"><a href="#__codelineno-0-835">835</a></span>
+<span class="normal"><a href="#__codelineno-0-836">836</a></span>
+<span class="normal"><a href="#__codelineno-0-837">837</a></span>
+<span class="normal"><a href="#__codelineno-0-838">838</a></span>
+<span class="normal"><a href="#__codelineno-0-839">839</a></span>
+<span class="normal"><a href="#__codelineno-0-840">840</a></span>
+<span class="normal"><a href="#__codelineno-0-841">841</a></span>
+<span class="normal"><a href="#__codelineno-0-842">842</a></span>
+<span class="normal"><a href="#__codelineno-0-843">843</a></span>
+<span class="normal"><a href="#__codelineno-0-844">844</a></span>
+<span class="normal"><a href="#__codelineno-0-845">845</a></span>
+<span class="normal"><a href="#__codelineno-0-846">846</a></span>
+<span class="normal"><a href="#__codelineno-0-847">847</a></span>
+<span class="normal"><a href="#__codelineno-0-848">848</a></span>
+<span class="normal"><a href="#__codelineno-0-849">849</a></span>
+<span class="normal"><a href="#__codelineno-0-850">850</a></span>
+<span class="normal"><a href="#__codelineno-0-851">851</a></span>
+<span class="normal"><a href="#__codelineno-0-852">852</a></span>
+<span class="normal"><a href="#__codelineno-0-853">853</a></span>
+<span class="normal"><a href="#__codelineno-0-854">854</a></span>
+<span class="normal"><a href="#__codelineno-0-855">855</a></span>
+<span class="normal"><a href="#__codelineno-0-856">856</a></span>
+<span class="normal"><a href="#__codelineno-0-857">857</a></span>
+<span class="normal"><a href="#__codelineno-0-858">858</a></span>
+<span class="normal"><a href="#__codelineno-0-859">859</a></span>
+<span class="normal"><a href="#__codelineno-0-860">860</a></span>
+<span class="normal"><a href="#__codelineno-0-861">861</a></span>
+<span class="normal"><a href="#__codelineno-0-862">862</a></span>
+<span class="normal"><a href="#__codelineno-0-863">863</a></span>
+<span class="normal"><a href="#__codelineno-0-864">864</a></span>
+<span class="normal"><a href="#__codelineno-0-865">865</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-823" name="__codelineno-0-823"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_standalone_motion_parser</span><span class="p">(</span>
+<a id="__codelineno-0-824" name="__codelineno-0-824"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-825" name="__codelineno-0-825"></a>    <span class="n">prog</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;applied-motion&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-826" name="__codelineno-0-826"></a>    <span class="n">extensions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">MotionCliExtension</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+<a id="__codelineno-0-827" name="__codelineno-0-827"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">:</span>
+<a id="__codelineno-0-828" name="__codelineno-0-828"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build standalone motion CLI parser.</span>
+<a id="__codelineno-0-829" name="__codelineno-0-829"></a>
+<a id="__codelineno-0-830" name="__codelineno-0-830"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-831" name="__codelineno-0-831"></a><span class="sd">        prog: Program name shown in help output.</span>
+<a id="__codelineno-0-832" name="__codelineno-0-832"></a><span class="sd">        extensions: Optional extension hooks for additional subcommands.</span>
+<a id="__codelineno-0-833" name="__codelineno-0-833"></a>
+<a id="__codelineno-0-834" name="__codelineno-0-834"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-835" name="__codelineno-0-835"></a><span class="sd">        Fully configured standalone parser.</span>
+<a id="__codelineno-0-836" name="__codelineno-0-836"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-837" name="__codelineno-0-837"></a>    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+<a id="__codelineno-0-838" name="__codelineno-0-838"></a>        <span class="n">prog</span><span class="o">=</span><span class="n">prog</span><span class="p">,</span>
+<a id="__codelineno-0-839" name="__codelineno-0-839"></a>        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Composable motion control CLI for teach-in and axis operations.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-840" name="__codelineno-0-840"></a>    <span class="p">)</span>
+<a id="__codelineno-0-841" name="__codelineno-0-841"></a>    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+<a id="__codelineno-0-842" name="__codelineno-0-842"></a>        <span class="s2">&quot;--config&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-843" name="__codelineno-0-843"></a>        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-844" name="__codelineno-0-844"></a>        <span class="nb">type</span><span class="o">=</span><span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-845" name="__codelineno-0-845"></a>        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;PATH&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-846" name="__codelineno-0-846"></a>        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to gantry JSON configuration file.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-847" name="__codelineno-0-847"></a>    <span class="p">)</span>
+<a id="__codelineno-0-848" name="__codelineno-0-848"></a>    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+<a id="__codelineno-0-849" name="__codelineno-0-849"></a>        <span class="s2">&quot;--gantry-name&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-850" name="__codelineno-0-850"></a>        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;gantry_1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-851" name="__codelineno-0-851"></a>        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-852" name="__codelineno-0-852"></a>        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Gantry component name in config (default: gantry_1).&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-853" name="__codelineno-0-853"></a>    <span class="p">)</span>
+<a id="__codelineno-0-854" name="__codelineno-0-854"></a>    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+<a id="__codelineno-0-855" name="__codelineno-0-855"></a>        <span class="s2">&quot;--log-level&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-856" name="__codelineno-0-856"></a>        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;OFF&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-857" name="__codelineno-0-857"></a>        <span class="n">choices</span><span class="o">=</span><span class="n">LOG_LEVEL_CHOICES</span><span class="p">,</span>
+<a id="__codelineno-0-858" name="__codelineno-0-858"></a>        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;LEVEL&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-859" name="__codelineno-0-859"></a>        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Python logging level (default: OFF).&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-860" name="__codelineno-0-860"></a>    <span class="p">)</span>
+<a id="__codelineno-0-861" name="__codelineno-0-861"></a>    <span class="n">subparsers</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">dest</span><span class="o">=</span><span class="s2">&quot;motion_command&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-862" name="__codelineno-0-862"></a>    <span class="n">_add_motion_command_parsers</span><span class="p">(</span><span class="n">subparsers</span><span class="p">)</span>
+<a id="__codelineno-0-863" name="__codelineno-0-863"></a>    <span class="k">for</span> <span class="n">extension</span> <span class="ow">in</span> <span class="n">extensions</span><span class="p">:</span>
+<a id="__codelineno-0-864" name="__codelineno-0-864"></a>        <span class="n">extension</span><span class="p">(</span><span class="n">subparsers</span><span class="p">)</span>
+<a id="__codelineno-0-865" name="__codelineno-0-865"></a>    <span class="k">return</span> <span class="n">parser</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="applied_motion.cli.cli.dispatch_motion_command" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">dispatch_motion_command</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">dispatch_motion_command</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Dispatch parsed motion command namespace.</p>
+<p>Initialises the gantry once and passes it to the selected handler.
+Guarantees <code>gantry.close()</code> is called on exit regardless of outcome.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>args</code>
+            </td>
+            <td>
+                  <code><span title="argparse.Namespace">Namespace</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Parsed argument namespace from a motion parser.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Process exit code.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If no command handler is available in <em>args</em>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/applied_motion/cli/cli.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-868">868</a></span>
+<span class="normal"><a href="#__codelineno-0-869">869</a></span>
+<span class="normal"><a href="#__codelineno-0-870">870</a></span>
+<span class="normal"><a href="#__codelineno-0-871">871</a></span>
+<span class="normal"><a href="#__codelineno-0-872">872</a></span>
+<span class="normal"><a href="#__codelineno-0-873">873</a></span>
+<span class="normal"><a href="#__codelineno-0-874">874</a></span>
+<span class="normal"><a href="#__codelineno-0-875">875</a></span>
+<span class="normal"><a href="#__codelineno-0-876">876</a></span>
+<span class="normal"><a href="#__codelineno-0-877">877</a></span>
+<span class="normal"><a href="#__codelineno-0-878">878</a></span>
+<span class="normal"><a href="#__codelineno-0-879">879</a></span>
+<span class="normal"><a href="#__codelineno-0-880">880</a></span>
+<span class="normal"><a href="#__codelineno-0-881">881</a></span>
+<span class="normal"><a href="#__codelineno-0-882">882</a></span>
+<span class="normal"><a href="#__codelineno-0-883">883</a></span>
+<span class="normal"><a href="#__codelineno-0-884">884</a></span>
+<span class="normal"><a href="#__codelineno-0-885">885</a></span>
+<span class="normal"><a href="#__codelineno-0-886">886</a></span>
+<span class="normal"><a href="#__codelineno-0-887">887</a></span>
+<span class="normal"><a href="#__codelineno-0-888">888</a></span>
+<span class="normal"><a href="#__codelineno-0-889">889</a></span>
+<span class="normal"><a href="#__codelineno-0-890">890</a></span>
+<span class="normal"><a href="#__codelineno-0-891">891</a></span>
+<span class="normal"><a href="#__codelineno-0-892">892</a></span>
+<span class="normal"><a href="#__codelineno-0-893">893</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-868" name="__codelineno-0-868"></a><span class="k">def</span><span class="w"> </span><span class="nf">dispatch_motion_command</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-0-869" name="__codelineno-0-869"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Dispatch parsed motion command namespace.</span>
+<a id="__codelineno-0-870" name="__codelineno-0-870"></a>
+<a id="__codelineno-0-871" name="__codelineno-0-871"></a><span class="sd">    Initialises the gantry once and passes it to the selected handler.</span>
+<a id="__codelineno-0-872" name="__codelineno-0-872"></a><span class="sd">    Guarantees ``gantry.close()`` is called on exit regardless of outcome.</span>
+<a id="__codelineno-0-873" name="__codelineno-0-873"></a>
+<a id="__codelineno-0-874" name="__codelineno-0-874"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-875" name="__codelineno-0-875"></a><span class="sd">        args: Parsed argument namespace from a motion parser.</span>
+<a id="__codelineno-0-876" name="__codelineno-0-876"></a>
+<a id="__codelineno-0-877" name="__codelineno-0-877"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-878" name="__codelineno-0-878"></a><span class="sd">        Process exit code.</span>
+<a id="__codelineno-0-879" name="__codelineno-0-879"></a>
+<a id="__codelineno-0-880" name="__codelineno-0-880"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-881" name="__codelineno-0-881"></a><span class="sd">        ValueError: If no command handler is available in *args*.</span>
+<a id="__codelineno-0-882" name="__codelineno-0-882"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-883" name="__codelineno-0-883"></a>    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s2">&quot;log_level&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-884" name="__codelineno-0-884"></a>        <span class="n">configure_logging</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
+<a id="__codelineno-0-885" name="__codelineno-0-885"></a>
+<a id="__codelineno-0-886" name="__codelineno-0-886"></a>    <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s2">&quot;_handler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-0-887" name="__codelineno-0-887"></a>    <span class="k">if</span> <span class="n">handler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-888" name="__codelineno-0-888"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No motion command selected&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-889" name="__codelineno-0-889"></a>    <span class="n">gantry</span> <span class="o">=</span> <span class="n">_connect_gantry</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">gantry_name</span><span class="p">)</span>
+<a id="__codelineno-0-890" name="__codelineno-0-890"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-891" name="__codelineno-0-891"></a>        <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">gantry</span><span class="p">)</span>
+<a id="__codelineno-0-892" name="__codelineno-0-892"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-893" name="__codelineno-0-893"></a>        <span class="n">gantry</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="applied_motion.cli.cli.main" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">main</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">main</span><span class="p">(</span><span class="n">argv</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Entry point for <code>applied-motion</code> standalone CLI command.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>argv</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional argv override used by tests.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/applied_motion/cli/cli.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-896">896</a></span>
+<span class="normal"><a href="#__codelineno-0-897">897</a></span>
+<span class="normal"><a href="#__codelineno-0-898">898</a></span>
+<span class="normal"><a href="#__codelineno-0-899">899</a></span>
+<span class="normal"><a href="#__codelineno-0-900">900</a></span>
+<span class="normal"><a href="#__codelineno-0-901">901</a></span>
+<span class="normal"><a href="#__codelineno-0-902">902</a></span>
+<span class="normal"><a href="#__codelineno-0-903">903</a></span>
+<span class="normal"><a href="#__codelineno-0-904">904</a></span>
+<span class="normal"><a href="#__codelineno-0-905">905</a></span>
+<span class="normal"><a href="#__codelineno-0-906">906</a></span>
+<span class="normal"><a href="#__codelineno-0-907">907</a></span>
+<span class="normal"><a href="#__codelineno-0-908">908</a></span>
+<span class="normal"><a href="#__codelineno-0-909">909</a></span>
+<span class="normal"><a href="#__codelineno-0-910">910</a></span>
+<span class="normal"><a href="#__codelineno-0-911">911</a></span>
+<span class="normal"><a href="#__codelineno-0-912">912</a></span>
+<span class="normal"><a href="#__codelineno-0-913">913</a></span>
+<span class="normal"><a href="#__codelineno-0-914">914</a></span>
+<span class="normal"><a href="#__codelineno-0-915">915</a></span>
+<span class="normal"><a href="#__codelineno-0-916">916</a></span>
+<span class="normal"><a href="#__codelineno-0-917">917</a></span>
+<span class="normal"><a href="#__codelineno-0-918">918</a></span>
+<span class="normal"><a href="#__codelineno-0-919">919</a></span>
+<span class="normal"><a href="#__codelineno-0-920">920</a></span>
+<span class="normal"><a href="#__codelineno-0-921">921</a></span>
+<span class="normal"><a href="#__codelineno-0-922">922</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-896" name="__codelineno-0-896"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">argv</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-897" name="__codelineno-0-897"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Entry point for ``applied-motion`` standalone CLI command.</span>
+<a id="__codelineno-0-898" name="__codelineno-0-898"></a>
+<a id="__codelineno-0-899" name="__codelineno-0-899"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-900" name="__codelineno-0-900"></a><span class="sd">        argv: Optional argv override used by tests.</span>
+<a id="__codelineno-0-901" name="__codelineno-0-901"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-902" name="__codelineno-0-902"></a>    <span class="n">parser</span> <span class="o">=</span> <span class="n">build_standalone_motion_parser</span><span class="p">()</span>
+<a id="__codelineno-0-903" name="__codelineno-0-903"></a>    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">argv</span><span class="p">)</span>
+<a id="__codelineno-0-904" name="__codelineno-0-904"></a>    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">motion_command</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-905" name="__codelineno-0-905"></a>        <span class="n">args</span><span class="o">.</span><span class="n">_handler</span> <span class="o">=</span> <span class="n">_run_shell</span>
+<a id="__codelineno-0-906" name="__codelineno-0-906"></a>    <span class="n">exit_code</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-0-907" name="__codelineno-0-907"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-908" name="__codelineno-0-908"></a>        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.muted]Loading config:[/] </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">config</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-909" name="__codelineno-0-909"></a>        <span class="n">exit_code</span> <span class="o">=</span> <span class="n">dispatch_motion_command</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+<a id="__codelineno-0-910" name="__codelineno-0-910"></a>    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+<a id="__codelineno-0-911" name="__codelineno-0-911"></a>        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[festo.muted]Interrupted.[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-912" name="__codelineno-0-912"></a>        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">130</span><span class="p">)</span>
+<a id="__codelineno-0-913" name="__codelineno-0-913"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-914" name="__codelineno-0-914"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;CLI fatal error&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-915" name="__codelineno-0-915"></a>        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[festo.err]✗[/] </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-916" name="__codelineno-0-916"></a>        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-917" name="__codelineno-0-917"></a>
+<a id="__codelineno-0-918" name="__codelineno-0-918"></a>    <span class="k">if</span> <span class="n">exit_code</span><span class="p">:</span>
+<a id="__codelineno-0-919" name="__codelineno-0-919"></a>        <span class="n">tone</span> <span class="o">=</span> <span class="s2">&quot;warn&quot;</span> <span class="k">if</span> <span class="n">exit_code</span> <span class="o">==</span> <span class="mi">130</span> <span class="k">else</span> <span class="s2">&quot;err&quot;</span>
+<a id="__codelineno-0-920" name="__codelineno-0-920"></a>        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">format_badge</span><span class="p">(</span><span class="s1">&#39;EXIT&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">tone</span><span class="p">)</span><span class="si">}</span><span class="s2"> [festo.muted]code </span><span class="si">{</span><span class="n">exit_code</span><span class="si">}</span><span class="s2">[/]&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-921" name="__codelineno-0-921"></a>        <span class="n">console</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="s2">&quot;Ctrl+c to end shell&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-922" name="__codelineno-0-922"></a>        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="n">exit_code</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": "navigation.sections content.code.copy content.tooltips", "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
