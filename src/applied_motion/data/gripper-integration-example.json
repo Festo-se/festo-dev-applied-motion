@@ -60,12 +60,17 @@
                 },
                 "control_mode": "python",
                 "control_library": "cpx_io",
-                "control_system": "cpx_system.cpx_e",
+                "control_system": "cpx_system",
+                "control_bus": "cpx_e",
                 "control_backend": "tcp/ip",
+                "control_signal_module": {
+                    "e8do": "CpxE8Do"
+                },
                 "control_modules": {
                     "controller": {
                         "control_library": "cpx_io",
-                        "control_system": "cpx_system.cpx_e",
+                        "control_system": "cpx_system",
+                        "control_bus": "cpx_e",
                         "control_module": {
                             "cpx_e": "CpxE"
                         },
@@ -92,6 +97,16 @@
                 "control_signal_channels": {
                     "grip": 1,
                     "release": 0
+                },
+                "sensor": {
+                    "type": "switch",
+                    "control_signal_module": {
+                        "e16di": "CpxE16Di"
+                    },
+                    "control_signal_channels": {
+                        "grip": 0,
+                        "release": 1
+                    }
                 }
             }
         }
