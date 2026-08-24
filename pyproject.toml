@@ -76,6 +76,7 @@ exclude = [
     "**/.venv",
     "**/.pytest_cache",
     "**/tests",
+    "**/pyproject.toml",
 ]
 fix = true
 show-fixes = true
