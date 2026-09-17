@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
-
+# SPDX-License-Identifier: MIT
 
 """Structural protocol that all axis backend implementations must satisfy."""
 

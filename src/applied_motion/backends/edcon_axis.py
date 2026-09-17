@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
-
+# SPDX-License-Identifier: MIT
 
 """Modbus TCP axis backend — direct per-drive edcon/CMMT connection.
 

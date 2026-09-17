@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
-
+# SPDX-License-Identifier: MIT
 
 r"""Thread-safe ASCII TCP socket client for the Festo FPosBAPI server.
 
