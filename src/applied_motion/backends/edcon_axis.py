@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 #   Axis zero point offset: P1.8416.0.0, PNU 11734.0
 #   Offset position relative: P1.102222.0.0, PNU 13072.0
 #   Limit value remaining distance: P1.4685.0.0, PNU 11627.0
+# TODO: INDICATE WHICH FIRMWARE VERSION THIS IS SUPPORTEDBY (DEPENDENT ON EDCON)
 
 
 # TODO: Process Data communnication failed error on exiting a running program where drive is connected

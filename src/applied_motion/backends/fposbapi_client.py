@@ -21,6 +21,7 @@ All send/receive operations are serialised through an internal
 """
 
 import logging
+import sys
 import socket
 import threading
 
@@ -93,7 +94,9 @@ class FPosBAPIClient:
         self._lock = threading.Lock()
         self._msg_id = 0
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+        self._keepalive_idle = 15_000
+        self._keepalive_interval = 5_000
+        self._keepalive_count = 10
         logger.info("FPosBAPIClient attempting to connect to %s:%d", ip, port)
         self._connect()
         logger.info("FPosBAPIClient connected to %s:%d", ip, port)
@@ -104,8 +107,18 @@ class FPosBAPIClient:
 
         # Windows-specific keepalive tuning:
         # (onoff, keepalivetime_ms, keepaliveinterval_ms)
-        if hasattr(socket, "SIO_KEEPALIVE_VALS"):
-            sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 15_000, 5_000))
+        if sys.platform == "win32":
+            if hasattr(socket, "SIO_KEEPALIVE_VALS"):
+                sock.ioctl(socket.SIO_KEEPALIVE_VALS, (1, self._keepalive_idle, self._keepalive_interval))
+        else:
+            if hasattr(socket, "TCP_KEEPIDLE"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, self._keepalive_idle // 1000)
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, self._keepalive_interval // 1000)
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, self._keepalive_count)
+            if hasattr(socket, "TCP_KEEPALIVE"):
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, self._keepalive_idle // 1000)
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, self._keepalive_interval // 1000)
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, self._keepalive_count)
 
     def _connect(self) -> None:
         """Open and configure a TCP socket to the configured endpoint."""
