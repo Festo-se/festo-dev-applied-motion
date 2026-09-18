@@ -70,6 +70,7 @@ class MotionSession:
         def plc_hook(label, pos):
             gantry.teach_pos(pos_id=label_to_id[label])
 
+
         session = MotionSession(gantry, on_capture=plc_hook)
         session.jog("X", "+", 5.0)
         session.capture("deck_a1")
