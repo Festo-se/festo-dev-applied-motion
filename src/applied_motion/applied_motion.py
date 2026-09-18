@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
-
+# SPDX-License-Identifier: MIT
 
 """Festo gantry axis and multi-axis gantry abstractions.
 

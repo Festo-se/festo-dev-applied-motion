@@ -1,18 +1,36 @@
 [project]
 name = "festo-dev-applied-motion"
-version = "0.6.0"
+version = "0.6.1"
 authors = [{ name = "Kyle Wardlow", email = "kyle.wardlow@festo.com" }]
 description = "Quality of life library for controlling Festo electrically-driven, motion components"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+]
+keywords = [
+    "Festo",
+    "linear",
+    "axis",
+    "gantry",
+    "motion",
+    "lab",
+    "automation",
+    "handling",
+]
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE*"]
 dependencies = ["festo-edcon>=1.0.1"]
-
-[project.scripts]
-applied-motion = "applied_motion.cli.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Festo-se/festo-dev-applied-motion/"
 Repository = "https://github.com/Festo-se/festo-dev-applied-motion.git"
 Issues = "https://github.com/Festo-se/festo-dev-applied-motion/issues"
+
+[project.scripts]
+applied-motion = "applied_motion.cli.cli:main"
 
 [project.optional-dependencies]
 cli = ["prompt-toolkit>=3.0.52", "rich>=14.2.0"]
@@ -22,7 +40,7 @@ requires = ["uv_build>=0.11,<0.13"]
 build-backend = "uv_build"
 
 [dependency-groups]
-teach = ["prompt-toolkit>=3.0", "rich>=13.0"]
+teach = ["prompt-toolkit>=3.0", "rich>=14.0"]
 dev = [
     "pytest>=9.0.3",
     "pytest-cov>=6.0.0",
@@ -76,6 +94,7 @@ exclude = [
     "**/.venv",
     "**/.pytest_cache",
     "**/tests",
+    "**/pyproject.toml",
 ]
 fix = true
 show-fixes = true
@@ -96,3 +115,5 @@ convention = "google"
 indent-style = "space"
 quote-style = "double"
 line-ending = "auto"
+docstring-code-format = true
+exclude = [".git", "__pycache__", ".vscode", ".venv", ".pytest_cache"]

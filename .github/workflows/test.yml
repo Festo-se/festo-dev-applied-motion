@@ -83,7 +83,7 @@ jobs:
       # under [tool.pytest.ini_options].
       - name: Run tests with coverage
         run: >
-          uv run pytest -m "not hardware" --cov=vaem --cov-report=term-missing
+          uv run pytest -m "not hardware" --cov=applied_motion --cov-report=term-missing
           --cov-report=xml:coverage.xml
 
       # Upload the XML report as a build artifact so it can be downloaded

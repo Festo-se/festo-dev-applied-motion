@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
+# SPDX-License-Identifier: MIT
 
 """Interactive commissioning and motion tooling for gantry position recording.
 

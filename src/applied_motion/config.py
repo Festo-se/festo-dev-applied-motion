@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
+# SPDX-License-Identifier: MIT
 
 """
 Configuration class for loading and validating the configuration for config.

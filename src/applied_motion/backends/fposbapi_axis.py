@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
-
+# SPDX-License-Identifier: MIT
 
 """FPosBAPI axis proxy — represents one axis of a CECC-X controlled gantry.
 
