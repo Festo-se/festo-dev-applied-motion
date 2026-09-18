@@ -21,7 +21,7 @@ keywords = [
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = "MIT"
-license-files = ["LICENSE*", "LICENSES/**/*"]
+license-files = ["LICENSE*"]
 dependencies = ["festo-edcon>=1.0.1"]
 
 [project.urls]
