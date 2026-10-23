@@ -62,6 +62,7 @@ examples = ["requests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not hardware'"
 markers = [
     "hardware: marks tests that require connected hardware (deselect with -m 'not hardware')",
 ]

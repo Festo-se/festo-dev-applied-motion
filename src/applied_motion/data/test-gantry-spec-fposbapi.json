@@ -9,7 +9,11 @@
         "components": {
             "gantry_1": {
                 "_comment": "FPosBAPI backend test fixture for Gantry. Targets a CECC-X PLC running the FPosBAPI CoDeSys server.",
+                "uuid": "18056dc6-7877-46ee-a9df-a13d8b3e7597 TOOO: Write tool to get this from FAS config",
+                "component_spec_version": "2.0",
+                "component_class": "gantry",
                 "control_mode": "python",
+                "backend": "fposbapi",
                 "motion_control": {
                     "_comment": "TODO: unify control scheme under this config spec",
                     "control_package": "festo-applied-motion",
@@ -22,7 +26,6 @@
                         "motion_handler": "Gantry"
                     }
                 },
-                "backend": "fposbapi",
                 "interface": {
                     "type": "tcp/ip",
                     "ip": "192.168.0.50",

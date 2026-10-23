@@ -96,7 +96,8 @@ def test_gantry_move_to_all_axes_sequential(gantry):
 @pytest.mark.hardware
 def test_gantry_move_to_all_axes_concurrent_completes(gantry):
     """Concurrent move_to on all configured axes should complete without raising."""
-    gantry.home()
+    if not gantry.is_homed():
+        gantry.home()
     if not gantry.is_ready_for_motion():
         pytest.skip("Axes are not ready for motion after homing; skipping concurrent completion check")
     targets = {name: _safe_axis_target_mm(axis) for name, axis in gantry.axes.items()}
@@ -110,7 +111,8 @@ def test_gantry_move_to_all_axes_concurrent_completes(gantry):
 def test_gantry_move_to_all_axes_concurrent_positions_verified(gantry):
     """After concurrent move_to, each hardware axis should be within 1.0 mm of target."""
     tolerance_mm = 1.0
-    gantry.home()
+    if not gantry.is_homed():
+        gantry.home()
     if not gantry.is_ready_for_motion():
         pytest.skip("Axes are not ready for motion after homing; skipping concurrent position verification")
     targets = {name: _safe_axis_target_mm(axis) for name, axis in gantry.axes.items()}
@@ -535,7 +537,8 @@ def test_fposbapi_move_to_all_axes_sequential_positions_verified(gantry_fposbapi
 @pytest.mark.hardware
 def test_fposbapi_move_to_all_axes_concurrent_positions_verified(gantry_fposbapi):
     """Concurrent X/Y/Z move_to should place all axes within 1 mm of targets."""
-    gantry_fposbapi.home()
+    if not gantry_fposbapi.is_homed():
+        gantry_fposbapi.home()
     if not gantry_fposbapi.is_ready_for_motion():
         pytest.skip("FPosBAPI gantry not ready for motion after home; skipping concurrent position verification")
     client = _client_from_fposbapi_gantry(gantry_fposbapi)
