@@ -7,11 +7,13 @@ Configuration class for loading and validating the configuration for config.
 Prototype to be move into its own module eventually.
 """
 
-from typing import cast
-
 import logging
 from pathlib import Path
-import json
+from typing import cast
+
+from configurator import SourceError, load_source, normalize_root
+
+from applied_motion.config_core.selector import ComponentSelector
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +31,7 @@ class SystemConfig(dict):
     def __init__(self, config: dict | Path) -> None:
         """Load and normalise *config* from a dict or JSON file path."""
         if isinstance(config, SystemConfig):
-            self.config = config
+            self.config = dict(config)
         else:
             config = self._load_config_source(config)
             logger.debug("SystemConfig: loaded config source=%s", type(config).__name__)
@@ -53,12 +55,11 @@ class SystemConfig(dict):
         Raises:
             ValueError: If the loaded configuration is not a dict.
         """
-        if isinstance(config, Path):
-            with config.open() as fh:
-                config = json.load(fh)
-        if not isinstance(config, dict):
-            raise ValueError("Config config must load as a dict")
-        return config
+        try:
+            loaded, _ = load_source(config)
+        except SourceError as exc:
+            raise ValueError("Config config must load as a dict") from exc
+        return loaded
 
     @staticmethod
     def _normalize_config(raw_config: dict) -> dict:
@@ -74,10 +75,10 @@ class SystemConfig(dict):
         Raises:
             ValueError: If the normalized configuration is not a dict.
         """
-        parsed_config = raw_config.get("component_config", raw_config)
-        if not isinstance(parsed_config, dict):
-            raise ValueError("Normalized config config must be a dict")
-        return parsed_config
+        try:
+            return normalize_root(raw_config)
+        except SourceError as exc:
+            raise ValueError("Normalized config config must be a dict") from exc
 
 
 class GantryConfig:
@@ -188,15 +189,7 @@ class GantryConfig:
             ValueError: If required config structure or backend-specific fields
                 are missing or invalid.
         """
-        components = parsed_config.get("components")
-        if not isinstance(components, dict):
-            raise ValueError("Config config must contain a 'components' mapping")
-        if name not in components:
-            raise ValueError(f"Config config does not contain component {name!r}")
-
-        config_cfg = components[name]
-        if not isinstance(config_cfg, dict):
-            raise ValueError(f"Config component {name!r} must be a dict")
+        config_cfg = ComponentSelector.select(parsed_config, name)
 
         backend = config_cfg.get("backend", "modbus")
         if backend not in {"modbus", "fposbapi"}:

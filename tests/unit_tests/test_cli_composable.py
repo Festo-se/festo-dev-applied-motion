@@ -103,6 +103,22 @@ class TestJogTuiSubcommand:
 
 
 class TestDispatchMotionCommand:
+    def test_connect_gantry_uses_canonical_configurator_adapter(self, monkeypatch):
+        construction = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        construction.axes = {"X": object()}
+        construction.concurrent_axes = None
+        construction.backend = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        fake_gantry = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        adapter_calls = []
+
+        monkeypatch.setattr(cli, "build_gantry_from_config", lambda path, name: adapter_calls.append((path, name)) or construction)
+        monkeypatch.setattr(cli, "Gantry", lambda **kwargs: fake_gantry)
+
+        result = cli._connect_gantry(Path("gantry.json"), "gantry_1")
+
+        assert result is fake_gantry
+        assert adapter_calls == [(Path("gantry.json"), "gantry_1")]
+
     def test_configure_logging_disables_logging_when_off(self, monkeypatch):
         from applied_motion.cli import logging_utils
 

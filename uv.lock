@@ -328,6 +328,7 @@ name = "festo-dev-applied-motion"
 version = "0.6.1"
 source = { editable = "." }
 dependencies = [
+    { name = "festo-dev-configurator" },
     { name = "festo-edcon" },
 ]
 
@@ -368,6 +369,7 @@ teach = [
 
 [package.metadata]
 requires-dist = [
+    { name = "festo-dev-configurator", directory = "../festo-dev-configurator" },
     { name = "festo-edcon", specifier = ">=1.0.1" },
     { name = "prompt-toolkit", marker = "extra == 'cli'", specifier = ">=3.0.52" },
     { name = "rich", marker = "extra == 'cli'", specifier = ">=14.2.0" },
@@ -398,6 +400,20 @@ examples = [{ name = "requests" }]
 teach = [
     { name = "prompt-toolkit", specifier = ">=3.0" },
     { name = "rich", specifier = ">=14.0" },
+]
+
+[[package]]
+name = "festo-dev-configurator"
+version = "0.1.0"
+source = { directory = "../festo-dev-configurator" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.17.2" },
+    { name = "ty", specifier = ">=0.0.91" },
 ]
 
 [[package]]

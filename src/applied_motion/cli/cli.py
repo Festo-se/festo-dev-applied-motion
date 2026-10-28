@@ -93,6 +93,7 @@ from applied_motion.cli.theme import (
 
 from applied_motion.applied_motion import Gantry
 from applied_motion.cli.session import MotionSession
+from applied_motion.configurator_adapter import build_gantry_from_config
 
 console = festo_console()
 logger = logging.getLogger(__name__)
@@ -509,7 +510,12 @@ def _connect_gantry(config_path: Path, gantry_name: str) -> Gantry:
     Returns:
         Connected gantry instance.
     """
-    return Gantry.from_config(config_path, name=gantry_name)
+    construction = build_gantry_from_config(config_path, name=gantry_name)
+    return Gantry(
+        axes=construction.axes,
+        concurrent_axes=construction.concurrent_axes,
+        _backend=construction.backend,
+    )
 
 
 def _run_shell(args: argparse.Namespace, gantry: Gantry) -> int:

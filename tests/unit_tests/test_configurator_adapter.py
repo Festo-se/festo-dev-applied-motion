@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: 2026 Festo SE & Co. KG
+# SPDX-License-Identifier: MIT
+"""Unit tests for the applied-motion configurator registration adapter."""
+
+from unittest.mock import MagicMock
+
+import pytest
+from configurator import ComponentView, Configurator, Registry
+
+from applied_motion.configurator_adapter import (
+    build_gantry_from_config,
+    build_gantry_from_view,
+    close_gantry_construction,
+    gantry_registration,
+)
+from applied_motion.gantry_factory import GantryConstruction
+
+
+def _view(component_type: str = "gantry") -> ComponentView:
+    component = {
+        "component_type": component_type,
+        "backend": "modbus",
+        "axes": {"X": {"name": "X", "ip": "192.168.0.193"}},
+        "axis_order": ["X"],
+        "concurrent_axes": None,
+    }
+    root = {"components": {"gantry_1": component}}
+    return ComponentView("gantry_1", component_type, component, root, "components.gantry_1", root["components"])
+
+
+def test_build_gantry_from_view_reuses_modbus_factory(mocker):
+    construction = MagicMock(spec=GantryConstruction)
+    factory = mocker.patch("applied_motion.configurator_adapter._build_modbus_from_gcfg", return_value=construction)
+
+    result = build_gantry_from_view(_view())
+
+    assert result is construction
+    factory.assert_called_once()
+    assert factory.call_args.args[0].name == "gantry_1"
+
+
+def test_build_gantry_from_config_bootstraps_legacy_component(mocker):
+    construction = MagicMock(spec=GantryConstruction)
+    mocker.patch("applied_motion.configurator_adapter._build_modbus_from_gcfg", return_value=construction)
+
+    result = build_gantry_from_config(_view().root)
+
+    assert result is construction
+
+
+def test_build_gantry_from_view_rejects_non_gantry_component():
+    with pytest.raises(ValueError, match="Expected a gantry component"):
+        build_gantry_from_view(_view("fluid"))
+
+
+def test_gantry_registration_binds_gantry_builder():
+    registration = gantry_registration()
+
+    assert registration.name == "gantry"
+    assert registration.component_type == "gantry"
+    assert registration.builder is build_gantry_from_view
+    assert registration.cleanup is close_gantry_construction
+
+
+def test_gantry_construction_closes_backend_once():
+    backend = MagicMock()
+    construction = GantryConstruction(axes={}, concurrent_axes=None, backend=backend)
+
+    construction.close()
+    construction.close()
+
+    backend.close.assert_called_once_with()
+
+
+def test_gantry_cleanup_rejects_non_construction_instance():
+    with pytest.raises(TypeError, match="Expected GantryConstruction"):
+        close_gantry_construction(object())
+
+
+def test_managed_configurator_result_closes_gantry_ownership_once(mocker):
+    backend = MagicMock()
+    construction = GantryConstruction(axes={}, concurrent_axes=None, backend=backend)
+    mocker.patch("applied_motion.configurator_adapter._build_modbus_from_gcfg", return_value=construction)
+
+    result = Configurator.bootstrap(
+        _view().root,
+        "gantry_1",
+        Registry.compose(gantry_registration()),
+    )
+
+    result.close()
+    result.close()
+
+    assert result.closed is True
+    backend.close.assert_called_once_with()

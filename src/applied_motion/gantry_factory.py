@@ -3,7 +3,7 @@
 
 """Factory helpers for building gantry axes and backend state from config."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import inf
 from pathlib import Path
 
@@ -38,6 +38,19 @@ class GantryConstruction:
     axes: AxisMap
     concurrent_axes: AxisMap | None
     backend: GantryBackend
+    _closed: bool = field(default=False, init=False, repr=False, compare=False)
+
+    def close(self) -> None:
+        """Release backend-owned resources exactly once.
+
+        The construction bundle is the ownership boundary for resources
+        created by a gantry factory. Axis proxies use the backend-owned
+        resources and are therefore not closed independently.
+        """
+        if self._closed:
+            return
+        object.__setattr__(self, "_closed", True)
+        self.backend.close()
 
 
 def build_modbus_gantry(config: dict | str | Path, name: str = "gantry_1") -> GantryConstruction:
@@ -126,7 +139,6 @@ def build_gantry_from_config(config: dict | str | Path, name: str = "gantry_1") 
     Returns:
         Gantry construction bundle.
     """
-    gcfg = GantryConfig(SystemConfig(_coerce_config_source(config))(), name)
-    if gcfg.backend == "modbus":
-        return _build_modbus_from_gcfg(gcfg)
-    return _build_fposbapi_from_gcfg(gcfg)
+    from applied_motion.configurator_adapter import build_gantry_from_config as build_from_configurator
+
+    return build_from_configurator(config, name)

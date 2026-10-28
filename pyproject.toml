@@ -21,7 +21,10 @@ keywords = [
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = ["festo-edcon>=1.0.1"]
+dependencies = [
+    "festo-edcon>=1.0.1",
+    "festo-dev-configurator>=0.1.0,<0.2.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/Festo-se/festo-dev-applied-motion/"
@@ -77,6 +80,9 @@ cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
 
 [tool.uv.build-backend]
 module-name = "applied_motion"
+
+[tool.uv.sources]
+festo-dev-configurator = { path = "../festo-dev-configurator" }
 
 [tool.ty.src]
 include = ["src"]
