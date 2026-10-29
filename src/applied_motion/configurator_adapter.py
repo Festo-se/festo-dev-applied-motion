@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Applied-motion registration adapter for the configurator kernel."""
 
-from typing import Any, Mapping, cast
+from typing import Any, Mapping
 from pathlib import Path
 
 from configurator import (
@@ -12,6 +12,7 @@ from configurator import (
     Configurator,
     Registration,
     Registry,
+    ValidationError,
     ValidationMode,
     load_source,
     normalize_root,
@@ -51,16 +52,67 @@ def build_gantry_from_view(
         ValueError: If the view is not a gantry component or its backend is
             unsupported by the existing applied-motion factory.
     """
-    del mode, options, resolver
+    del mode, resolver
     if view.component_type != "gantry":
         raise ValueError(f"Expected a gantry component, got {view.component_type!r}")
 
-    gantry_config = GantryConfig(cast(dict, view.root), view.name)
+    gantry_config = GantryConfig(_adapt_gantry_source(view, options), view.name)
     if gantry_config.backend == "modbus":
         return _build_modbus_from_gcfg(gantry_config)
     if gantry_config.backend == "fposbapi":
         return _build_fposbapi_from_gcfg(gantry_config)
     raise ValueError(f"Unsupported backend: {gantry_config.backend!r}")
+
+
+def validate_gantry_view(
+    view: ComponentView,
+    *,
+    options: Mapping[str, Any] | None = None,
+    **_: Any,
+) -> None:
+    """Validate a selected gantry without opening a backend or axis.
+
+    Args:
+        view: Selected configurator component view.
+        options: Optional application-level build options.
+
+    Raises:
+        ValueError: If the selected component does not satisfy the existing
+            applied-motion configuration contract.
+    """
+    if view.component_type != "gantry":
+        raise ValueError(f"Expected a gantry component, got {view.component_type!r}")
+    GantryConfig(_adapt_gantry_source(view, options), view.name)
+
+
+def _adapt_gantry_source(view: ComponentView, options: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Copy a selected source and adapt legacy axis names without mutation."""
+    root = dict(view.root)
+    components = root.get("components")
+    if not isinstance(components, Mapping):
+        return root
+    component = components.get(view.name)
+    if not isinstance(component, Mapping):
+        return root
+
+    adapted_component = dict(component)
+    axes = adapted_component.get("axes")
+    if isinstance(axes, Mapping):
+        adapted_axes = {}
+        for axis_name, axis_config in axes.items():
+            if isinstance(axis_config, Mapping):
+                adapted_axis = dict(axis_config)
+                adapted_axis.setdefault("name", axis_name)
+                if options is not None and "run_referencing" in options:
+                    adapted_axis["run_referencing"] = options["run_referencing"]
+                adapted_axes[axis_name] = adapted_axis
+            else:
+                adapted_axes[axis_name] = axis_config
+        adapted_component["axes"] = adapted_axes
+
+    root["components"] = dict(components)
+    root["components"][view.name] = adapted_component
+    return root
 
 
 def gantry_registration() -> Registration:
@@ -74,6 +126,7 @@ def gantry_registration() -> Registration:
         name="gantry",
         component_type="gantry",
         builder=build_gantry_from_view,
+        validator=validate_gantry_view,
         cleanup=close_gantry_construction,
     )
 
@@ -100,7 +153,7 @@ def build_gantry_from_config(source: Mapping[str, Any] | str | Path, name: str =
             name,
             Registry.compose(gantry_registration()),
         )
-    except BuilderError as exc:
+    except (BuilderError, ValidationError) as exc:
         if isinstance(exc.cause, ValueError):
             raise exc.cause  # noqa: B904
         raise
@@ -127,7 +180,7 @@ def _prepare_legacy_gantry_source(source: Mapping[str, Any] | str | Path, name: 
     if not isinstance(component, Mapping):
         return normalized
     if any(
-        key in component for key in ("component_type", "component_class", "type")
+        key in component for key in ("component_type", "component_class")
     ):  # TODO: "type" is probably not right here
         return normalized
 
