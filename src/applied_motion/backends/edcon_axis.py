@@ -161,11 +161,13 @@ class EdconAxis(MotionHandler):
         if run_referencing:
             logger.info("Axis '%s': referencing requested during initialization", self.name)
             self.home()
-            
-    def __exit__(self):
+
+    def __del__(self):
+        """Destructor for the EdconAxis class."""
         self.disable_powerstage()
-        super.__exit__()
-        
+        self.com.stop_io()
+        super().__del__()
+
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the axis."""
         return f"EdconAxis(name={self.name!r}, ip={self.ip!r})"
