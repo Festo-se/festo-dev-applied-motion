@@ -1,6 +1,6 @@
 [project]
 name = "festo-dev-applied-motion"
-version = "0.7.0"
+version = "0.8.0"
 authors = [{ name = "Kyle Wardlow", email = "kyle.wardlow@festo.com" }]
 description = "Quality of life library for controlling Festo electrically-driven, motion components"
 classifiers = [
