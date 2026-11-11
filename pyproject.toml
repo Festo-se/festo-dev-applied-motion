@@ -31,6 +31,9 @@ Issues = "https://github.com/Festo-se/festo-dev-applied-motion/issues"
 [project.scripts]
 applied-motion = "applied_motion.cli.cli:main"
 
+[project.entry-points."festo_dev_configurator.providers"]
+gantry = "applied_motion.configurator_adapter:gantry_registration"
+
 [project.optional-dependencies]
 cli = ["prompt-toolkit>=3.0.52", "rich>=14.2.0"]
 
