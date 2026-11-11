@@ -36,28 +36,28 @@ uv add "festo-dev-applied-motion[cli]"
 
 ## Quick start
 
-Create a JSON configuration for the gantry, then load it with `Gantry.from_config`:
+Create a JSON configuration for the gantry, then construct it with `Gantry(config=...)`:
 
 ```python
 from collections import deque
 
 from applied_motion import Gantry
 
-with Gantry.from_config("gantry.json", name="gantry_1") as gantry:
-	gantry.home()
-	gantry.move_to(
-		deque([
-			{"X": {"position": 150.0, "velocity": 80.0}},
-		])
-	)
-	print(gantry.get_location())
+with Gantry(config="gantry.json", name="gantry_1") as gantry:
+    gantry.home()
+    gantry.move_to(
+        deque([
+            {"X": {"position": 150.0, "velocity": 80.0}},
+        ])
+    )
+    print(gantry.get_location())
 ```
 
 Positions are measured in **millimetres (mm)** and velocities in **millimetres per second (mm/s)**.
 
 ## Configuration
 
-`Gantry.from_config` accepts a configuration dictionary or a path to a JSON file. The repository includes [`gantry.json`](gantry.json) as a reference configuration containing both backend styles.
+`Gantry(config=..., name=...)` accepts a configuration dictionary or a path to a JSON file. The constructor establishes the shared runtime internally and exposes it as `gantry.registry`; ordinary config-based use does not require registration or configurator imports. The repository includes [`gantry.json`](gantry.json) as a reference configuration containing both backend styles.
 
 The relevant component is located at `component_config.components.<gantry_name>`:
 
