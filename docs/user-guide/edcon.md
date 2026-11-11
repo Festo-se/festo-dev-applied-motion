@@ -46,7 +46,8 @@ Or, create through config:
 from pathlib import Path
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
+with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 ```
 
 ---

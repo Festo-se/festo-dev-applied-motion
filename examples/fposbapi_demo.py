@@ -96,7 +96,7 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    with Gantry.from_config(args.config, name=args.component) as gantry:
+    with Gantry(config=args.config, name=args.component) as gantry:
         logger.info("Connected to gantry: %s", gantry)
 
         if args.home:

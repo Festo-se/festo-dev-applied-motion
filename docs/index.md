@@ -35,7 +35,8 @@ uv pip install -e .
 ## Notes
 
 - Position units are **millimetres (mm)** throughout the public API.
-- `Gantry.from_config(...)` is convenience wrapper over `Gantry(config=...)`.
+- `Gantry(config=source, name=...)` is the canonical config-backed constructor; its shared runtime is established internally as `gantry.registry`.
+- `Gantry(axes=...)` remains available for manually constructed axes.
 
 ## Festo resources
 

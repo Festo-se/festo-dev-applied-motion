@@ -5,22 +5,21 @@ All examples assume a CECC-X PLC is reachable at `192.168.10.25:1234`.
 
 ---
 
-## 1. Connect via Configuration File
+## 1. Build from configuration
 
-Config-driven approach — pass JSON config file to `Gantry.from_config`:
+Pass the configuration source and component name directly to `Gantry`. The
+constructor establishes the shared runtime internally and manages its resources:
 
-```python title="connect_from_config.py" linenums="1"
+```python title="connect_config.py" linenums="1"
 from pathlib import Path
-from collections import deque
+
 from applied_motion import Gantry
 
 # Point at your JSON config file
 CONFIG_PATH = Path("gantry-config.json")
 
-gantry = Gantry.from_config(CONFIG_PATH)
-
-print(repr(gantry))
-# Gantry(['X', 'Y', 'Z'])
+with Gantry(config=CONFIG_PATH, name="gantry_1") as gantry:
+    print(repr(gantry))
 ```
 
 The config file (`gantry-config.json`):
@@ -55,7 +54,8 @@ The config file (`gantry-config.json`):
 If you have multiple gantries in one config file, pass the component name as the second argument:
 
 ```python
-gantry = Gantry.from_config(Path("gantry-config.json"), name="gantry_2")
+with Gantry(config=Path("gantry-config.json"), name="gantry_2") as gantry:
+    print(repr(gantry))
 ```
 
 ---
@@ -78,11 +78,12 @@ x = FPosBAxis(name="X", index=1, client=client)
 y = FPosBAxis(name="Y", index=2, client=client)
 z = FPosBAxis(name="Z", index=3, client=client)
 
-gantry = Gantry(
+with Gantry(
     axes={"X": x, "Y": y, "Z": z},
     concurrent_axes=None,
     _backend=FPosBAPIGantryBackend(client),
-)
+) as gantry:
+    print(repr(gantry))
 ```
 
 ---
@@ -96,11 +97,10 @@ Always home the gantry before commanding absolute moves.
 from pathlib import Path
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-
-print("Homing all axes …")
-gantry.home()
-print("Homing complete.")
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    print("Homing all axes …")
+    gantry.home()
+    print("Homing complete.")
 ```
 
 You can also check whether homing has already been completed via an individual axis proxy:
@@ -125,16 +125,16 @@ from pathlib import Path
 from collections import deque
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-# Move X → 150 mm, then Y → 75 mm, then Z → 20 mm (sequentially)
-movements = deque([
-    {"X": {"position": 150.0, "velocity": 80.0}},
-    {"Y": {"position":  75.0, "velocity": 60.0}},
-    {"Z": {"position":  20.0, "velocity": 40.0}},
-])
-gantry.move_to(movements)
+    # Move X → 150 mm, then Y → 75 mm, then Z → 20 mm (sequentially)
+    movements = deque([
+        {"X": {"position": 150.0, "velocity": 80.0}},
+        {"Y": {"position":  75.0, "velocity": 60.0}},
+        {"Z": {"position":  20.0, "velocity": 40.0}},
+    ])
+    gantry.move_to(movements)
 ```
 
 ---
@@ -148,13 +148,13 @@ from pathlib import Path
 from collections import deque
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-# Advance X by 10 mm from wherever it currently is
-gantry.move_to(deque([
-    {"X": {"position": 10.0, "velocity": 30.0, "position_type": "relative"}},
-]))
+    # Advance X by 10 mm from wherever it currently is
+    gantry.move_to(deque([
+        {"X": {"position": 10.0, "velocity": 30.0, "position_type": "relative"}},
+    ]))
 ```
 
 ---
@@ -168,15 +168,15 @@ from pathlib import Path
 from collections import deque
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-# X and Y move at the same time
-movements = deque([
-    {"X": {"position": 200.0, "velocity": 100.0}},
-    {"Y": {"position":  50.0, "velocity":  80.0}},
-])
-gantry.move_to(movements, concurrent=True)
+    # X and Y move at the same time
+    movements = deque([
+        {"X": {"position": 200.0, "velocity": 100.0}},
+        {"Y": {"position":  50.0, "velocity":  80.0}},
+    ])
+    gantry.move_to(movements, concurrent=True)
 ```
 
 > **Velocity note:** `SET_PAR 103` (global speed) is written immediately before each
@@ -197,15 +197,14 @@ the gantry still batches those configured axes together.
 from pathlib import Path
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    location = gantry.get_location()
+    print(location)
+    # {'X': 150.0, 'Y': 75.0, 'Z': 20.0}
 
-location = gantry.get_location()
-print(location)
-# {'X': 150.0, 'Y': 75.0, 'Z': 20.0}
-
-# Or query a single axis directly
-x_pos = gantry.axes["X"].get_current_axis_position()
-print(f"X axis: {x_pos} mm")
+    # Or query a single axis directly
+    x_pos = gantry.axes["X"].get_current_axis_position()
+    print(f"X axis: {x_pos} mm")
 ```
 
 ---
@@ -247,30 +246,31 @@ from applied_motion import Gantry
 from applied_motion.backends.fposbapi_client import FPosBAPIClientError
 from applied_motion.applied_motion import MovementError
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-try:
-    gantry.move_to(deque([
-        {"X": {"position": 9999.0, "velocity": 80.0}},  # out of range
-    ]))
-except FPosBAPIClientError as exc:
-    print(f"PLC rejected the command: {exc}")
-except MovementError as exc:
-    print(f"Gantry-level move failure: {exc}")
+    try:
+        gantry.move_to(deque([
+            {"X": {"position": 9999.0, "velocity": 80.0}},  # out of range
+        ]))
+    except FPosBAPIClientError as exc:
+        print(f"PLC rejected the command: {exc}")
+    except MovementError as exc:
+        print(f"Gantry-level move failure: {exc}")
 ```
 
 ### Connection failure at startup
 
 If the TCP connection cannot be established, `FPosBAPIClient.__init__` raises `OSError`.
-`Gantry.from_config` propagates this after closing the socket cleanly:
+`Gantry(config=..., name=...)` propagates this after closing the socket cleanly:
 
 ```python
 from pathlib import Path
 from applied_motion import Gantry
 
 try:
-    gantry = Gantry.from_config(Path("gantry-config.json"))
+    with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+        pass
 except OSError as exc:
     print(f"Cannot connect to CECC-X: {exc}")
 ```
@@ -292,8 +292,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 ```
 
 Sample output:
@@ -319,8 +319,8 @@ from pprint import pprint
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-pprint(gantry.get_status())
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    pprint(gantry.get_status())
 ```
 
 ---
@@ -334,12 +334,12 @@ from pathlib import Path
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-if gantry.supports_teach():
-    gantry.teach_pos(1)
-    gantry.teach_tray(tray_id=1, tray_pos=1)
+    if gantry.supports_teach():
+        gantry.teach_pos(1)
+        gantry.teach_tray(tray_id=1, tray_pos=1)
 ```
 
 ---
@@ -353,6 +353,6 @@ from pathlib import Path
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("gantry-config.json"))
-print(gantry.list_commands())
+with Gantry(config=Path("gantry-config.json"), name="gantry_1") as gantry:
+    print(gantry.list_commands())
 ```

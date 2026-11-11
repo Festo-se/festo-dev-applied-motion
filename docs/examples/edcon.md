@@ -4,16 +4,19 @@ Copy-paste oriented examples for direct-drive setups using `EdconAxis` and `Gant
 
 ---
 
-## 1. Connect via configuration file
+## 1. Build from configuration
 
-```python title="connect_from_config.py" linenums="1"
+```python title="connect_config.py" linenums="1"
 from pathlib import Path
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
-print(repr(gantry))
+with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry:
+    print(repr(gantry))
 ```
+
+The constructor establishes `gantry.registry` internally. Config-based use does
+not require importing a configurator or assembling registrations.
 
 Config example:
 
@@ -49,9 +52,18 @@ from applied_motion.applied_motion import Gantry
 x = EdconAxis(name="X", ip="192.168.0.100")
 y = EdconAxis(name="Y", ip="192.168.0.101")
 z = EdconAxis(name="Z", ip="192.168.0.102")
+axes = (x, y, z)
 
-gantry = Gantry(axes={"X": x, "Y": y, "Z": z})
+try:
+    with Gantry(axes={"X": x, "Y": y, "Z": z}) as gantry:
+        print(repr(gantry))
+finally:
+    for axis in axes:
+        axis.close()
 ```
+
+Manually supplied axes remain caller-owned. Close each axis with its own
+`close()` method when finished; the gantry does not own those axis resources.
 
 ---
 
@@ -63,16 +75,16 @@ from pathlib import Path
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-movements = deque([
-    {"X": {"position": 120.0, "velocity": 60.0}},
-    {"Y": {"position":  80.0, "velocity": 50.0}},
-    {"Z": {"position":  15.0, "velocity": 25.0}},
-])
+    movements = deque([
+        {"X": {"position": 120.0, "velocity": 60.0}},
+        {"Y": {"position":  80.0, "velocity": 50.0}},
+        {"Z": {"position":  15.0, "velocity": 25.0}},
+    ])
 
-gantry.move_to(movements)
+    gantry.move_to(movements)
 ```
 
 ---
@@ -85,12 +97,12 @@ from pathlib import Path
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-gantry.move_to(deque([
-    {"X": {"position": 10.0, "velocity": 30.0, "position_type": "relative"}},
-]))
+    gantry.move_to(deque([
+        {"X": {"position": 10.0, "velocity": 30.0, "position_type": "relative"}},
+    ]))
 ```
 
 ---
@@ -103,15 +115,15 @@ from pathlib import Path
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
-gantry.home()
+with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
 
-movements = deque([
-    {"X": {"position": 180.0, "velocity": 80.0}},
-    {"Y": {"position":  40.0, "velocity": 80.0}},
-])
+    movements = deque([
+        {"X": {"position": 180.0, "velocity": 80.0}},
+        {"Y": {"position":  40.0, "velocity": 80.0}},
+    ])
 
-gantry.move_to(movements, concurrent=True)
+    gantry.move_to(movements, concurrent=True)
 ```
 
 ---
@@ -124,10 +136,9 @@ from pprint import pprint
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
-
-print(gantry.get_location())
-pprint(gantry.get_status())
+with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry:
+    print(gantry.get_location())
+    pprint(gantry.get_status())
 ```
 
 ---
@@ -141,12 +152,11 @@ from pathlib import Path
 from applied_motion import Gantry
 from applied_motion.applied_motion import MovementError
 
-gantry = Gantry.from_config(Path("modbus-gantry-config.json"))
-
-try:
-    gantry.move_to(deque([
-        {"X": {"position": 999999.0, "velocity": 5.0}},
-    ]))
-except MovementError as exc:
-    print(f"Movement failed: {exc}")
+with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry:
+    try:
+        gantry.move_to(deque([
+            {"X": {"position": 999999.0, "velocity": 5.0}},
+        ]))
+    except MovementError as exc:
+        print(f"Movement failed: {exc}")
 ```

@@ -72,7 +72,7 @@ Example exchange for a move command:
 ## FPosBAPIClient
 
 `FPosBAPIClient` is instantiated once per gantry and shared across all axes.
-You normally let `Gantry.from_config` create it; but for special use cases you can build it directly:
+You normally let `Gantry(config=..., name=...)` create it; for special use cases you can build it directly:
 
 ```python
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
@@ -188,18 +188,20 @@ if not x_axis.is_homed():
 
 ## Gantry (FPosBAPI mode)
 
-### From a configuration file
+### Constructing from a configuration file
 
 ```python
 from pathlib import Path
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("my-gantry-config.json"))
+with Gantry(config=Path("my-gantry-config.json"), name="gantry_1") as gantry:
+    print(repr(gantry))
 ```
 
-`from_config` reads the `backend` key, creates one `FPosBAPIClient`, sends
-an initial `ENABLE` command to verify the connection, then wraps each axis entry
-in an `FPosBAxis` proxy.
+`Gantry(config=..., name=...)` reads the `backend` key, creates one
+`FPosBAPIClient`, sends an initial `ENABLE` command to verify the connection,
+then wraps each axis entry in an `FPosBAxis` proxy. Its shared runtime is
+established internally and exposed as `gantry.registry`.
 
 ### Supported config keys
 
@@ -232,7 +234,7 @@ in an `FPosBAxis` proxy.
 
 ### Full config file layout (spec version 3.0)
 
-`from_config` also accepts the full Festo component config schema used in production:
+The constructor also accepts the full Festo component config schema used in production:
 
 ```json title="gantry-config.json"
 {
@@ -260,9 +262,9 @@ in an `FPosBAxis` proxy.
     }
 }
 ```
-
-When the top-level `component_config` key is present, `from_config` scopes
-automatically to `component_config.components.<name>` (default `"gantry_1"`).
+When the top-level `component_config` key is present, the constructor scopes
+automatically to `component_config.components.<name>`; it defaults to the
+`gantry_1` component name.
 
 ---
 

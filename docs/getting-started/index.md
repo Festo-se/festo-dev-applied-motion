@@ -45,26 +45,22 @@ uv pip install -e .
 
 ## Quick start
 
-One direct path to a working gantry session is `Gantry.from_config(...)`.
-Pass it a JSON configuration dict (or path to a JSON file) describing your hardware:
+Construct a gantry directly from a JSON configuration dict (or path to a JSON file) describing your hardware. Registration and runtime setup happen internally; no configurator or registration imports are needed:
 
 ```python
-from pathlib import Path
 from collections import deque
 from applied_motion import Gantry
 
-# Load from a JSON file on disk
-gantry = Gantry.from_config(Path("my-gantry-config.json"))
+with Gantry(config="my-gantry-config.json", name="gantry_1") as gantry:
+    # Home all axes before commanding motion
+    gantry.home()
 
-# Home all axes before commanding motion
-gantry.home()
+    # Move the X axis to 150 mm at 80 mm/s
+    gantry.move_to(deque([{"X": {"position": 150.0, "velocity": 80.0}}]))
 
-# Move the X axis to 150 mm at 80 mm/s
-gantry.move_to(deque([{"X": {"position": 150.0, "velocity": 80.0}}]))
-
-# Read back all axis positions
-print(gantry.get_location())
-# → {'X': 150.0, 'Y': 0.0, 'Z': 0.0}
+    # Read back all axis positions
+    print(gantry.get_location())
+    # → {'X': 150.0, 'Y': 0.0, 'Z': 0.0}
 ```
 
 See [FPosBAPI Examples](../examples/fposbapi.md) for complete examples.
@@ -106,10 +102,10 @@ from pathlib import Path
 
 from applied_motion import Gantry
 
-gantry = Gantry.from_config(Path("my-modbus-gantry-config.json"))
-gantry.home()
-gantry.move_to(deque([{"X": {"position": 120.0, "velocity": 60.0}}]))
-print(gantry.get_location())
+with Gantry(config=Path("my-modbus-gantry-config.json"), name="gantry_1") as gantry:
+    gantry.home()
+    gantry.move_to(deque([{"X": {"position": 120.0, "velocity": 60.0}}]))
+    print(gantry.get_location())
 ```
 
 See [festo-edcon Examples](../examples/edcon.md) for more patterns.
@@ -152,7 +148,7 @@ Replace `192.168.10.25` with the actual IP address of your CECC-X PLC.  The `ind
 
 ## `component_config` fields that matter most
 
-For production-style config files, `Gantry.from_config(...)` reads under:
+For production-style config files, `Gantry(config=..., name=...)` reads under:
 
 - `component_config.components.<gantry_name>`
 

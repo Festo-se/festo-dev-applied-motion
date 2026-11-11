@@ -170,7 +170,7 @@ For FPosBAPI backends, use `teach pos <id>` after each capture to commit the pos
 from applied_motion import Gantry
 from applied_motion.cli import MotionSession
 
-with Gantry.from_config("gantry.json") as gantry:
+with Gantry(config="gantry.json", name="gantry_1") as gantry:
     gantry.home()
     session = MotionSession(gantry)
     session.jog("X", "+", 5.0)           # step 5 mm

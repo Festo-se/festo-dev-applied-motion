@@ -32,70 +32,72 @@ def main() -> None:
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-    x_axis = EdconAxis(name="X", ip="192.168.0.100", run_referencing=True)
-    y_axis = EdconAxis(name="Y", ip="192.168.0.101")
-    zg_axis = EdconAxis(name="ZG", ip="192.168.0.102")
-    zp_axis = EdconAxis(name="ZP", ip="192.168.0.103")
+    axes = {
+        "X": EdconAxis(name="X", ip="192.168.0.100"),
+        "Y": EdconAxis(name="Y", ip="192.168.0.101"),
+        "ZG": EdconAxis(name="ZG", ip="192.168.0.102", run_referencing=True),
+        "ZP": EdconAxis(name="ZP", ip="192.168.0.103", run_referencing=True),
+    }
+    x_axis = axes["X"]
 
     try:
-        gantry = Gantry(axes={"X": x_axis, "Y": y_axis, "ZG": zg_axis, "ZP": zp_axis})
+        with Gantry(axes=axes) as gantry:
+            moves = deque(
+                [
+                    {
+                        "X": {
+                            "position": 192.23012889999998,
+                            "velocity": 100.0,
+                            "position_type": "absolute",
+                        }
+                    },
+                    {
+                        "Y": {
+                            "position": 147.08970470000003,
+                            "velocity": 100.0,
+                            "position_type": "absolute",
+                        }
+                    },
+                    {
+                        "ZP": {
+                            "position": 0.0,
+                            "velocity": 100.0,
+                            "position_type": "absolute",
+                        }
+                    },
+                    {
+                        "ZG": {
+                            "position": 64.84794609999999,
+                            "velocity": 100.0,
+                            "position_type": "absolute",
+                        }
+                    },
+                ]
+            )
 
-        moves = deque(
-            [
-                {
-                    "X": {
-                        "position": 192.23012889999998,
-                        "velocity": 100.0,
-                        "position_type": "absolute",
-                    }
-                },
-                {
-                    "Y": {
-                        "position": 147.08970470000003,
-                        "velocity": 100.0,
-                        "position_type": "absolute",
-                    }
-                },
-                {
-                    "ZP": {
-                        "position": 0.0,
-                        "velocity": 100.0,
-                        "position_type": "absolute",
-                    }
-                },
-                {
-                    "ZG": {
-                        "position": 64.84794609999999,
-                        "velocity": 100.0,
-                        "position_type": "absolute",
-                    }
-                },
-            ]
-        )
+            gantry.move_to(moves)
 
-        gantry.move_to(moves)
-
-        params = {"position": 20, "velocity": 50}
-        move_result = x_axis.move(params["position"], params["velocity"])
-        logger.info("Move result: %s", move_result)
-
-        params["position"] = 10
-        move_result = x_axis.move(params["position"], params["velocity"])
-
-        time.sleep(0.5)
-        if x_axis.fault_present():
-            logger.warning("Fault present!")
-        logger.info(x_axis.fault_string())
-
-        while True:
-            params = {"position": 20, "velocity": 10}
-            move_result = x_axis.move(**params)
+            params = {"position": 20, "velocity": 50}
+            move_result = x_axis.move(params["position"], params["velocity"])
             logger.info("Move result: %s", move_result)
-            logger.debug("xist_a=%s", x_axis.telegram.xist_a)
 
             params["position"] = 10
-            move_result = x_axis.move(**params)
-            logger.debug("xist_a=%s", x_axis.telegram.xist_a)
+            move_result = x_axis.move(params["position"], params["velocity"])
+
+            time.sleep(0.5)
+            if x_axis.fault_present():
+                logger.warning("Fault present!")
+            logger.info(x_axis.fault_string())
+
+            while True:
+                params = {"position": 20, "velocity": 10}
+                move_result = x_axis.move(**params)
+                logger.info("Move result: %s", move_result)
+                logger.debug("xist_a=%s", x_axis.telegram.xist_a)
+
+                params["position"] = 10
+                move_result = x_axis.move(**params)
+                logger.debug("xist_a=%s", x_axis.telegram.xist_a)
 
     except KeyboardInterrupt:
         logger.info("Exiting...")
@@ -107,7 +109,9 @@ def main() -> None:
             logger.error("Error stopping motion task: %s", e)
         logger.info("Current position: %s", x_axis.position_info_string())
         logger.debug("xist_a=%s", x_axis.telegram.xist_a)
-        x_axis.shutdown()
+    finally:
+        for axis in axes.values():
+            axis.close()
 
 
 if __name__ == "__main__":
