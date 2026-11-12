@@ -5,6 +5,7 @@
 
 Edit the constants below for the bench. No command-line arguments are used.
 The bundled ``gantry.json`` contains the Modbus component ``gantry_2``.
+The config's ``axes`` mapping defines every axis. ``MOVEMENTS`` below defines move order.
 """
 
 import json
@@ -20,7 +21,7 @@ CONFIG_PATH = Path(__file__).resolve().parents[1] / "gantry.json"
 GANTRY_NAME = "gantry_2"
 RUN_REFERENCING = False
 HOME_GANTRY = False
-MOVE = None  # Example: {"X": {"position": 150.0, "velocity": 80.0}}
+MOVEMENTS = []  # Add one-axis movement dicts in desired execution order.
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +40,8 @@ def main() -> None:
         if HOME_GANTRY:
             gantry.home()
 
-        if MOVE is not None:
-            gantry.move_to(deque([MOVE]))
+        if MOVEMENTS:
+            gantry.move_to(deque(MOVEMENTS))
 
         print("Location:", json.dumps(gantry.get_location(), indent=2))
         print("Status:", json.dumps(gantry.get_status(), indent=2))

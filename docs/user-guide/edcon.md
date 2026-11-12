@@ -62,7 +62,6 @@ with Gantry(config=Path("modbus-gantry-config.json"), name="gantry_1") as gantry
         "Y": {"name": "Y", "ip": "192.168.0.101"},
         "Z": {"name": "Z", "ip": "192.168.0.102"}
     },
-    "axis_order": ["X", "Y", "Z"],
     "concurrent_axes": ["X", "Y"]
 }
 ```
@@ -73,7 +72,7 @@ Supported fields:
 |---|---|---|
 | `backend` | No* | Defaults to `"modbus"` when omitted. |
 | `axes` | Yes | Axis map with `name` + `ip` per axis. |
-| `axis_order` | No | Execution/creation order (defaults to `axes` insertion order). |
+| `axis_order` | No | Optional preferred Modbus homing order. It never limits configured axes; unlisted axes follow `axes` mapping order. `move_to()` follows the caller's movement deque. |
 | `concurrent_axes` | No | Optional subset of axis names that may be batched together. |
 
 \*Omitting `backend` still selects Modbus.

@@ -13,6 +13,9 @@ match your bench before running::
 .. warning::
     This script commands real motion.  Ensure the axes are clear and it is
     safe to move before running.
+
+The ``axes`` mapping defines the gantry inventory. The ``moves`` deque below
+sets the requested move order; construction order is not motion order.
 """
 
 import logging

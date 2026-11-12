@@ -33,7 +33,6 @@ Config example:
                     "Y": {"name": "Y", "ip": "192.168.0.101"},
                     "Z": {"name": "Z", "ip": "192.168.0.102"}
                 },
-                "axis_order": ["X", "Y", "Z"],
                 "concurrent_axes": ["X", "Y"]
             }
         }

@@ -88,7 +88,6 @@ For direct-drive setups, configure each axis with `name` and `ip`, and set backe
                     "Y": {"name": "Y", "ip": "192.168.0.101"},
                     "Z": {"name": "Z", "ip": "192.168.0.102"}
                 },
-                "axis_order": ["X", "Y", "Z"],
                 "concurrent_axes": ["X", "Y"]
             }
         }
@@ -134,7 +133,6 @@ A minimal three-axis FPosBAPI config looks like this:
                     "Y": {"name": "Y", "index": 2},
                     "Z": {"name": "Z", "index": 3}
                 },
-                "axis_order": ["X", "Y", "Z"],
                 "concurrent_axes": null
             }
         }
@@ -160,7 +158,7 @@ Inside `component_config.components`, choose one gantry object (usually `gantry_
 
 - `backend`: must be `"modbus"` or `"fposbapi"`
 - `axes`: per-axis map (shape depends on backend)
-- Optional orchestration fields: `axis_order`, `concurrent_axes`
+- Optional motion fields: `axis_order`, `concurrent_axes`
 
 Example:
 
@@ -174,7 +172,6 @@ Example:
                 "Y": {"name": "Y", "index": 2},
                 "Z": {"name": "Z", "index": 3}
             },
-            "axis_order": ["X", "Y", "Z"],
             "concurrent_axes": null
         }
     }
@@ -245,17 +242,18 @@ How to identify `ip` values:
 > Edcon axis communication assumes drives were fully commissioned in **Festo Automation Suite**.
 > If not commissioned, expect at worst damage components and at best failed homing/moves even if network ping succeeds.
 
-### 4) `axis_order` and `concurrent_axes`
+### 4) Optional motion ordering and `concurrent_axes`
 
-- `axis_order`: creation/execution order for axes.
-    - Keep list aligned with keys in `axes`.
-- `concurrent_axes`: optional list of axis names allowed to run in same movement batch when `concurrent=False`.
+- `axis_order`: optional preferred order for per-axis homing. It never defines
+    which axes exist; every entry in `axes` is validated and constructed.
+    Unlisted axes follow `axes` mapping order. `move_to()` uses the order of its
+    movement deque instead.
+- `concurrent_axes`: optional list of axis names defined to run in same movement batch when `concurrent=False`.
     - Use `null` to disable backend-driven grouping.
 
 Example:
 
 ```json
-"axis_order": ["X", "Y", "Z"],
 "concurrent_axes": ["X", "Y"]
 ```
 
@@ -268,7 +266,7 @@ Use this process to fill values safely:
      - logical name (`X`, `Y`, `Z`...)
      - device IP (Modbus) or PLC axis index (FPosBAPI)
 3. Enter `axes` from that table.
-4. Set `axis_order` to your intended deterministic move ordering.
+4. Add `axis_order` only when a preferred per-axis homing sequence is needed.
 5. Add `concurrent_axes` only for axis pairs validated as safe to run together.
 
 Practical inventory example:

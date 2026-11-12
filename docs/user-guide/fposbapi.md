@@ -218,7 +218,6 @@ established internally and exposed as `gantry.registry`.
         "Y": {"name": "Y", "index": 2},
         "Z": {"name": "Z", "index": 3}
     },
-    "axis_order": ["X", "Y", "Z"],
     "concurrent_axes": null
 }
 ```
@@ -229,7 +228,7 @@ established internally and exposed as `gantry.registry`.
 | `interface.ip` | Yes | IPv4 address of the CECC-X PLC. |
 | `interface.port` | No | TCP port (default `1234`). |
 | `axes` | Yes | Dict of axis name → `{name, index}`. |
-| `axis_order` | No | Ordered list of axis names; defaults to dict insertion order. |
+| `axis_order` | No | Not used to construct or limit axes. FPosBAPI's coordinated `home()` uses one PLC command, and `move_to()` follows the caller's movement deque. |
 | `concurrent_axes` | No | List of axis names allowed to move simultaneously, or `null`. |
 
 ### Full config file layout (spec version 3.0)
@@ -255,7 +254,6 @@ The constructor also accepts the full Festo component config schema used in prod
                     "Y": {"name": "Y", "index": 2},
                     "Z": {"name": "Z", "index": 3}
                 },
-                "axis_order": ["X", "Y", "Z"],
                 "concurrent_axes": null
             }
         }

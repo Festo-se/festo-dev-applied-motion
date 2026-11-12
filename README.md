@@ -78,7 +78,6 @@ The relevant component is located at `component_config.components.<gantry_name>`
 					"Y": {"name": "Y", "index": 2},
 					"Z": {"name": "Z", "index": 3}
 				},
-				"axis_order": ["X", "Y", "Z"],
 				"concurrent_axes": null
 			}
 		}
@@ -99,6 +98,11 @@ For a Modbus gantry, set `backend` to `"modbus"` and configure each axis with it
 	"concurrent_axes": ["X", "Y"]
 }
 ```
+
+`axes` is the complete axis inventory; `axis_order` is optional and only sets
+preferred Modbus homing order. Any axes not listed there are still validated,
+constructed, and homed afterward. `move_to()` follows the caller's movement
+deque order.
 
 > [!IMPORTANT]
 > Modbus drives must be commissioned in Festo Automation Suite before motion commands are issued. FPosBAPI axis indices must match the numbering in the CECC-X CoDeSys application.

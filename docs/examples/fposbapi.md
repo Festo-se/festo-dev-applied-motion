@@ -43,7 +43,6 @@ The config file (`gantry-config.json`):
                     "Y": {"name": "Y", "index": 2},
                     "Z": {"name": "Z", "index": 3}
                 },
-                "axis_order": ["X", "Y", "Z"],
                 "concurrent_axes": null
             }
         }

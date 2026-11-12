@@ -5,6 +5,8 @@
 
 Edit the constants below for the bench. No command-line arguments are used.
 The bundled ``gantry.json`` contains the FPosBAPI component ``gantry_1``.
+The config's ``axes`` mapping defines every axis. The PLC homes all axes together, and ``MOVEMENTS`` below
+defines the order for queued moves.
 """
 
 import json
@@ -19,7 +21,7 @@ from applied_motion import Gantry
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "gantry.json"
 GANTRY_NAME = "gantry_1"
 HOME_GANTRY = False
-MOVE = None  # Example: {"X": {"position": 150.0, "velocity": 80.0}}
+MOVEMENTS = []  # Add one-axis movement dicts in desired execution order.
 TEACH_POSITION = None  # Set an integer position ID to teach the current pose.
 LIST_COMMANDS = False
 
@@ -36,8 +38,8 @@ def main() -> None:
         if HOME_GANTRY:
             gantry.home()
 
-        if MOVE is not None:
-            gantry.move_to(deque([MOVE]))
+        if MOVEMENTS:
+            gantry.move_to(deque(MOVEMENTS))
 
         if TEACH_POSITION is not None:
             if not gantry.supports_teach():
