@@ -75,3 +75,22 @@ def test_rejects_invalid_gantry_axis():
 
     with pytest.raises(ValueError, match="Modbus axis 'x'.*'ip'"):
         parse_component(config, "gantry_1")
+
+
+def test_partial_axis_order_does_not_skip_validation_of_configured_axes():
+    """Validate every configured axis even when axis_order lists only one."""
+    config = {
+        "components": {
+            "gantry_1": {
+                "component_class": "gantry",
+                "axes": {
+                    "x": {"name": "x", "ip": "192.168.1.10"},
+                    "y": {"name": "y"},
+                },
+                "axis_order": ["x"],
+            }
+        }
+    }
+
+    with pytest.raises(ValueError, match="Modbus axis 'y'.*'ip'"):
+        parse_component(config, "gantry_1")

@@ -215,3 +215,29 @@ class TestEdconAxisHash:
         a = _bare_axis("X", "192.168.0.193")
         b = _bare_axis("Y", "192.168.0.32")
         assert hash(a) != hash(b)
+
+
+class TestEdconAxisClose:
+    """Verify explicit axis cleanup without touching hardware."""
+
+    def test_close_disables_power_and_stops_io_once(self, axis_mock, mocker):
+        disable_powerstage = mocker.patch.object(axis_mock, "disable_powerstage")
+
+        axis_mock.close()
+        axis_mock.close()
+
+        disable_powerstage.assert_called_once_with()
+        axis_mock._mock_com.stop_io.assert_called_once_with()
+
+    def test_close_stops_io_even_when_disabling_power_fails(self, axis_mock, mocker):
+        disable_powerstage = mocker.patch.object(
+            axis_mock,
+            "disable_powerstage",
+            side_effect=RuntimeError("power-stage shutdown failed"),
+        )
+
+        with pytest.raises(RuntimeError, match="power-stage shutdown failed"):
+            axis_mock.close()
+
+        disable_powerstage.assert_called_once_with()
+        axis_mock._mock_com.stop_io.assert_called_once_with()

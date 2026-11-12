@@ -34,6 +34,7 @@ from applied_motion.gantry_factory import GantryConstruction
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
+from applied_motion.backends.gantry_backend import ModbusGantryBackend
 from applied_motion.config import GantryConfig, SystemConfig
 
 
@@ -190,9 +191,76 @@ class TestFromConfigModbus:
         assert "192.168.0.193" in ips
         assert "192.168.0.32" in ips
 
-    def test_axis_order_respected(self, patched_festo_axis):
-        g = Gantry.from_config(_MODBUS_CONFIG)
-        assert list(g.axes.keys()) == ["X", "Y"]
+    def test_partial_axis_order_never_limits_modbus_axis_inventory(self, patched_festo_axis):
+        """Construct all Modbus axes even when the preferred order is partial."""
+        import copy
+
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        config = copy.deepcopy(_MODBUS_CONFIG)
+        config["component_config"]["components"]["gantry_1"]["axis_order"] = ["Y"]
+        gcfg = GantryConfig(SystemConfig(config)(), "gantry_1")
+        construction = _build_modbus_from_gcfg(gcfg)
+        assert set(construction.axes) == {"X", "Y"}
+
+    def test_partial_axis_order_only_changes_modbus_homing_order(self, patched_festo_axis):
+        """Use axis_order as a homing preference without dropping other axes."""
+        import copy
+
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        config = copy.deepcopy(_MODBUS_CONFIG)
+        config["component_config"]["components"]["gantry_1"]["axis_order"] = ["Y"]
+        gcfg = GantryConfig(SystemConfig(config)(), "gantry_1")
+        construction = _build_modbus_from_gcfg(gcfg)
+        home_order = []
+        construction.axes["X"].home.side_effect = lambda: home_order.append("X")
+        construction.axes["Y"].home.side_effect = lambda: home_order.append("Y")
+  
+        construction.backend.home(construction.axes)
+
+        assert home_order == ["Y", "X"]
+
+    def test_axis_order_is_optional_for_modbus(self, patched_festo_axis):
+        """Build all Modbus axes when axis_order is omitted."""
+        import copy
+
+        config = copy.deepcopy(_MODBUS_CONFIG)
+        config["component_config"]["components"]["gantry_1"].pop("axis_order")
+
+        gcfg = GantryConfig(SystemConfig(config)(), "gantry_1")
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        construction = _build_modbus_from_gcfg(gcfg)
+        assert set(construction.axes) == {"X", "Y"}
+
+    def test_axis_order_is_optional_for_fposbapi(self, patched_fposbapi_client):
+        """Build all FPosBAPI axes when axis_order is omitted."""
+        import copy
+
+        from applied_motion.gantry_factory import _build_fposbapi_from_gcfg
+
+        config = copy.deepcopy(_FPOSBAPI_CONFIG)
+        config["component_config"]["components"]["gantry_1"].pop("axis_order")
+        gcfg = GantryConfig(SystemConfig(config)(), "gantry_1")
+
+        construction = _build_fposbapi_from_gcfg(gcfg)
+
+        assert set(construction.axes) == {"X", "Y", "Z"}
+
+    def test_partial_axis_order_cannot_skip_modbus_axis_validation(self):
+        """Validate Modbus axes even when axis_order omits one."""
+        component = {
+            "backend": "modbus",
+            "axes": {
+                "X": {"name": "X"},
+                "Y": {"name": "Y", "ip": "192.168.0.32"},
+            },
+            "axis_order": ["Y"],
+        }
+
+        with pytest.raises(ValueError, match="Modbus axis 'X' must define string field 'ip'"):
+            GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
 
     def test_client_is_none_for_modbus_backend(self, patched_festo_axis):
         g = Gantry.from_config(_MODBUS_CONFIG)
@@ -257,6 +325,72 @@ class TestFromConfigModbus:
         assert g.concurrent_axes is not None
         assert set(g.concurrent_axes.keys()) == {"Y"}
 
+    def test_close_releases_factory_owned_axes_once(self, mocker):
+        mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
+        axis_x = MagicMock(spec=EdconAxis)
+        axis_y = MagicMock(spec=EdconAxis)
+        mock_cls.side_effect = [axis_x, axis_y]
+        gcfg = GantryConfig(SystemConfig(_MODBUS_CONFIG)(), "gantry_1")
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        construction = _build_modbus_from_gcfg(gcfg)
+        gantry = Gantry(axes=construction.axes, _backend=construction.backend)
+
+        gantry.close()
+        gantry.close()
+
+        axis_x.close.assert_called_once_with()
+        axis_y.close.assert_called_once_with()
+
+    def test_injected_axes_are_closed_only_when_explicitly_owned(self):
+        axis = MagicMock(spec=EdconAxis)
+        unowned = Gantry(axes={"X": axis}, _backend=ModbusGantryBackend())
+
+        unowned.close()
+
+        axis.close.assert_not_called()
+
+        owned = Gantry(axes={"X": axis}, _backend=ModbusGantryBackend(owned_axes=(axis,)))
+        owned.close()
+
+        axis.close.assert_called_once_with()
+
+    def test_one_axis_cleanup_failure_does_not_block_other_axes(self):
+        axis_x = MagicMock(spec=EdconAxis)
+        axis_y = MagicMock(spec=EdconAxis)
+        axis_x.name = "X"
+        axis_y.name = "Y"
+        axis_x.close.side_effect = OSError("X connection close failed")
+        gantry = Gantry(
+            axes={"X": axis_x, "Y": axis_y},
+            _backend=ModbusGantryBackend(owned_axes=(axis_x, axis_y)),
+        )
+
+        with pytest.raises(RuntimeError, match="X connection close failed"):
+            gantry.close()
+
+        axis_x.close.assert_called_once_with()
+        axis_y.close.assert_called_once_with()
+        gantry.close()
+        axis_x.close.assert_called_once_with()
+        axis_y.close.assert_called_once_with()
+
+    def test_partial_modbus_construction_closes_previously_created_axes(self, mocker):
+        axis_x = MagicMock(spec=EdconAxis)
+        mocker.patch(
+            "applied_motion.gantry_factory.EdconAxis",
+            autospec=True,
+            side_effect=[axis_x, RuntimeError("Y connection failed")],
+        )
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        gcfg = GantryConfig(SystemConfig(_MODBUS_CONFIG)(), "gantry_1")
+
+        with pytest.raises(RuntimeError, match="Y connection failed"):
+            _build_modbus_from_gcfg(gcfg)
+
+        axis_x.close.assert_called_once_with()
+
 
 # ---------------------------------------------------------------------------
 # FPosBAPI backend
@@ -310,10 +444,29 @@ class TestFromConfigFPosBAPI:
         for axis in g.axes.values():
             assert axis._client is mock_client
 
-    def test_axis_order_respected(self, patched_fposbapi_client):
-        _, _ = patched_fposbapi_client
-        g = Gantry.from_config(_FPOSBAPI_CONFIG)
-        assert list(g.axes.keys()) == ["X", "Y", "Z"]
+    def test_partial_axis_order_never_limits_fposbapi_axis_inventory(self, patched_fposbapi_client):
+        """Construct all FPosBAPI axes when axis_order lists only one."""
+        import copy
+
+        from applied_motion.gantry_factory import _build_fposbapi_from_gcfg
+
+        config = copy.deepcopy(_FPOSBAPI_CONFIG)
+        config["component_config"]["components"]["gantry_1"]["axis_order"] = ["Z"]
+        gcfg = GantryConfig(SystemConfig(config)(), "gantry_1")
+        construction = _build_fposbapi_from_gcfg(gcfg)
+        assert set(construction.axes) == {"X", "Y", "Z"}
+
+    def test_partial_axis_order_cannot_skip_fposbapi_axis_validation(self):
+        """Validate FPosBAPI axes even when axis_order omits one."""
+        import copy
+
+        config = copy.deepcopy(_FPOSBAPI_CONFIG)
+        component = config["component_config"]["components"]["gantry_1"]
+        component["axis_order"] = ["X"]
+        component["axes"]["Z"].pop("index")
+
+        with pytest.raises(ValueError, match="FPosBAPI axis 'Z' must define int field 'index'"):
+            GantryConfig(SystemConfig(config)(), "gantry_1")
 
     def test_enable_sent_on_from_config(self, patched_fposbapi_client):
         """ENABLE must be sent via send_command during from_config initialisation."""
@@ -470,7 +623,6 @@ class TestConfigValidationContracts:
         component["axes"]["X"] = {"name": "X"}
         with pytest.raises(ValueError, match="Modbus axis 'X' must define string field 'ip'"):
             GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
-
 
 class TestConstructorValidation:
     def test_constructor_rejects_config_plus_manual_axes(self):

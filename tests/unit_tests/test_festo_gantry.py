@@ -18,6 +18,7 @@ No hardware or network connection required.  All tests use either the
 for Gantry itself) or construct their own stub axes inline.
 """
 
+from collections import deque
 from unittest.mock import MagicMock
 
 import pytest
@@ -105,6 +106,27 @@ class TestGantryHome:
         g.home()
         for axis in axes.values():
             axis.home.assert_called_once()
+
+
+def test_move_to_preserves_user_queue_order():
+    """Execute sequential moves in the order supplied by the caller."""
+    events = []
+    axis_x = _make_stub_axis("X")
+    axis_y = _make_stub_axis("Y")
+    axis_x.move.side_effect = lambda **_: events.append("X") or True
+    axis_y.move.side_effect = lambda **_: events.append("Y") or True
+    gantry = Gantry(axes={"X": axis_x, "Y": axis_y})
+
+    gantry.move_to(
+        deque(
+            [
+                {"Y": {"position": 20.0, "velocity": 5.0}},
+                {"X": {"position": 10.0, "velocity": 5.0}},
+            ]
+        )
+    )
+
+    assert events == ["Y", "X"]
 
 
 # ---------------------------------------------------------------------------
@@ -470,3 +492,23 @@ class TestGantryLifecycle:
         g = Gantry(axes={"X": _make_stub_axis("X")})
         with g as managed:
             assert managed is g
+
+    def test_close_does_not_close_a_non_owned_fposbapi_client(self, gantry_fposbapi_mock):
+        gantry_fposbapi_mock.close()
+
+        gantry_fposbapi_mock._stub_client.close.assert_not_called()
+
+    def test_close_releases_owned_shared_fposbapi_client_once(self, fposbapi_client_mock):
+        axes = {
+            name: FPosBAxis(name=name, index=index, client=fposbapi_client_mock)
+            for name, index in (("X", 1), ("Y", 2), ("Z", 3))
+        }
+        gantry = Gantry(
+            axes=axes,
+            _backend=FPosBAPIGantryBackend(fposbapi_client_mock, owns_client=True),
+        )
+
+        gantry.close()
+        gantry.close()
+
+        fposbapi_client_mock.close.assert_called_once_with()
