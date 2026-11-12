@@ -120,17 +120,16 @@ class GantryConfig:
         return cast(list[str], value)
 
     @staticmethod
-    def _validate_modbus_axes(axes_cfg: dict, axis_order: list[str]) -> None:
+    def _validate_modbus_axes(axes_cfg: dict) -> None:
         """Validate backend-specific Modbus axis config fields.
 
         Args:
             axes_cfg: Axis config mapping.
-            axis_order: Ordered list of configured axis names.
 
         Raises:
             ValueError: If any axis config is missing required fields.
         """
-        for axis_name in axis_order:
+        for axis_name in axes_cfg:
             axis_cfg = axes_cfg.get(axis_name)
             if not isinstance(axis_cfg, dict):
                 raise ValueError(f"Axis config for {axis_name!r} must be a dict")
@@ -140,13 +139,12 @@ class GantryConfig:
                 raise ValueError(f"Modbus axis {axis_name!r} must define string field 'ip'")
 
     @staticmethod
-    def _validate_fposbapi_config(config_cfg: dict, axes_cfg: dict, axis_order: list[str]) -> None:
+    def _validate_fposbapi_config(config_cfg: dict, axes_cfg: dict) -> None:
         """Validate backend-specific FPosBAPI interface and axis fields.
 
         Args:
             config_cfg: Config component config.
             axes_cfg: Axis config mapping.
-            axis_order: Ordered list of configured axis names.
 
         Raises:
             ValueError: If required interface or axis fields are missing or invalid.
@@ -165,7 +163,7 @@ class GantryConfig:
         ):
             raise ValueError("FPosBAPI interface 'timeout' must be numeric or null")
 
-        for axis_name in axis_order:
+        for axis_name in axes_cfg:
             axis_cfg = axes_cfg.get(axis_name)
             if not isinstance(axis_cfg, dict):
                 raise ValueError(f"Axis config for {axis_name!r} must be a dict")
@@ -215,8 +213,8 @@ class GantryConfig:
                 raise ValueError(f"Config concurrent_axes references unknown axes: {unknown_concurrent}")
 
         if backend == "modbus":
-            GantryConfig._validate_modbus_axes(axes_cfg, axis_order)
+            GantryConfig._validate_modbus_axes(axes_cfg)
         else:
-            GantryConfig._validate_fposbapi_config(config_cfg, axes_cfg, axis_order)
+            GantryConfig._validate_fposbapi_config(config_cfg, axes_cfg)
 
         return config_cfg, backend, axes_cfg, axis_order, concurrent_axes

@@ -19,6 +19,7 @@ from configurator import (
 )
 
 from applied_motion.config import GantryConfig
+from applied_motion.applied_motion import Gantry
 from applied_motion.gantry_factory import (
     GantryConstruction,
     _build_fposbapi_from_gcfg,
@@ -32,7 +33,8 @@ def build_gantry_from_view(
     mode: ValidationMode = COMPAT,
     options: Mapping[str, Any] | None = None,
     resolver: Any = None,
-) -> GantryConstruction:
+    runtime: Any = None,
+) -> GantryConstruction | Gantry:
     """Build a gantry construction from a validated configurator view.
 
     Args:
@@ -43,6 +45,8 @@ def build_gantry_from_view(
             compatibility.
         resolver: Configurator resolver, accepted for builder protocol
             compatibility.
+        runtime: Shared runtime registry for transparent construction. When
+            absent, the compatibility builder returns a construction bundle.
 
     Returns:
         Existing applied-motion construction bundle containing axes,
@@ -58,10 +62,14 @@ def build_gantry_from_view(
 
     gantry_config = GantryConfig(_adapt_gantry_source(view, options), view.name)
     if gantry_config.backend == "modbus":
-        return _build_modbus_from_gcfg(gantry_config)
-    if gantry_config.backend == "fposbapi":
-        return _build_fposbapi_from_gcfg(gantry_config)
-    raise ValueError(f"Unsupported backend: {gantry_config.backend!r}")
+        construction = _build_modbus_from_gcfg(gantry_config)
+    elif gantry_config.backend == "fposbapi":
+        construction = _build_fposbapi_from_gcfg(gantry_config)
+    else:
+        raise ValueError(f"Unsupported backend: {gantry_config.backend!r}")
+    if runtime is None:
+        return construction
+    return Gantry._from_construction(construction, runtime)
 
 
 def validate_gantry_view(
@@ -200,6 +208,10 @@ def close_gantry_construction(instance: Any) -> None:
     Raises:
         TypeError: If the managed instance is not a gantry construction.
     """
-    if not isinstance(instance, GantryConstruction):
-        raise TypeError(f"Expected GantryConstruction, got {type(instance).__name__}")
-    instance.close()
+    if isinstance(instance, GantryConstruction):
+        instance.close()
+        return
+    if isinstance(instance, Gantry):
+        instance._close_backend()
+        return
+    raise TypeError(f"Expected GantryConstruction or Gantry, got {type(instance).__name__}")

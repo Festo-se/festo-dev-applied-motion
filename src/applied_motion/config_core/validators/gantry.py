@@ -44,15 +44,15 @@ def validate_gantry_component(component: dict[str, Any], name: str) -> dict[str,
             raise ValueError(f"Config concurrent_axes references unknown axes: {unknown_concurrent}")
 
     if backend == "modbus":
-        _validate_modbus_axes(axes, axis_order)
+        _validate_modbus_axes(axes)
     else:
-        _validate_fposbapi(component, axes, axis_order)
+        _validate_fposbapi(component, axes)
     return component
 
 
-def _validate_modbus_axes(axes: dict[str, Any], axis_order: list[str]) -> None:
+def _validate_modbus_axes(axes: dict[str, Any]) -> None:
     """Validate Modbus axis fields."""
-    for axis_name in axis_order:
+    for axis_name in axes:
         axis = require_mapping(axes.get(axis_name), f"Axis config for {axis_name!r} must be a dict")
         if not isinstance(axis.get("name"), str):
             raise ValueError(f"Modbus axis {axis_name!r} must define string field 'name'")
@@ -60,7 +60,7 @@ def _validate_modbus_axes(axes: dict[str, Any], axis_order: list[str]) -> None:
             raise ValueError(f"Modbus axis {axis_name!r} must define string field 'ip'")
 
 
-def _validate_fposbapi(component: dict[str, Any], axes: dict[str, Any], axis_order: list[str]) -> None:
+def _validate_fposbapi(component: dict[str, Any], axes: dict[str, Any]) -> None:
     """Validate FPosBAPI interface and axis fields."""
     interface = component.get("interface")
     if not isinstance(interface, dict):
@@ -72,7 +72,7 @@ def _validate_fposbapi(component: dict[str, Any], axes: dict[str, Any], axis_ord
     timeout = interface.get("timeout")
     if "timeout" in interface and timeout is not None and not isinstance(timeout, (int, float)):
         raise ValueError("FPosBAPI interface 'timeout' must be numeric or null")
-    for axis_name in axis_order:
+    for axis_name in axes:
         axis = require_mapping(axes.get(axis_name), f"Axis config for {axis_name!r} must be a dict")
         if not isinstance(axis.get("name"), str):
             raise ValueError(f"FPosBAPI axis {axis_name!r} must define string field 'name'")

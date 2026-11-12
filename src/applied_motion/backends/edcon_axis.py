@@ -101,8 +101,11 @@ class EdconAxis(MotionHandler):
         """
         self.name = name
         self.ip = ip
+        self._closed = False
+        self._motion_handler_initialized = False
         self.com = ComModbus(self.ip)
         super().__init__(self.com)
+        self._motion_handler_initialized = True
         self.acknowledge_faults()
 
         self.acknowledge_faults()
@@ -162,11 +165,50 @@ class EdconAxis(MotionHandler):
             logger.info("Axis '%s': referencing requested during initialization", self.name)
             self.home()
 
-    def __del__(self):
-        """Destructor for the EdconAxis class."""
-        self.disable_powerstage()
-        self.com.stop_io()
-        super().__del__()
+    def close(self) -> None:
+        """Disable the power stage and release this axis's Modbus I/O.
+
+        Cleanup is attempted once, even if one of the operations fails. The
+        first failure is re-raised after both cleanup operations are attempted.
+
+        Raises:
+            Exception: The first error raised while disabling the power stage
+                or stopping Modbus I/O.
+        """
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
+
+        first_error: Exception | None = None
+        if getattr(self, "_motion_handler_initialized", False):
+            try:
+                self.disable_powerstage()
+            except Exception as exc:
+                logger.exception("Axis '%s': failed to disable power stage during close", self.name)
+                first_error = exc
+
+        com = getattr(self, "com", None)
+        if com is not None:
+            try:
+                com.stop_io()
+            except Exception as exc:
+                logger.exception("Axis '%s': failed to stop Modbus I/O during close", getattr(self, "name", "unknown"))
+                if first_error is None:
+                    first_error = exc
+
+        if first_error is not None:
+            raise first_error
+
+    def __del__(self) -> None:
+        """Best-effort fallback for axes that were not explicitly closed."""
+        try:
+            self.close()
+        except Exception:
+            logger.exception("Axis '%s': best-effort cleanup failed", getattr(self, "name", "unknown"))
+        try:
+            super().__del__()
+        except Exception:
+            logger.debug("Axis '%s': parent destructor cleanup failed", getattr(self, "name", "unknown"), exc_info=True)
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the axis."""

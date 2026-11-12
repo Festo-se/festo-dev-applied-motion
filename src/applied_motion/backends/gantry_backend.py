@@ -7,10 +7,15 @@ This module centralizes backend-specific operations that are not purely
 per-axis concerns (for example a single HOME command for all FPosB axes).
 """
 
+import logging
+from collections.abc import Iterable
 from typing import Protocol, TypedDict
 
 from applied_motion.backends.axis_protocol import Axis
+from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
+
+logger = logging.getLogger(__name__)
 
 
 class ControllerDiagnostics(TypedDict):
@@ -71,8 +76,24 @@ class GantryBackend(Protocol):
 class ModbusGantryBackend:
     """Gantry backend for direct Modbus axes.
 
-    This backend owns no shared resources and uses per-axis operations only.
+    This backend closes only axes explicitly supplied as owned resources.
     """
+
+    def __init__(self, owned_axes: Iterable[EdconAxis] = (), home_order: Iterable[str] = ()) -> None:
+        """Record Modbus axes whose connections this backend owns.
+
+        Args:
+            owned_axes: Axes created by this gantry backend. Manually injected
+                axes are not owned unless explicitly included here.
+            home_order: Optional preferred axis sequence for homing. Axes not
+                listed are homed afterward in the mapping's insertion order.
+        """
+        unique_axes: dict[int, EdconAxis] = {}
+        for axis in owned_axes:
+            unique_axes.setdefault(id(axis), axis)
+        self._owned_axes = tuple(unique_axes.values())
+        self._home_order = tuple(home_order)
+        self._closed = False
 
     @property
     def client(self) -> FPosBAPIClient | None:
@@ -88,15 +109,38 @@ class ModbusGantryBackend:
         return None
 
     def home(self, axes: dict[str, Axis]) -> None:
-        """Home each axis sequentially."""
-        for axis in axes.values():
-            axis.home()
+        """Home preferred axes first, then all remaining axes sequentially."""
+        ordered_names = list(dict.fromkeys(name for name in self._home_order if name in axes))
+        ordered_names.extend(name for name in axes if name not in ordered_names)
+        for axis_name in ordered_names:
+            axes[axis_name].home()
 
     def close(self) -> None:
-        """Close backend resources.
+        """Close every owned axis, attempting all axes before reporting errors.
 
-        Modbus backend currently has no shared resources to close.
+        Raises:
+            RuntimeError: If one or more owned axes fail to close. The error
+                message includes each failed axis and the first failure is
+                chained as the cause.
         """
+        if self._closed:
+            return
+        self._closed = True
+
+        failures: list[tuple[str, Exception]] = []
+        for axis in self._owned_axes:
+            axis_name = getattr(axis, "name", type(axis).__name__)
+            try:
+                axis.close()
+            except Exception as exc:
+                logger.exception("Modbus gantry backend: failed to close owned axis %s", axis_name)
+                failures.append((str(axis_name), exc))
+
+        if failures:
+            details = "; ".join(f"{name}: {type(exc).__name__}: {exc}" for name, exc in failures)
+            raise RuntimeError(
+                f"Failed to close {len(failures)} owned Modbus axis resource(s): {details}"
+            ) from failures[0][1]
 
     def supports_teach(self) -> bool:
         """Return whether teaching commands are supported."""

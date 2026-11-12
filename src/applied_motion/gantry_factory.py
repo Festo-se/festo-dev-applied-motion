@@ -3,6 +3,7 @@
 
 """Factory helpers for building gantry axes and backend state from config."""
 
+import logging
 from dataclasses import dataclass, field
 from math import inf
 from pathlib import Path
@@ -16,6 +17,7 @@ from applied_motion.config import GantryConfig, SystemConfig
 
 
 AxisMap = dict[str, Axis]
+logger = logging.getLogger(__name__)
 
 
 def _coerce_config_source(config: dict | str | Path) -> dict | Path:
@@ -68,22 +70,35 @@ def build_modbus_gantry(config: dict | str | Path, name: str = "gantry_1") -> Ga
 
 
 def _build_modbus_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
-    axes: AxisMap = {
-        axis_name: EdconAxis(
-            name=gcfg.axes_cfg[axis_name]["name"],
-            ip=gcfg.axes_cfg[axis_name]["ip"],
-            run_referencing=gcfg.axes_cfg[axis_name].get("run_referencing", True),
-            min_position=gcfg.axes_cfg[axis_name].get("min_position", -inf),
-            max_position=gcfg.axes_cfg[axis_name].get("max_position", inf),
-        )
-        for axis_name in gcfg.axis_order
-    }
+    axes: AxisMap = {}
+    owned_axes: list[EdconAxis] = []
+    try:
+        for axis_name, axis_config in gcfg.axes_cfg.items():
+            axis = EdconAxis(
+                name=axis_config["name"],
+                ip=axis_config["ip"],
+                run_referencing=axis_config.get("run_referencing", True),
+                min_position=axis_config.get("min_position", -inf),
+                max_position=axis_config.get("max_position", inf),
+            )
+            axes[axis_name] = axis
+            owned_axes.append(axis)
+    except Exception:
+        try:
+            ModbusGantryBackend(owned_axes=owned_axes).close()
+        except Exception:
+            logger.exception("Failed to clean up Modbus axes after gantry construction failed")
+        raise
     concurrent_axes: AxisMap | None = (
         {axis_name: axes[axis_name] for axis_name in gcfg.concurrent_raw if axis_name in axes}
         if gcfg.concurrent_raw
         else None
     )
-    return GantryConstruction(axes=axes, concurrent_axes=concurrent_axes, backend=ModbusGantryBackend())
+    return GantryConstruction(
+        axes=axes,
+        concurrent_axes=concurrent_axes,
+        backend=ModbusGantryBackend(owned_axes=owned_axes, home_order=gcfg.axis_order),
+    )
 
 
 def build_fposbapi_gantry(config: dict | str | Path, name: str = "gantry_1") -> GantryConstruction:
@@ -116,7 +131,7 @@ def _build_fposbapi_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
                 index=gcfg.axes_cfg[axis_name]["index"],
                 client=client,
             )
-            for axis_name in gcfg.axis_order
+            for axis_name in gcfg.axes_cfg
         }
         concurrent_axes: AxisMap | None = (
             {axis_name: axes[axis_name] for axis_name in gcfg.concurrent_raw if axis_name in axes}

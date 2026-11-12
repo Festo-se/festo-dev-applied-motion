@@ -19,9 +19,11 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from configurator import RuntimeRegistry
+
 from applied_motion.backends.axis_protocol import Axis
 from applied_motion.backends.gantry_backend import ControllerDiagnostics, GantryBackend
-from applied_motion.gantry_factory import build_gantry_from_config
+from applied_motion.gantry_factory import GantryConstruction
 
 
 logger = logging.getLogger(__name__)
@@ -106,7 +108,29 @@ class Gantry:
         axes: Mapping of axis name → axis instance for all registered axes.
         concurrent_axes: Optional mapping of axes that may move simultaneously.
             When ``None``, no concurrent grouping is applied.
+        registry: Shared lazy configuration runtime, or ``None`` for manual construction.
     """
+
+    def __new__(
+        cls,
+        axes: AxisMap | None = None,
+        concurrent_axes: AxisMap | None = None,
+        *,
+        config: dict | str | Path | None = None,
+        name: str = "gantry_1",
+        _backend: GantryBackend | None = None,
+        registry: RuntimeRegistry | None = None,
+    ) -> "Gantry":
+        """Resolve config-backed construction through the shared runtime."""
+        if config is None and registry is None:
+            return super().__new__(cls)
+        if (axes is not None or _backend is not None) and (config is not None or registry is not None):
+            raise ValueError("Pass either config/registry or axes/concurrent_axes, not both")
+        if registry is not None and config is not None:
+            raise ValueError("Pass either config or an existing registry, not both")
+        options = {"run_referencing": run_referencing} if run_referencing is not None else None
+        runtime = registry if registry is not None else RuntimeRegistry(config, options=options)
+        return runtime.resolve(name, "gantry")
 
     def __init__(
         self,
@@ -116,6 +140,7 @@ class Gantry:
         config: dict | str | Path | None = None,
         name: str = "gantry_1",
         _backend: GantryBackend | None = None,
+        registry: RuntimeRegistry | None = None,
     ) -> None:
         """Initialise the gantry with the provided axis mapping.
 
@@ -138,14 +163,16 @@ class Gantry:
             name: Gantry component name to load from ``config``.
             _backend: Internal backend strategy object that owns backend-
                 specific gantry behavior.
+            registry: Existing shared runtime to join instead of loading a new source.
+            run_referencing: Optional runtime override applied to all configured axes.
         """
+        if getattr(self, "_runtime_registry", None) is not None:
+            return
         if config is not None:
             if axes is not None or concurrent_axes is not None or _backend is not None:
                 raise ValueError("Pass either config or axes/concurrent_axes, not both")
-            build = build_gantry_from_config(config, name)
-            axes = build.axes
-            concurrent_axes = build.concurrent_axes
-            _backend = build.backend
+        if registry is not None:
+            raise RuntimeError("Registry-backed construction must be resolved by Gantry.__new__")
 
         if axes is None:
             raise ValueError("axes must be provided when config is not supplied")
@@ -153,9 +180,26 @@ class Gantry:
         self.axes = axes
         self.concurrent_axes = concurrent_axes
         self._backend = _backend
+        self.registry = None
+        self._runtime_registry = None
+        self._registry_owner = False
+        self._closed = False
         logger.info("Gantry: initialized with axes=%s", list(axes.keys()))
         if concurrent_axes:
             logger.debug("Gantry: concurrent axes=%s", list(concurrent_axes.keys()))
+
+    @classmethod
+    def _from_construction(cls, construction: GantryConstruction, registry: RuntimeRegistry) -> "Gantry":
+        """Wrap one package-built construction in the public runtime facade."""
+        instance = object.__new__(cls)
+        instance.axes = construction.axes
+        instance.concurrent_axes = construction.concurrent_axes
+        instance._backend = construction.backend
+        instance.registry = registry
+        instance._runtime_registry = registry
+        instance._registry_owner = False
+        instance._closed = False
+        return instance
 
     @classmethod
     def from_config(cls, config: dict | str | Path, name: str = "gantry_1") -> "Gantry":
@@ -510,8 +554,11 @@ class Gantry:
         For the **FPosBAPI backend**, sends a single ``HOME`` command to the
         CECC-X PLC which homes all axes in a coordinated sequence.
 
-        For the **Modbus backend**, iterates over every axis in insertion
-        order and calls [`Axis.home`][applied_motion.backends.axis_protocol.Axis.home] on each one sequentially.
+        For a configured **Modbus backend**, homes axes in the optional
+        ``axis_order`` preference, then homes any unlisted axes in mapping
+        order. Manually injected axes are homed in mapping order. For both
+        paths, [`Axis.home`][applied_motion.backends.axis_protocol.Axis.home]
+        is called sequentially.
         """
         if self._backend is None:
             for axis in self.axes.values():
@@ -525,6 +572,16 @@ class Gantry:
 
         Safe to call multiple times.
         """
+        if self._runtime_registry is not None:
+            self._runtime_registry.close()
+            return
+        self._close_backend()
+
+    def _close_backend(self) -> None:
+        """Close the backend without recursively closing the shared runtime."""
+        if self._closed:
+            return
+        self._closed = True
         if self._backend is not None:
             self._backend.close()
 
