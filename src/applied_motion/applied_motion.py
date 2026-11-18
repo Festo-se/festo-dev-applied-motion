@@ -19,7 +19,7 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from configurator import RuntimeRegistry
+from configurator import BuilderError, RuntimeRegistry, ValidationError
 
 from applied_motion.backends.axis_protocol import Axis
 from applied_motion.backends.gantry_backend import ControllerDiagnostics, GantryBackend
@@ -120,17 +120,26 @@ class Gantry:
         name: str = "gantry_1",
         _backend: GantryBackend | None = None,
         registry: RuntimeRegistry | None = None,
+        run_referencing: bool | None = None,
     ) -> "Gantry":
         """Resolve config-backed construction through the shared runtime."""
         if config is None and registry is None:
             return super().__new__(cls)
         if (axes is not None or _backend is not None) and (config is not None or registry is not None):
-            raise ValueError("Pass either config/registry or axes/concurrent_axes, not both")
-        if registry is not None and config is not None:
-            raise ValueError("Pass either config or an existing registry, not both")
+            raise ValueError("Pass either config or axes/concurrent_axes, not both")
         options = {"run_referencing": run_referencing} if run_referencing is not None else None
-        runtime = registry if registry is not None else RuntimeRegistry(config, options=options)
-        return runtime.resolve(name, "gantry")
+        if registry is None:
+            if config is None:
+                raise ValueError("config must be provided when no shared registry is supplied")
+            runtime = RuntimeRegistry(config, options=options)
+        else:
+            runtime = registry
+        try:
+            return runtime.resolve(name, "gantry", source=config, options=options)
+        except (BuilderError, ValidationError) as exc:
+            if isinstance(exc.cause, ValueError):
+                raise exc.cause from exc
+            raise
 
     def __init__(
         self,
@@ -141,6 +150,7 @@ class Gantry:
         name: str = "gantry_1",
         _backend: GantryBackend | None = None,
         registry: RuntimeRegistry | None = None,
+        run_referencing: bool | None = None,
     ) -> None:
         """Initialise the gantry with the provided axis mapping.
 
@@ -163,8 +173,13 @@ class Gantry:
             name: Gantry component name to load from ``config``.
             _backend: Internal backend strategy object that owns backend-
                 specific gantry behavior.
-            registry: Existing shared runtime to join instead of loading a new source.
-            run_referencing: Optional runtime override applied to all configured axes.
+            registry: Optional existing shared runtime to join. When provided,
+                ``config`` is attached as an additional source when supplied.
+            run_referencing: When ``True``, automatically home once after
+                storing manually supplied axes and backend. For configured
+                gantries, this is an explicit override applied by the
+                configuration adapter; ``False`` and ``None`` do not trigger
+                manual construction homing.
         """
         if getattr(self, "_runtime_registry", None) is not None:
             return
@@ -187,6 +202,8 @@ class Gantry:
         logger.info("Gantry: initialized with axes=%s", list(axes.keys()))
         if concurrent_axes:
             logger.debug("Gantry: concurrent axes=%s", list(concurrent_axes.keys()))
+        if run_referencing is True:
+            self.home()
 
     @classmethod
     def _from_construction(cls, construction: GantryConstruction, registry: RuntimeRegistry) -> "Gantry":
@@ -202,17 +219,25 @@ class Gantry:
         return instance
 
     @classmethod
-    def from_config(cls, config: dict | str | Path, name: str = "gantry_1") -> "Gantry":
+    def from_config(
+        cls,
+        config: dict | str | Path,
+        name: str = "gantry_1",
+        registry: RuntimeRegistry | None = None,
+        run_referencing: bool | None = None,
+    ) -> "Gantry":
         """Instantiate a [`Gantry`][applied_motion.applied_motion.Gantry] from a configuration dict or JSON file.
 
         Args:
             config: Parsed configuration mapping or JSON file path.
             name: Component name to load from config.
+            registry: Optional shared runtime to join.
+            run_referencing: Optional override applied to all configured axes.
 
         Returns:
             Initialised [`Gantry`][applied_motion.applied_motion.Gantry] instance.
         """
-        return cls(config=config, name=name)
+        return cls(config=config, name=name, registry=registry, run_referencing=run_referencing)
 
     def __repr__(self) -> str:
         """Return an unambiguous string representation of the gantry."""
@@ -570,10 +595,13 @@ class Gantry:
     def close(self) -> None:
         """Close backend-owned resources.
 
-        Safe to call multiple times.
+        Safe to call multiple times. Only the object that first created the
+        shared runtime closes the entire session; joined components leave it
+        open for their owner.
         """
         if self._runtime_registry is not None:
-            self._runtime_registry.close()
+            if self._registry_owner:
+                self._runtime_registry.close()
             return
         self._close_backend()
 

@@ -65,6 +65,8 @@ def build_gantry_from_view(
         construction = _build_modbus_from_gcfg(gantry_config)
     elif gantry_config.backend == "fposbapi":
         construction = _build_fposbapi_from_gcfg(gantry_config)
+        if options is not None and options.get("run_referencing") is True:
+            construction.backend.home(construction.axes)
     else:
         raise ValueError(f"Unsupported backend: {gantry_config.backend!r}")
     if runtime is None:

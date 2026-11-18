@@ -342,6 +342,51 @@ class TestFromConfigModbus:
         axis_x.close.assert_called_once_with()
         axis_y.close.assert_called_once_with()
 
+    def test_config_backed_gantry_joins_runtime_without_closing_session(self, mocker):
+        axis_x = MagicMock(spec=EdconAxis)
+        axis_y = MagicMock(spec=EdconAxis)
+        axis_z = MagicMock(spec=EdconAxis)
+        mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True, side_effect=[axis_x, axis_y, axis_z])
+        first = Gantry(config=_MODBUS_CONFIG)
+        second_config = {
+            "components": {
+                "gantry_2": {
+                    "backend": "modbus",
+                    "axes": {"Y": {"name": "Y", "ip": "192.168.0.201"}},
+                }
+            }
+        }
+
+        joined = Gantry(config=second_config, name="gantry_2", registry=first.registry)
+
+        assert joined.registry is first.registry
+        assert joined._registry_owner is False
+        joined.close()
+        assert first.registry.closed is False
+        first.close()
+        assert first.registry.closed is True
+        axis_x.close.assert_called_once_with()
+        axis_y.close.assert_called_once_with()
+        axis_z.close.assert_called_once_with()
+
+    def test_run_referencing_override_is_forwarded_to_runtime_builder(self, mocker):
+        mock_axis = MagicMock(spec=EdconAxis)
+        axis_factory = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True, return_value=mock_axis)
+
+        gantry = Gantry.from_config(_MODBUS_CONFIG, run_referencing=False)
+
+        assert axis_factory.call_args.kwargs["run_referencing"] is False
+        gantry.close()
+
+    def test_configured_modbus_true_override_does_not_home_gantry_again(self, mocker):
+        backend = MagicMock()
+        construction = GantryConstruction(axes={"X": MagicMock(spec=EdconAxis)}, concurrent_axes=None, backend=backend)
+        mocker.patch("applied_motion.configurator_adapter._build_modbus_from_gcfg", return_value=construction)
+
+        Gantry.from_config(_MODBUS_CONFIG, run_referencing=True)
+
+        backend.home.assert_not_called()
+
     def test_injected_axes_are_closed_only_when_explicitly_owned(self):
         axis = MagicMock(spec=EdconAxis)
         unowned = Gantry(axes={"X": axis}, _backend=ModbusGantryBackend())
@@ -404,6 +449,16 @@ class TestFromConfigFPosBAPI:
         assert list(g.axes.keys()) == ["X", "Y", "Z"]
         assert g.supports_teach() is True
         mock_client.send_command.assert_any_call("ENABLE")
+        assert not any(call.args == ("HOME",) for call in mock_client.send_command.call_args_list)
+
+    def test_explicit_true_override_sends_one_fposbapi_home(self, patched_fposbapi_client):
+        _, mock_client = patched_fposbapi_client
+
+        g = Gantry.from_config(_FPOSBAPI_CONFIG, run_referencing=True)
+
+        home_calls = [call for call in mock_client.send_command.call_args_list if call.args == ("HOME",)]
+        assert len(home_calls) == 1
+        g.close()
 
     def test_creates_fposbapi_client_with_correct_ip(self, patched_fposbapi_client):
         mock_cls, _ = patched_fposbapi_client

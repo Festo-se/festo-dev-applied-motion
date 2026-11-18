@@ -87,6 +87,30 @@ class TestGantryInit:
         g = Gantry(axes={})
         assert g.axes == {}
 
+    @pytest.mark.parametrize("run_referencing", [False, None])
+    def test_manual_construction_does_not_home_when_referencing_is_disabled_or_unset(self, run_referencing):
+        axis = _make_stub_axis("X")
+
+        Gantry(axes={"X": axis}, run_referencing=run_referencing)
+
+        axis.home.assert_not_called()
+
+    def test_manual_construction_homes_once_when_referencing_is_true(self):
+        axis = _make_stub_axis("X")
+
+        Gantry(axes={"X": axis}, run_referencing=True)
+
+        axis.home.assert_called_once_with()
+
+    def test_manual_construction_true_dispatches_once_through_backend(self):
+        axis = _make_stub_axis("X")
+        axes = {"X": axis}
+        backend = MagicMock()
+
+        Gantry(axes=axes, _backend=backend, run_referencing=True)
+
+        backend.home.assert_called_once_with(axes)
+        axis.home.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
