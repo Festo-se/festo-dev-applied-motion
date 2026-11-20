@@ -13,18 +13,11 @@ from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
 from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend, GantryBackend, ModbusGantryBackend
-from applied_motion.config import GantryConfig, SystemConfig
+from applied_motion.config import GantryConfig
 
 
 AxisMap = dict[str, Axis]
 logger = logging.getLogger(__name__)
-
-
-def _coerce_config_source(config: dict | str | Path) -> dict | Path:
-    """Normalize config source to dict or Path."""
-    if isinstance(config, str):
-        return Path(config)
-    return config
 
 
 @dataclass(frozen=True)
@@ -56,7 +49,7 @@ class GantryConstruction:
 
 
 def build_modbus_gantry(config: dict | str | Path, name: str = "gantry_1") -> GantryConstruction:
-    """Build Modbus gantry axes and backend from config.
+    """Build a Modbus gantry through the configurator runtime.
 
     Args:
         config: Parsed config mapping or JSON file path.
@@ -65,8 +58,11 @@ def build_modbus_gantry(config: dict | str | Path, name: str = "gantry_1") -> Ga
     Returns:
         Gantry construction bundle for Modbus backend.
     """
-    gcfg = GantryConfig(SystemConfig(_coerce_config_source(config))(), name)
-    return _build_modbus_from_gcfg(gcfg)
+    construction = build_gantry_from_config(config, name)
+    if not isinstance(construction.backend, ModbusGantryBackend):
+        construction.close()
+        raise ValueError("Configured gantry backend is not Modbus")
+    return construction
 
 
 def _build_modbus_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
@@ -102,7 +98,7 @@ def _build_modbus_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
 
 
 def build_fposbapi_gantry(config: dict | str | Path, name: str = "gantry_1") -> GantryConstruction:
-    """Build FPosBAPI gantry axes and backend from config.
+    """Build an FPosBAPI gantry through the configurator runtime.
 
     Args:
         config: Parsed config mapping or JSON file path.
@@ -111,8 +107,11 @@ def build_fposbapi_gantry(config: dict | str | Path, name: str = "gantry_1") -> 
     Returns:
         Gantry construction bundle for FPosBAPI backend.
     """
-    gcfg = GantryConfig(SystemConfig(_coerce_config_source(config))(), name)
-    return _build_fposbapi_from_gcfg(gcfg)
+    construction = build_gantry_from_config(config, name)
+    if not isinstance(construction.backend, FPosBAPIGantryBackend):
+        construction.close()
+        raise ValueError("Configured gantry backend is not FPosBAPI")
+    return construction
 
 
 def _build_fposbapi_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
