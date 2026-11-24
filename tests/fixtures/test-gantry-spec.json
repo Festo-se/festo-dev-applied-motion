@@ -1,6 +1,6 @@
 {
     "_comment": "Festo component control config. General config covering fluid control and motion.",
-    "spec_version": "3.0",
+    "spec_version": "4.0",
     "system_config": {
         "metadata": {}
     },
@@ -9,7 +9,7 @@
         "components": {
             "gantry_1": {
                 "_comment": "Canonical instantiation parameters for EdconAxis and Gantry in the 8 channel pipettor + CMMT  configuration. IPs and axis names sourced from festo-dev-fluid-control/????-config.json.",
-                "component_spec_version": "2.0",
+                "component_spec_version": "3.0",
                 "component_class": "gantry",
                 "backend": "modbus",
                 "uuid": "0000-000000000-000000-000",

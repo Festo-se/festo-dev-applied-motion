@@ -26,6 +26,9 @@ from applied_motion.gantry_factory import (
     _build_modbus_from_gcfg,
 )
 
+_SUPPORTED_ROOT_SPEC_VERSION = "4.0"
+_SUPPORTED_COMPONENT_SPEC_VERSION = "3.0"
+
 
 def build_gantry_from_view(
     view: ComponentView,
@@ -87,11 +90,19 @@ def validate_gantry_view(
         options: Optional application-level build options.
 
     Raises:
-        ValueError: If the selected component does not satisfy the existing
-            applied-motion configuration contract.
+        ValueError: If the selected component has an unsupported version or
+            does not satisfy the applied-motion configuration contract.
     """
     if view.component_type != "gantry":
         raise ValueError(f"Expected a gantry component, got {view.component_type!r}")
+    root_version = view.root.get("spec_version")
+    if root_version != _SUPPORTED_ROOT_SPEC_VERSION:
+        raise ValueError(f"Unsupported spec_version: {root_version}. Expected {_SUPPORTED_ROOT_SPEC_VERSION}")
+    component_version = view.data.get("component_spec_version")
+    if component_version != _SUPPORTED_COMPONENT_SPEC_VERSION:
+        raise ValueError(
+            f"Unsupported component_spec_version: {component_version}. Expected {_SUPPORTED_COMPONENT_SPEC_VERSION}"
+        )
     GantryConfig(_adapt_gantry_source(view, options), view.name)
 
 
@@ -135,6 +146,7 @@ def gantry_registration() -> Registration:
     return Registration(
         name="gantry",
         component_type="gantry",
+        schema_versions=frozenset({_SUPPORTED_COMPONENT_SPEC_VERSION}),
         builder=build_gantry_from_view,
         validator=validate_gantry_view,
         cleanup=close_gantry_construction,
