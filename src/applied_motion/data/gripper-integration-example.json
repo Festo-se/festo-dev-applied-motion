@@ -1,6 +1,6 @@
 {
     "_comment": "Festo applied-motion system config with integrated gripper. Spec 3.0. Gripper mounted on gantry Z-axis for tool-changing.",
-    "spec_version": "3.0",
+    "spec_version": "4.0",
     "system_config": {
         "metadata": {}
     },
@@ -9,7 +9,7 @@
         "components": {
             "gantry_1": {
                 "_comment": "3-axis gantry (X, Y, Z). Z-axis carries gripper for tool changing.",
-                "component_spec_version": "2.0",
+                "component_spec_version": "3.0",
                 "component_class": "gantry",
                 "control_mode": "python",
                 "backend": "fposbapi",

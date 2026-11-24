@@ -1,6 +1,6 @@
 {
     "_comment": "Festo component control config. General config covering fluid control and motion.",
-    "spec_version": "3.0",
+    "spec_version": "4.0",
     "system_config": {
         "metadata": {}
     },
@@ -9,6 +9,7 @@
         "components": {
             "gantry_1": {
                 "_comment": "FPosBAPI backend test fixture for Gantry. Targets a CECC-X PLC running the FPosBAPI CoDeSys server.",
+                "component_spec_version": "3.0",
                 "control_mode": "python",
                 "motion_control": {
                     "_comment": "TODO: unify control scheme under this config spec",

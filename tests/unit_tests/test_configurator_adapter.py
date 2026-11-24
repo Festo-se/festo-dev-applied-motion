@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Unit tests for the applied-motion configurator registration adapter."""
 
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,7 +18,11 @@ from applied_motion.configurator_adapter import (
 from applied_motion.gantry_factory import GantryConstruction
 
 
-def _view(component_type: str = "gantry") -> ComponentView:
+def _view(
+    component_type: str = "gantry",
+    root_version: str | None = "4.0",
+    component_version: str | None = "3.0",
+) -> ComponentView:
     component = {
         "component_type": component_type,
         "backend": "modbus",
@@ -25,7 +30,11 @@ def _view(component_type: str = "gantry") -> ComponentView:
         "axis_order": ["X"],
         "concurrent_axes": None,
     }
-    root = {"components": {"gantry_1": component}}
+    if component_version is not None:
+        component["component_spec_version"] = component_version
+    root: dict[str, Any] = {"components": {"gantry_1": component}}
+    if root_version is not None:
+        root["spec_version"] = root_version
     return ComponentView("gantry_1", component_type, component, root, "components.gantry_1", root["components"])
 
 
@@ -43,10 +52,11 @@ def test_build_gantry_from_view_reuses_modbus_factory(mocker):
 def test_legacy_axis_mapping_gets_identity_and_runtime_referencing_override(mocker):
     component = {
         "component_type": "gantry",
+        "component_spec_version": "3.0",
         "backend": "modbus",
         "axes": {"ZP": {"ip": "192.168.0.103"}},
     }
-    root = {"components": {"gantry_1": component}}
+    root = {"spec_version": "4.0", "components": {"gantry_1": component}}
     view = ComponentView("gantry_1", "gantry", component, root, "components.gantry_1", root["components"])
     factory = mocker.patch(
         "applied_motion.configurator_adapter._build_modbus_from_gcfg", return_value=MagicMock(spec=GantryConstruction)
@@ -72,8 +82,10 @@ def test_build_gantry_from_config_bootstraps_legacy_component(mocker):
 @pytest.mark.parametrize("backend", ["can_bus", "opc_ua"])
 def test_legacy_config_delegate_preserves_unsupported_backend_value_error(backend):
     source = {
+        "spec_version": "4.0",
         "components": {
             "gantry_1": {
+                "component_spec_version": "3.0",
                 "backend": backend,
                 "axes": {"X": {"name": "X", "ip": "192.168.0.100"}},
             }
@@ -97,10 +109,23 @@ def test_gantry_registration_binds_gantry_builder():
     assert registration.builder is build_gantry_from_view
     assert registration.cleanup is close_gantry_construction
     assert registration.validator is validate_gantry_view
+    assert registration.schema_versions == frozenset({"3.0"})
 
 
 def test_gantry_registration_validates_without_opening_backend():
     assert validate_gantry_view(_view()) is None
+
+
+@pytest.mark.parametrize("root_version", [None, "3.0", "5.0"])
+def test_gantry_validator_rejects_unsupported_root_version(root_version):
+    with pytest.raises(ValueError, match="Unsupported spec_version"):
+        validate_gantry_view(_view(root_version=root_version))
+
+
+@pytest.mark.parametrize("component_version", [None, "2.0"])
+def test_gantry_validator_rejects_missing_or_unsupported_component_version(component_version):
+    with pytest.raises(ValueError, match="Unsupported component_spec_version"):
+        validate_gantry_view(_view(component_version=component_version))
 
 
 def test_gantry_construction_closes_backend_once():

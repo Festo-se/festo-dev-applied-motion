@@ -43,12 +43,13 @@ from applied_motion.config import GantryConfig, SystemConfig
 # ---------------------------------------------------------------------------
 
 _MODBUS_CONFIG = {
-    "spec_version": "3.0",
+    "spec_version": "4.0",
     "system_config": {"metadata": {}},
     "component_config": {
         "metadata": {},
         "components": {
             "gantry_1": {
+                "component_spec_version": "3.0",
                 "backend": "modbus",
                 "axes": {
                     "X": {"name": "X", "ip": "192.168.0.193"},
@@ -64,7 +65,7 @@ _MODBUS_CONFIG = {
 _FPOSBAPI_CONFIG = {
     
     "_comment": "Festo component control config. General config covering fluid control and motion.",
-    "spec_version": "3.0",
+    "spec_version": "4.0",
     "system_config": {
         "metadata": {}
     },
@@ -73,6 +74,7 @@ _FPOSBAPI_CONFIG = {
         "components": 
             {"gantry_1": {
                 "_comment": "FPosBAPI backend test fixture for Gantry. Targets a CECC-X PLC running the FPosBAPI CoDeSys server.",
+                "component_spec_version": "3.0",
                 "control_mode": "python",
                 "motion_control": {
                     "_comment": "TODO: unify control scheme under this config spec",
@@ -285,12 +287,13 @@ class TestFromConfigModbus:
     def test_no_backend_key_defaults_to_modbus(self, patched_festo_axis):
         """Config without a backend key defaults to modbus."""
         config = {
-            "spec_version": "3.0",
+            "spec_version": "4.0",
             "system_config": {"metadata": {}},
             "component_config": {
                 "metadata": {},
                 "components": {
                     "gantry_1": {
+                        "component_spec_version": "3.0",
                         "axes": {"X": {"name": "X", "ip": "192.168.0.193"}},
                         "axis_order": ["X"],
                         "concurrent_axes": None,
