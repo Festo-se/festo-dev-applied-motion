@@ -3,7 +3,7 @@
 
 """Explicit linear EDCON axis implementation."""
 
-from applied_motion.backends.edcon_axis import EdconAxis
+from .edcon_axis import EdconAxis
 
 
 class LinearAxis(EdconAxis):

@@ -811,6 +811,14 @@ class Gantry:
         """
         return all(axis.stopped() for axis in self.axes.values())
 
+    def is_homed(self) -> bool:
+        """Return whether every registered axis currently reports homed.
+
+        Returns:
+            ``True`` if all axes report homed; ``False`` if any axis does not.
+        """
+        return all(axis.is_homed() for axis in self.axes.values())
+
     def is_ready_for_motion(self) -> bool:
         """Return True when every registered axis is ready to accept a move command.
 

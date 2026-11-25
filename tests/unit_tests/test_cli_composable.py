@@ -152,6 +152,12 @@ class TestNativeJogLadders:
 
         assert step_indices == {"X": 5, "R": 3}
 
+        step_indices = {"X": 0, "R": 0}
+
+        cli._adjust_step_indices(axes, step_indices, -1)
+
+        assert step_indices == {"X": 0, "R": 0}
+
     def test_tui_jogs_each_axis_using_its_own_step(self, monkeypatch):
         from unittest.mock import MagicMock
 

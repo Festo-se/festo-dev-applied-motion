@@ -106,6 +106,19 @@ class TestJog:
 
         assert gantry.axes["X"].move.call_args.args[0] == pytest.approx(2.0)
 
+    def test_rotary_positional_jog_preserves_native_step_velocity_and_timeout(self):
+        gantry = _make_gantry(axis_names=["R"], current_positions={"R": 10.0})
+        gantry.axes["R"].position_unit = "degrees"
+        gantry.axes["R"].velocity_unit = "degrees/s"
+        session = MotionSession(gantry)
+
+        session.jog("R", "+", 0.5, 25.0, 5)
+
+        args, kwargs = gantry.axes["R"].move.call_args
+        assert args == (0.5, 25.0)
+        assert kwargs["timeout"] == 5
+        assert kwargs["position_type"] == "relative"
+
     def test_step_mm_alias_remains_supported_for_linear_axis(self):
         gantry = _make_gantry(axis_names=["X"])
         session = MotionSession(gantry)
@@ -443,6 +456,36 @@ class TestSaveLoad:
 
         with pytest.raises(ValueError, match="schema_version"):
             session.load(path)
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            [],
+            {"schema_version": 2, "axis_units": {}, "positions": {}, "extra": True},
+            {"schema_version": 2, "axis_units": {}},
+            {"schema_version": 2, "axis_units": [], "positions": {}},
+            {
+                "schema_version": 2,
+                "axis_units": {"X": {"position_unit": "mm", "velocity_unit": "mm/s"}},
+                "positions": [],
+            },
+            {
+                "schema_version": 2,
+                "axis_units": {"X": {"position_unit": "mm"}},
+                "positions": {"home": {"X": 1.0}},
+            },
+        ],
+    )
+    def test_load_rejects_malformed_capture_structure_without_partial_merge(self, tmp_path, payload):
+        path = tmp_path / "malformed.json"
+        path.write_text(json.dumps(payload))
+        session = MotionSession(_make_gantry(axis_names=["X"]))
+        session.positions = {"existing": {"X": 2.0}}
+
+        with pytest.raises(ValueError):
+            session.load(path)
+
+        assert session.positions == {"existing": {"X": 2.0}}
 
     @pytest.mark.parametrize("value", [True, nan, inf, -inf])
     def test_load_rejects_non_numeric_or_non_finite_v2_positions(self, tmp_path, value):

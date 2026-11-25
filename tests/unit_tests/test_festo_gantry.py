@@ -28,8 +28,8 @@ from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend
 from applied_motion.backends.axis_protocol import Axis
 from applied_motion.applied_motion import AxisNotFoundError, Gantry, MovementError
 from applied_motion.backends.edcon_axis import EdconAxis
-from applied_motion.backends.linear_axis import LinearAxis
-from applied_motion.backends.rotary_axis import RotaryAxis
+from applied_motion import LinearAxis
+from applied_motion import RotaryAxis
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +126,33 @@ class TestGantryHome:
         gantry_mock.home()
         for axis in gantry_mock._stub_axes.values():
             axis.home.assert_called_once()
+
+
+class TestGantryIsHomed:
+    def test_is_homed_true_when_all_axes_are_homed(self):
+        axes = {name: _make_stub_axis(name) for name in ("X", "Y")}
+        gantry = Gantry(axes=axes)
+
+        assert gantry.is_homed() is True
+        for axis in axes.values():
+            axis.is_homed.assert_called_once_with()
+
+    def test_is_homed_false_when_any_axis_is_not_homed(self):
+        axis_x = _make_stub_axis("X")
+        axis_y = _make_stub_axis("Y")
+        axis_y.is_homed.return_value = False
+        gantry = Gantry(axes={"X": axis_x, "Y": axis_y})
+
+        assert gantry.is_homed() is False
+
+    def test_is_homed_queries_current_axis_state_each_call(self):
+        axis = _make_stub_axis("X")
+        axis.is_homed.side_effect = [False, True]
+        gantry = Gantry(axes={"X": axis})
+
+        assert gantry.is_homed() is False
+        assert gantry.is_homed() is True
+        assert axis.is_homed.call_count == 2
 
     def test_home_called_on_all_axes_even_with_many(self):
         axes = {name: _make_stub_axis(name) for name in ["X", "Y", "Z", "W"]}

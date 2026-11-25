@@ -6,10 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from edcon.edrive.motion_handler import MotionHandler
 
-from applied_motion.backends.edcon_axis import EdconAxis
-from applied_motion.backends.linear_axis import LinearAxis
-from applied_motion.backends.rotary_axis import RotaryAxis
-
+from applied_motion import EdconAxis, LinearAxis, RotaryAxis
 _DEFAULT_PNUS = {
     832: 0,
     833: 1_000_000,
