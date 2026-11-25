@@ -32,6 +32,8 @@ SOFTWARE."""
 __all__ = [
     "Gantry",
     "EdconAxis",
+    "LinearAxis",
+    "RotaryAxis",
     "MovementError",
     "AxisNotFoundError",
     "Axis",
@@ -41,4 +43,12 @@ __all__ = [
 ]
 
 from applied_motion.applied_motion import Gantry, MovementError, AxisNotFoundError
-from applied_motion.backends import Axis, FPosBAPIClient, FPosBAPIClientError, FPosBAxis, EdconAxis
+from applied_motion.backends import (
+    Axis,
+    EdconAxis,
+    FPosBAxis,
+    FPosBAPIClient,
+    FPosBAPIClientError,
+    LinearAxis,
+    RotaryAxis,
+)

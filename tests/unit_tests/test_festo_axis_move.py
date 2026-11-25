@@ -12,7 +12,7 @@ Coverage areas
 
   - Normal path: position and velocity are validated, overshoot is
     clamped, and the result of ``position_task`` is returned.
-  - Fallback values when ``_valid_position`` or ``_valid_velocity`` raise.
+    - Conversion failures abort without issuing a position task.
   - Absolute vs relative positioning controlled by the
     ``position_type`` kwarg.
   - Timeout path: a worker thread is launched, joined with the supplied
@@ -184,6 +184,23 @@ class TestEdconAxisMoveNoTimeout:
         axis.move(position=5_000, velocity=100)
         axis.stop_motion_task.assert_not_called()
 
+    def test_position_conversion_failure_aborts_without_sentinel_command(self):
+        axis = _make_move_axis()
+        axis._valid_position = MagicMock(side_effect=ValueError("bad position scale"))
+
+        with pytest.raises(ValueError, match="bad position scale"):
+            axis.move(position=50, velocity=100)
+
+        axis.position_task.assert_not_called()
+
+    def test_velocity_conversion_failure_aborts_without_sentinel_command(self):
+        axis = _make_move_axis()
+        axis._valid_velocity = MagicMock(side_effect=ValueError("bad velocity scale"))
+
+        with pytest.raises(ValueError, match="bad velocity scale"):
+            axis.move(position=50, velocity=100)
+
+        axis.position_task.assert_not_called()
 
 # ---------------------------------------------------------------------------
 # EdconAxis.move() — timeout path

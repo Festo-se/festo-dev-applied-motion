@@ -12,6 +12,8 @@ from applied_motion.backends.axis_protocol import Axis
 from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
+from applied_motion.backends.linear_axis import LinearAxis
+from applied_motion.backends.rotary_axis import RotaryAxis
 from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend, GantryBackend, ModbusGantryBackend
 from applied_motion.config import GantryConfig
 
@@ -70,7 +72,9 @@ def _build_modbus_from_gcfg(gcfg: GantryConfig) -> GantryConstruction:
     owned_axes: list[EdconAxis] = []
     try:
         for axis_name, axis_config in gcfg.axes_cfg.items():
-            axis = EdconAxis(
+            axis_type = axis_config.get("type", "linear")
+            axis_class = LinearAxis if axis_type == "linear" else RotaryAxis
+            axis = axis_class(
                 name=axis_config["name"],
                 ip=axis_config["ip"],
                 run_referencing=axis_config.get("run_referencing", True),

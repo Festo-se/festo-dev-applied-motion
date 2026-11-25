@@ -20,7 +20,7 @@ with the FPosBAPI backend instead.
 """
 
 import logging
-from math import inf
+from math import inf, isnan
 
 from threading import Thread
 
@@ -47,16 +47,16 @@ class EdconAxis(MotionHandler):
     """Modbus TCP axis: direct festo-edcon ``MotionHandler`` connection to one drive.
 
     Wraps low-level Modbus communication and position/velocity unit conversion
-    behind a millimetre-based public API.  All position values accepted and
-    returned by the public methods use **millimetres (mm)** as their unit.
+    behind a linear millimetre-based API. Subclasses can supply alternate
+    coordinate conversions while reusing the connection and motion lifecycle.
 
     Attributes:
         name: Human-readable label for this axis (e.g. ``"X"``).
         ip: IPv4 address of the drive's Modbus TCP endpoint.
         com: Active `ComModbus` connection.
         max_speed: Maximum achievable speed in drive velocity units.
-        max_position: Maximum achievable position in mm.
-        min_position: Minimum achievable position in mm.
+        max_position: Maximum achievable position in the axis's public unit.
+        min_position: Minimum achievable position in the axis's public unit.
     """
 
     max_position: float
@@ -67,6 +67,15 @@ class EdconAxis(MotionHandler):
     min_position_fas_units: int
     max_velocity_fas_units: int
     min_velocity_fas_units: int
+
+    _coordinate_kind = "linear"
+    _position_unit_label = "mm"
+    _position_limit_inset = 1.0
+    _default_input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
+    _default_input_vel_unit = {
+        "distance": {"unit": "m", "power": 1, "power_of_ten": -3},
+        "time": {"unit": "s", "power": -1, "power_of_ten": 1},
+    }
 
     def __init__(
         self,
@@ -102,68 +111,89 @@ class EdconAxis(MotionHandler):
         self.name = name
         self.ip = ip
         self._closed = False
-        self._motion_handler_initialized = False
-        self.com = ComModbus(self.ip)
-        super().__init__(self.com)
-        self._motion_handler_initialized = True
-        self.acknowledge_faults()
+        self._power_stage_enable_attempted = False
 
-        self.acknowledge_faults()
-        # self.home()
-        logger.info("Axis '%s': initialized", self.name)
-        self.configure_software_limit_switch(True)
-        logger.info("Axis '%s': software limit switch configured", self.name)
+        try:
+            self.com = ComModbus(self.ip)
+            super().__init__(self.com)
+            self.acknowledge_faults()
+            self.acknowledge_faults()
+            # self.home()
+            logger.info("Axis '%s': initialized", self.name)
+            self.configure_software_limit_switch(True)
+            logger.info("Axis '%s': software limit switch configured", self.name)
 
-        self._neg_sw_limit: int = self.com.read_pnu(834)
-        self._pos_sw_limit: int = self.com.read_pnu(835)
+            self._neg_sw_limit = self.com.read_pnu(834)
+            self._pos_sw_limit = self.com.read_pnu(835)
+            self._min_vel = self.com.read_pnu(11212)
+            self._max_vel = self.com.read_pnu(11213)
+            self._pos_scale_exp = self.com.read_pnu(11724)
+            self._vel_scale_exp = self.com.read_pnu(11725)
 
-        self._min_vel: int = self.com.read_pnu(11212)
-        self._max_vel: int = self.com.read_pnu(11213)
-        self._pos_scale_exp: int = self.com.read_pnu(11724)
-        self._vel_scale_exp: int = self.com.read_pnu(11725)
-        self.input_pos_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
-        self.input_vel_unit = {
-            "distance": {"unit": "m", "power": 1, "power_of_ten": -3},
-            "time": {"unit": "s", "power": -1, "power_of_ten": 1},
-        }
-        self.max_position = -1 + min(
-            max_position,
-            self._valid_position(self._pos_sw_limit, self.input_pos_unit, invert=True),
-        )  # TODO: Fix overshooting following error in drive control
-        self.min_position = 1 + max(
-            min_position,
-            self._valid_position(self._neg_sw_limit, self.input_pos_unit, invert=True),
-        )  # TODO: Fix overshooting following error in drive control
-        self.max_velocity = self._valid_velocity(
-            self._max_vel, self.input_vel_unit, invert=True
-        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
-        self.min_velocity = self._valid_velocity(
-            self._min_vel, self.input_vel_unit, invert=True
-        )  # TODO: Get these from config, compare with SW limits and take most restrictive superset
+            self.input_pos_unit = self._default_input_pos_unit
+            self.input_vel_unit = self._default_input_vel_unit
+            self._read_axis_specific_configuration()
 
-        logger.info(
-            "Axis '%s': SW limits loaded — neg=%s, pos=%s (drive units)",
-            self.name,
-            self._neg_sw_limit,
-            self._pos_sw_limit,
-        )
-        logger.info(
-            "Axis '%s': SW limits loaded — neg=%s, pos=%s (standard units)",
-            self.name,
-            self.min_position,
-            self.max_position,
-        )
+            if isnan(min_position) or isnan(max_position):
+                raise ValueError("Configured position limits cannot be NaN")
 
-        if self.fault_present():
-            logger.warning("Axis '%s': fault present on init", self.name)
-        logger.debug("Axis '%s' fault string: %s", self.name, self.fault_string())
-        logger.debug("Axis '%s' current fault code: %s", self.name, self.current_fault_code())
-        self.acknowledge_faults()
-        self.enable_powerstage()
+            drive_min, drive_max = self._get_drive_position_bounds()
+            effective_min = max(min_position, self._valid_position(drive_min, self.input_pos_unit, invert=True))
+            effective_max = min(max_position, self._valid_position(drive_max, self.input_pos_unit, invert=True))
+            if effective_min > effective_max:
+                raise ValueError("Configured and EDCON drive position limits do not overlap")
+            if effective_min != effective_max:
+                effective_min += self._position_limit_inset
+                effective_max -= self._position_limit_inset
+            if effective_min > effective_max:
+                raise ValueError("Effective position limits are empty after applying the axis inset")
+            self.min_position = effective_min  # TODO: Fix overshooting following error in drive control
+            self.max_position = effective_max
 
-        if run_referencing:
-            logger.info("Axis '%s': referencing requested during initialization", self.name)
-            self.home()
+            self.max_velocity = self._valid_velocity(self._max_vel, self.input_vel_unit, invert=True)
+            self.min_velocity = self._valid_velocity(self._min_vel, self.input_vel_unit, invert=True)
+
+            logger.info(
+                "Axis '%s': SW limits loaded — neg=%s, pos=%s (drive units)",
+                self.name,
+                self._neg_sw_limit,
+                self._pos_sw_limit,
+            )
+            logger.info(
+                "Axis '%s': SW limits loaded — neg=%s, pos=%s (standard units)",
+                self.name,
+                self.min_position,
+                self.max_position,
+            )
+
+            if self.fault_present():
+                logger.warning("Axis '%s': fault present on init", self.name)
+            logger.debug("Axis '%s' fault string: %s", self.name, self.fault_string())
+            logger.debug("Axis '%s' current fault code: %s", self.name, self.current_fault_code())
+            self.acknowledge_faults()
+            self._power_stage_enable_attempted = True
+            self.enable_powerstage()
+
+            if run_referencing:
+                logger.info("Axis '%s': referencing requested during initialization", self.name)
+                self.home()
+        except Exception:
+            try:
+                self.close()
+            except Exception:
+                logger.exception("Axis '%s': cleanup after initialization failure failed", self.name)
+            raise
+
+    def _read_axis_specific_configuration(self) -> None:
+        """Load coordinate-specific drive state before enabling the power stage."""
+
+    def _get_drive_position_bounds(self) -> tuple[int, int]:
+        """Return the drive position bounds in raw EDCON units."""
+        return self._neg_sw_limit, self._pos_sw_limit
+
+    def _read_integer_pnu(self, pnu: int) -> int:
+        """Read an integer PNU value."""
+        return int(self.com.read_pnu(pnu))
 
     def close(self) -> None:
         """Disable the power stage and release this axis's Modbus I/O.
@@ -180,7 +210,7 @@ class EdconAxis(MotionHandler):
         self._closed = True
 
         first_error: Exception | None = None
-        if getattr(self, "_motion_handler_initialized", False):
+        if getattr(self, "_power_stage_enable_attempted", False):
             try:
                 self.disable_powerstage()
             except Exception as exc:
@@ -188,11 +218,11 @@ class EdconAxis(MotionHandler):
                 first_error = exc
 
         com = getattr(self, "com", None)
-        if com is not None:
+        if com is not None and getattr(com, "io_thread", None) is not None:
             try:
                 com.stop_io()
             except Exception as exc:
-                logger.exception("Axis '%s': failed to stop Modbus I/O during close", getattr(self, "name", "unknown"))
+                logger.exception("Axis '%s': failed to stop Modbus I/O during close", self.name)
                 if first_error is None:
                     first_error = exc
 
@@ -229,7 +259,7 @@ class EdconAxis(MotionHandler):
         """
         if not isinstance(other, EdconAxis):
             return False
-        return self.name == other.name and self.ip == other.ip
+        return self._coordinate_kind == other._coordinate_kind and self.name == other.name and self.ip == other.ip
 
     def __hash__(self) -> int:
         """Return a hash derived from the axis identity fields.
@@ -238,7 +268,7 @@ class EdconAxis(MotionHandler):
         equal hashes, making [`EdconAxis`][applied_motion.backends.edcon_axis.EdconAxis] safe to use in sets and
         as dict keys.
         """
-        return hash((self.name, self.ip))
+        return hash((self._coordinate_kind, self.name, self.ip))
 
     # TODO: Use attrs?
     def home(self) -> bool:
@@ -250,6 +280,7 @@ class EdconAxis(MotionHandler):
         """
         logger.info("Axis '%s': starting homing sequence", self.name)
         self.acknowledge_faults()
+        self._power_stage_enable_attempted = True
         self.enable_powerstage()
         res = self.referencing_task(nonblocking=False)
 
@@ -272,35 +303,37 @@ class EdconAxis(MotionHandler):
 
         Returns the raw position value in the drive's **internal unit system**
         (drive units, whose scale is determined by PNU 11724 and varies by
-        firmware/configuration — typically 0.001 mm per unit).  Use
+        firmware/configuration). Use
         [`get_current_axis_position`][applied_motion.backends.edcon_axis.EdconAxis.get_current_axis_position] when you need the position in a
-        consistent, human-readable unit (mm).
+        consistent, human-readable axis unit.
         """
         logger.warning(
             "Axis '%s': current_position() returns a raw drive-unit value — "
             "unit depends on drive configuration (PNU 11724). "
-            "Call get_current_axis_position() for a consistent mm value.",
+            "Call get_current_axis_position() for a consistent %s value.",
             self.name,
+            self._position_unit_label,
         )
         return super().current_position()
 
     @property
     def max_speed(self) -> float:
-        """Return largest allowed speed magnitude for this axis in mm/s.
+        """Return largest allowed speed magnitude for this axis in native units/s.
 
         This derives from configured signed velocity bounds and returns
         absolute maximum magnitude, independent of direction.
 
         Returns:
-            Maximum absolute velocity limit in mm/s.
+            Maximum absolute velocity limit in the axis's native velocity unit.
         """
         return max(abs(self.min_velocity), abs(self.max_velocity))
 
     def get_current_axis_position(self) -> float:
-        """Return the current axis position in the library's canonical output unit (mm).
+        """Return the current axis position in the axis's native output unit.
 
         Reads the raw drive-unit position from ``MotionHandler.current_position``,
-        then converts it to mm via `_valid_position` with ``invert=True``.
+        then converts it to the axis's public unit via
+        ``_valid_position(..., invert=True)``.
         The drive's own PNU-reported position-unit scale is used for the
         conversion, so the result is always consistent regardless of how the
         drive was configured.
@@ -309,8 +342,8 @@ class EdconAxis(MotionHandler):
         use ``super().current_position()`` directly so their drive-unit arithmetic
         is unaffected.
         """
-        _mm_unit = {"distance": {"unit": "m", "power": 1, "power_of_ten": -3}}
-        return self._valid_position(super().current_position(), _mm_unit, invert=True)
+        input_unit = getattr(self, "input_pos_unit", self._default_input_pos_unit)
+        return self._valid_position(super().current_position(), input_unit, invert=True)
 
     def _clamped_target(self, position, positioning_type):
         current = self.get_current_axis_position()
@@ -320,7 +353,7 @@ class EdconAxis(MotionHandler):
         else:
             target = current + position
 
-        # target is in mm here; compare against configured mm limits.
+        # Target and configured limits are in this axis's public unit.
         # if self.min_position <= target <= self.max_position:
         #     return target  # already in range, no change needed
         clamped_target = max(self.min_position, min(self.max_position, target))
@@ -335,9 +368,10 @@ class EdconAxis(MotionHandler):
         """Move the axis to a specified position with a given velocity.
 
         Args:
-            position: Target position in millimetres (mm).  Converted internally
-                to drive units before the motion command is issued.
-            velocity: Move velocity in mm/s.  Converted internally to drive units.
+            position: Target position in the axis's native unit. Converted
+                internally to drive units before the motion command is issued.
+            velocity: Move velocity in the axis's native unit per second.
+                Converted internally to drive units.
             timeout: Optional time limit in seconds for the move.  When provided,
                 the motion is launched in a background thread and a stop command
                 is issued if the thread has not finished by the deadline.  When
@@ -365,19 +399,16 @@ class EdconAxis(MotionHandler):
         )
         positioning_type = pos_type == "absolute"
 
+        if self.min_position == self.max_position:
+            current_position = self.get_current_axis_position()
+            target_position = position if positioning_type else current_position + position
+            # TODO: WARN, THIS IS A WEIRD STATE
+            return target_position == current_position == self.min_position
+
         clamped_position = self._clamped_target(position, positioning_type)
         logger.debug("Axis '%s': processing move — clamped_position=%s", self.name, clamped_position)
-        try:
-            validated_position = int(self._valid_position(clamped_position, self.input_pos_unit))
-        except Exception:
-            logger.exception("Axis '%s': failed to validate position", self.name)
-            validated_position = -5  # TODO: This seems bad and wrong
-
-        try:
-            validated_velocity = int(self._valid_velocity(velocity, self.input_vel_unit))
-        except Exception:
-            logger.exception("Axis '%s': failed to validate velocity", self.name)
-            validated_velocity = 5  # TODO: This seems bad and wrong
+        validated_position = int(self._valid_position(clamped_position, self.input_pos_unit))
+        validated_velocity = int(self._valid_velocity(velocity, self.input_vel_unit))
         logger.debug(
             "Axis '%s': processing move — validated_position=%s  validated_velocity=%s",
             self.name,
@@ -414,6 +445,7 @@ class EdconAxis(MotionHandler):
         # TODO: then move.
         # TODO: Incorporate jog mode into this function?
         self.acknowledge_faults()
+        self._power_stage_enable_attempted = True
         self.enable_powerstage()
         if timeout is None:
             result = self.position_task(
@@ -452,13 +484,12 @@ class EdconAxis(MotionHandler):
         return result
 
     def _check_overshoot(self, validated_position: int, absolute: bool) -> int:
-        """Clamp *validated_position* to the device's stored SW limits.
+        """Clamp *validated_position* to the axis's effective drive limits.
 
-        For absolute moves, clamp directly against
-        ``[_neg_sw_limit, _pos_sw_limit]``.
-        For relative moves, resolve the target against the current position
-        first, then clamp the *delta* so the resulting absolute target stays
-        in range.
+        The public effective limits already combine configured, software, and
+        (for modulo-enabled rotary axes) modulo clipping bounds. For relative
+        moves, resolve the target against the current position first, then
+        clamp the *delta* so the resulting absolute target stays in range.
 
         Args:
             validated_position: Drive-unit position that has already passed
@@ -485,8 +516,9 @@ class EdconAxis(MotionHandler):
 
         if configured_neg_limit <= target <= configured_pos_limit:
             logger.debug(
-                "Axis '%s': clamp diagnostics — configured(mm)=[%s, %s], drive_raw=[%s, %s], target_raw=%s, no clamp applied",
+                "Axis '%s': clamp diagnostics — configured(%s)=[%s, %s], drive_raw=[%s, %s], target_raw=%s, no clamp applied",
                 self.name,
+                self._position_unit_label,
                 self.min_position,
                 self.max_position,
                 self._neg_sw_limit,
@@ -499,16 +531,21 @@ class EdconAxis(MotionHandler):
         scaled_target = self._valid_position(target, self.input_pos_unit, invert=True)
         scaled_clamped_target = self._valid_position(clamped_target, self.input_pos_unit, invert=True)
         logger.warning(
-            "Axis '%s': requested target %s mm is outside configured limits [%s mm, %s mm] — clamping to %s mm",  # TODO: make mm unit here not hard stringed
+            "Axis '%s': requested target %s %s is outside configured limits [%s %s, %s %s] — clamping to %s %s",
             self.name,
             scaled_target,
+            self._position_unit_label,
             self.min_position,
+            self._position_unit_label,
             self.max_position,
+            self._position_unit_label,
             scaled_clamped_target,
+            self._position_unit_label,
         )
         logger.debug(
-            "Axis '%s': clamp diagnostics — configured(mm)=[%s, %s], drive_raw=[%s, %s], target_raw=%s, clamped_raw=%s",
+            "Axis '%s': clamp diagnostics — configured(%s)=[%s, %s], drive_raw=[%s, %s], target_raw=%s, clamped_raw=%s",
             self.name,
+            self._position_unit_label,
             self.min_position,
             self.max_position,
             self._neg_sw_limit,

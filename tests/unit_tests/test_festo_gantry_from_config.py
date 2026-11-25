@@ -35,6 +35,8 @@ from applied_motion.backends.edcon_axis import EdconAxis
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.fposbapi_client import FPosBAPIClient
 from applied_motion.backends.gantry_backend import ModbusGantryBackend
+from applied_motion.backends.linear_axis import LinearAxis
+from applied_motion.backends.rotary_axis import RotaryAxis
 from applied_motion.config import GantryConfig, SystemConfig
 
 
@@ -131,8 +133,8 @@ def _base_modbus_component() -> dict:
 
 @pytest.fixture()
 def patched_festo_axis(mocker):
-    """Patch EdconAxis so its __init__ does not open a Modbus connection."""
-    mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
+    """Patch LinearAxis so its constructor does not open a Modbus connection."""
+    mock_cls = mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True)
     mock_cls.side_effect = lambda name, ip, run_referencing=False, min_position=None, max_position=None: MagicMock(
         spec=EdconAxis, name=name, ip=ip
     )
@@ -163,7 +165,7 @@ class TestFromConfigModbus:
         assert g.supports_teach() is False
 
     def test_modbus_factory_homes_axes_during_construction(self, mocker):
-        mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
+        mock_cls = mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True)
         axis_x = MagicMock(spec=EdconAxis)
         axis_y = MagicMock(spec=EdconAxis)
         mock_cls.side_effect = [axis_x, axis_y]
@@ -173,7 +175,7 @@ class TestFromConfigModbus:
 
         _build_modbus_from_gcfg(gcfg)
 
-        # Verify EdconAxis instantiated with run_referencing=True for each axis
+        # Verify LinearAxis instantiated with run_referencing=True for each axis
         assert mock_cls.call_count == 2
         for call in mock_cls.call_args_list:
             assert call.kwargs.get("run_referencing") is True
@@ -329,7 +331,7 @@ class TestFromConfigModbus:
         assert set(g.concurrent_axes.keys()) == {"Y"}
 
     def test_close_releases_factory_owned_axes_once(self, mocker):
-        mock_cls = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True)
+        mock_cls = mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True)
         axis_x = MagicMock(spec=EdconAxis)
         axis_y = MagicMock(spec=EdconAxis)
         mock_cls.side_effect = [axis_x, axis_y]
@@ -349,7 +351,7 @@ class TestFromConfigModbus:
         axis_x = MagicMock(spec=EdconAxis)
         axis_y = MagicMock(spec=EdconAxis)
         axis_z = MagicMock(spec=EdconAxis)
-        mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True, side_effect=[axis_x, axis_y, axis_z])
+        mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True, side_effect=[axis_x, axis_y, axis_z])
         first = Gantry(config=_MODBUS_CONFIG)
         second_config = {
             "components": {
@@ -374,7 +376,7 @@ class TestFromConfigModbus:
 
     def test_run_referencing_override_is_forwarded_to_runtime_builder(self, mocker):
         mock_axis = MagicMock(spec=EdconAxis)
-        axis_factory = mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True, return_value=mock_axis)
+        axis_factory = mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True, return_value=mock_axis)
 
         gantry = Gantry.from_config(_MODBUS_CONFIG, run_referencing=False)
 
@@ -426,7 +428,7 @@ class TestFromConfigModbus:
     def test_partial_modbus_construction_closes_previously_created_axes(self, mocker):
         axis_x = MagicMock(spec=EdconAxis)
         mocker.patch(
-            "applied_motion.gantry_factory.EdconAxis",
+            "applied_motion.gantry_factory.LinearAxis",
             autospec=True,
             side_effect=[axis_x, RuntimeError("Y connection failed")],
         )
@@ -681,6 +683,98 @@ class TestConfigValidationContracts:
         component["axes"]["X"] = {"name": "X"}
         with pytest.raises(ValueError, match="Modbus axis 'X' must define string field 'ip'"):
             GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+
+    @pytest.mark.parametrize("axis_type", ["linear", "rotary"])
+    def test_modbus_config_accepts_supported_axis_types(self, axis_type):
+        component = _base_modbus_component()
+        component["axes"]["X"]["type"] = axis_type
+
+        config = GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+
+        assert config.axes_cfg["X"]["type"] == axis_type
+
+    def test_modbus_config_rejects_unknown_axis_type(self):
+        component = _base_modbus_component()
+        component["axes"]["X"]["type"] = "circular"
+
+        with pytest.raises(ValueError, match="Modbus axis 'X' has unsupported type 'circular'"):
+            GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+
+    def test_modbus_factory_defaults_missing_axis_type_to_linear(self, mocker):
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        config = GantryConfig(SystemConfig(_MODBUS_CONFIG)(), "gantry_1")
+        linear_factory = mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True)
+        rotary_factory = mocker.patch("applied_motion.gantry_factory.RotaryAxis", autospec=True)
+
+        _build_modbus_from_gcfg(config)
+
+        assert linear_factory.call_count == 2
+        rotary_factory.assert_not_called()
+
+    def test_modbus_factory_dispatches_explicit_axis_types(self, mocker):
+        import copy
+
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        config_source = copy.deepcopy(_MODBUS_CONFIG)
+        axes_config = config_source["component_config"]["components"]["gantry_1"]["axes"]
+        axes_config["X"]["type"] = "linear"
+        axes_config["Y"]["type"] = "rotary"
+        config = GantryConfig(SystemConfig(config_source)(), "gantry_1")
+        linear_factory = mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True)
+        rotary_factory = mocker.patch("applied_motion.gantry_factory.RotaryAxis", autospec=True)
+
+        construction = _build_modbus_from_gcfg(config)
+
+        assert construction.axes["X"] is linear_factory.return_value
+        assert construction.axes["Y"] is rotary_factory.return_value
+        linear_factory.assert_called_once()
+        rotary_factory.assert_called_once()
+
+    @pytest.mark.parametrize("axis_type", ["linear", "rotary"])
+    def test_factory_forwards_homing_override_to_selected_axis(self, mocker, axis_type):
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        component = _base_modbus_component()
+        component["axes"]["X"].update(type=axis_type, run_referencing=False)
+        config = GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+        linear_factory = mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True)
+        rotary_factory = mocker.patch("applied_motion.gantry_factory.RotaryAxis", autospec=True)
+
+        _build_modbus_from_gcfg(config)
+
+        selected_factory = linear_factory if axis_type == "linear" else rotary_factory
+        assert selected_factory.call_args.kwargs["run_referencing"] is False
+
+    def test_partial_mixed_axis_construction_closes_created_linear_axis(self, mocker):
+        from applied_motion.gantry_factory import _build_modbus_from_gcfg
+
+        component = _base_modbus_component()
+        component["axes"]["Y"] = {"name": "Y", "ip": "192.168.0.32", "type": "rotary"}
+        component["axis_order"] = ["X", "Y"]
+        linear_axis = MagicMock(spec=EdconAxis)
+        mocker.patch("applied_motion.gantry_factory.LinearAxis", autospec=True, return_value=linear_axis)
+        mocker.patch(
+            "applied_motion.gantry_factory.RotaryAxis",
+            autospec=True,
+            side_effect=RuntimeError("Y connection failed"),
+        )
+
+        config = GantryConfig({"components": {"gantry_1": component}}, "gantry_1")
+        with pytest.raises(RuntimeError, match="Y connection failed"):
+            _build_modbus_from_gcfg(config)
+
+        linear_axis.close.assert_called_once_with()
+
+    def test_axis_classes_are_exported_from_public_packages(self):
+        import applied_motion
+        import applied_motion.backends as backends
+
+        assert applied_motion.LinearAxis is LinearAxis
+        assert applied_motion.RotaryAxis is RotaryAxis
+        assert backends.LinearAxis is LinearAxis
+        assert backends.RotaryAxis is RotaryAxis
 
 class TestConstructorValidation:
     def test_constructor_rejects_config_plus_manual_axes(self):

@@ -137,6 +137,9 @@ class GantryConfig:
                 raise ValueError(f"Modbus axis {axis_name!r} must define string field 'name'")
             if not isinstance(axis_cfg.get("ip"), str):
                 raise ValueError(f"Modbus axis {axis_name!r} must define string field 'ip'")
+            axis_type = axis_cfg.get("type", "linear")
+            if axis_type not in ("linear", "rotary"):
+                raise ValueError(f"Modbus axis {axis_name!r} has unsupported type {axis_type!r}")
 
     @staticmethod
     def _validate_fposbapi_config(config_cfg: dict, axes_cfg: dict) -> None:
