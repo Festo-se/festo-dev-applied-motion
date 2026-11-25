@@ -48,12 +48,17 @@ Key                    Action
 ← / →                  Step axis[0] (typically X) negative / positive
 ↑ / ↓                  Step axis[1] (typically Y) positive / negative
 Page Up / Page Down    Step axis[2] (typically Z) positive / negative
-``+``                  Increase step size (cycles 0.1→0.5→1→5→10→50 mm)
-``-``                  Decrease step size
+``+``                  Increase each axis's step on its native-unit ladder
+``-``                  Decrease each axis's step on its native-unit ladder
 ``Tab``                Cycle PgUp/PgDn target to next depth axis (3+ axes)
 ``Shift+Tab``          Cycle PgUp/PgDn target to previous depth axis
 ``Esc`` or ``q``       Exit jog mode, return to REPL
 =====================  ================================================
+
+Jog ladders
+-----------
+Linear axes: 0.1, 0.5, 1, 5, 10, 25, and 50 mm (default 1 mm).
+Rotary axes: 0.1, 0.5, 1, 5, and 10 degrees (default 1 degree).
 """
 
 import argparse
@@ -98,12 +103,13 @@ from applied_motion.configurator_adapter import build_gantry_from_config
 console = festo_console()
 logger = logging.getLogger(__name__)
 
-_STEP_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 25.0, 50.0]  # mm, cycled by +/-
-_DEFAULT_STEP_IDX = 2  # 1.0 mm
+_STEP_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0, 25.0, 50.0]  # linear mm ladder
+_ROTARY_STEP_SIZES = [0.1, 0.5, 1.0, 5.0, 10.0]  # degrees
+_DEFAULT_STEP_IDX = 2
 
 _HELP_ENTRIES: list[tuple[str, str]] = [
     ("jog", "Enter arrow-key jog mode"),
-    ("jog <axis> <+/-> <step> [vel]", "Single step-move (mm, default vel=10 mm/s)"),
+    ("jog <axis> <+/-> <step> [vel]", "Single step-move (axis units; default speed=10 native units/s)"),
     ("where", "Print current axis positions"),
     ("home", "Home all axes"),
     ("capture <label>", "Record current position as label"),
@@ -143,18 +149,43 @@ Each extension receives motion command's subparser collection and may call
 """
 
 
-def _location_table(loc: dict[str, float]) -> Table:
+def _axis_position_unit(gantry: Gantry, axis_name: str) -> str:
+    """Return the axis's position unit, defaulting legacy axes to mm."""
+    axis = gantry.axes.get(axis_name)
+    return getattr(axis, "position_unit", "mm") if axis is not None else "mm"
+
+
+def _step_sizes_for_axis(axis: object) -> list[float]:
+    """Return the jog ladder for an axis's public position unit."""
+    return _ROTARY_STEP_SIZES if getattr(axis, "position_unit", "mm") == "degrees" else _STEP_SIZES
+
+
+def _adjust_step_indices(axes: dict, step_indices: dict[str, int], change: int) -> None:
+    """Advance each axis's ladder index independently, clamped to its ends."""
+    for axis_name, axis in axes.items():
+        steps = _step_sizes_for_axis(axis)
+        step_indices[axis_name] = max(0, min(len(steps) - 1, step_indices[axis_name] + change))
+
+
+def _location_table(loc: dict[str, float], gantry: Gantry | None = None) -> Table:
+    units = {axis: _axis_position_unit(gantry, axis) if gantry is not None else "mm" for axis in loc}
+    unique_units = set(units.values())
     table = Table(
         show_header=True, header_style="festo.brand", box=box.SIMPLE_HEAD, padding=(0, 1), border_style=FESTO_BLUE_2
     )
     table.add_column("Axis", style="festo.ok")
-    table.add_column("Position (mm)", justify="right", style="festo.value")
+    table.add_column(
+        f"Position ({next(iter(unique_units))})" if len(unique_units) == 1 else "Position",
+        justify="right",
+        style="festo.value",
+    )
     for axis, pos in loc.items():
-        table.add_row(axis, f"{pos:.3f}")
+        position_text = f"{pos:.3f}" if len(unique_units) <= 1 else f"{pos:.3f} {units[axis]}"
+        table.add_row(axis, position_text)
     return table
 
 
-def _positions_table(positions: dict[str, dict[str, float]]) -> Table:
+def _positions_table(positions: dict[str, dict[str, float]], gantry: Gantry | None = None) -> Table:
     if not positions:
         return Table(show_header=False, box=None)
     axes = list(next(iter(positions.values())).keys())
@@ -168,7 +199,8 @@ def _positions_table(positions: dict[str, dict[str, float]]) -> Table:
     )
     table.add_column("Label", style="festo.ok")
     for axis in axes:
-        table.add_column(f"{axis} (mm)", justify="right", style="festo.value")
+        unit = _axis_position_unit(gantry, axis) if gantry is not None else "mm"
+        table.add_column(f"{axis} ({unit})", justify="right", style="festo.value")
     for label, pos in positions.items():
         table.add_row(label, *[f"{v:.3f}" for v in pos.values()])
     return table
@@ -189,7 +221,7 @@ def _run_jog_mode(session: MotionSession, gantry: Gantry) -> None:  # noqa
     depth_axes = axis_names[2:]
 
     state: dict = {
-        "step_idx": _DEFAULT_STEP_IDX,
+        "step_idx": {axis_name: _DEFAULT_STEP_IDX for axis_name in axis_names},
         "status": ("ok", "Ready. Use arrow keys to jog."),
         "location": gantry.get_location(),
         "depth_idx": 0,
@@ -200,7 +232,6 @@ def _run_jog_mode(session: MotionSession, gantry: Gantry) -> None:  # noqa
         return depth_axes[state["depth_idx"]] if depth_axes else None
 
     def _content() -> FormattedText:
-        step = _STEP_SIZES[state["step_idx"]]
         loc = state["location"]
         status_tone, status_msg = state["status"]
         status_style = {
@@ -223,10 +254,11 @@ def _run_jog_mode(session: MotionSession, gantry: Gantry) -> None:  # noqa
         ]
         for axis, pos in loc.items():
             marker = " ◀" if axis == active and len(depth_axes) > 1 else ""
+            unit = _axis_position_unit(gantry, axis)
             parts += [
                 ("", "    "),
                 (f"fg:{FESTO_BLUE_2} bold", f"{axis:<6}"),
-                (f"fg:{FESTO_GRAY_SUCANUL}", f"{pos:>10.3f} mm{marker}\n"),
+                (f"fg:{FESTO_GRAY_SUCANUL}", f"{pos:>10.3f} {unit}{marker}\n"),
             ]
         key_hints: list[str] = []
         if len(axis_names) >= 1:
@@ -236,11 +268,16 @@ def _run_jog_mode(session: MotionSession, gantry: Gantry) -> None:  # noqa
         if depth_axes:
             cycle_hint = " Tab cycle" if len(depth_axes) > 1 else ""
             key_hints.append(f"  PgUp/PgDn {active}{cycle_hint}")
+        step_summary = ", ".join(
+            f"{axis}: {_step_sizes_for_axis(gantry.axes[axis])[state['step_idx'][axis]]:g} "
+            f"{_axis_position_unit(gantry, axis)}"
+            for axis in axis_names
+        )
         parts += [
             ("", "\n"),
-            (f"fg:{FESTO_BLUE_CAERUL} bold", "  Step: "),
-            (f"fg:{FESTO_BLUE_2} bold", f"{step} mm"),
-            (f"fg:{FESTO_GRAY_CANUL}", "  (+ increase, - decrease)\n"),
+            (f"fg:{FESTO_BLUE_CAERUL} bold", "  Steps: "),
+            (f"fg:{FESTO_BLUE_2} bold", step_summary),
+            (f"fg:{FESTO_GRAY_CANUL}", "  (+ increase, - decrease independently)\n"),
             (f"fg:{FESTO_GRAY_CANUL}", "  Tab/Shift+Tab cycle depth axis\n\n"),
             (f"fg:{FESTO_GRAY_SUCANUL}", "    ".join(key_hints) + "\n\n"),
             (status_style, f"  {status_prefix}  {status_msg}\n"),
@@ -257,15 +294,16 @@ def _run_jog_mode(session: MotionSession, gantry: Gantry) -> None:  # noqa
     def _do_jog(axis_name: str, direction: str) -> None:
         if state["busy"]:
             return
-        step = _STEP_SIZES[state["step_idx"]]
+        step = _step_sizes_for_axis(gantry.axes[axis_name])[state["step_idx"][axis_name]]
+        unit = _axis_position_unit(gantry, axis_name)
         state["busy"] = True
-        state["status"] = ("info", f"Moving {axis_name} {direction}{step:.3g} mm…")
+        state["status"] = ("info", f"Moving {axis_name} {direction}{step:.3g} {unit}…")
         app.invalidate()
 
         def _run() -> None:
             try:
                 state["location"] = session.jog(axis_name, direction, step)
-                state["status"] = ("ok", f"{direction}{step:.3g} mm on {axis_name}")
+                state["status"] = ("ok", f"{direction}{step:.3g} {unit} on {axis_name}")
             except (ValueError, KeyError) as exc:
                 state["status"] = ("warn", f"Limit or config error: {exc}")
             except Exception as exc:
@@ -325,13 +363,13 @@ def _run_jog_mode(session: MotionSession, gantry: Gantry) -> None:  # noqa
 
     @kb.add("+")
     def _(event) -> None:
-        state["step_idx"] = min(state["step_idx"] + 1, len(_STEP_SIZES) - 1)
-        state["status"] = ("ok", f"Step set to {_STEP_SIZES[state['step_idx']]} mm")
+        _adjust_step_indices(gantry.axes, state["step_idx"], 1)
+        state["status"] = ("ok", "Each axis's jog step increased independently")
 
     @kb.add("-")
     def _(event) -> None:
-        state["step_idx"] = max(state["step_idx"] - 1, 0)
-        state["status"] = ("ok", f"Step set to {_STEP_SIZES[state['step_idx']]} mm")
+        _adjust_step_indices(gantry.axes, state["step_idx"], -1)
+        state["status"] = ("ok", "Each axis's jog step decreased independently")
 
     @kb.add("escape")
     @kb.add("q")
@@ -395,7 +433,7 @@ def run_repl(session: MotionSession, gantry: Gantry) -> int:  # noqa
 
                 elif cmd == "where":
                     loc = gantry.get_location()
-                    console.print(_location_table(loc))
+                    console.print(_location_table(loc, gantry))
 
                 elif cmd == "home":
                     gantry.home()
@@ -409,7 +447,7 @@ def run_repl(session: MotionSession, gantry: Gantry) -> int:  # noqa
                         console.print(f"{format_badge('USAGE', 'warn')} [festo.brand]jog[/]")
                         console.print(f"    {format_help_line('jog', 'Enter arrow-key jog mode')}")
                         console.print(
-                            f"    {format_help_line('jog <axis> <+/-> <step> [vel]', 'Single step-move (mm, default vel=10 mm/s)')}"
+                            f"    {format_help_line('jog <axis> <+/-> <step> [vel]', 'Single step-move in native axis units (default speed=10 native units/s)')}"
                         )
                     else:
                         axis = parts[1].upper()
@@ -418,7 +456,7 @@ def run_repl(session: MotionSession, gantry: Gantry) -> int:  # noqa
                         vel = float(parts[4]) if len(parts) > 4 else 10.0
                         try:
                             loc = session.jog(axis, direction, step, vel)
-                            console.print(_location_table(loc))
+                            console.print(_location_table(loc, gantry))
                         except (ValueError, KeyError) as exc:
                             console.print(f"[festo.err]✗[/] {exc}")
                         except Exception as exc:
@@ -464,7 +502,7 @@ def run_repl(session: MotionSession, gantry: Gantry) -> int:  # noqa
                     if not session.positions:
                         console.print("[festo.muted]No positions captured yet.[/]")
                     else:
-                        console.print(_positions_table(session.positions))
+                        console.print(_positions_table(session.positions, gantry))
 
                 elif cmd == "save":
                     if len(parts) < 2:
@@ -530,7 +568,7 @@ def _run_shell(args: argparse.Namespace, gantry: Gantry) -> int:
     """
     console.print(f"{format_badge('CONNECTED', 'ok')} [bold]{gantry!r}[/]")
 
-    on_capture = None
+    on_capture_hook: Callable[[str, dict[str, float]], None] | None = None
     if gantry.supports_teach():
 
         def on_capture(label: str, pos: dict[str, float]) -> None:
@@ -538,7 +576,9 @@ def _run_shell(args: argparse.Namespace, gantry: Gantry) -> int:
                 f"  {format_badge('TIP', 'info')} [festo.muted]run [festo.ok]teach pos <id>[/] to commit [bold]{label!r}[/] to PLC.[/]"
             )
 
-    session = MotionSession(gantry, on_capture=on_capture)
+        on_capture_hook = on_capture
+
+    session = MotionSession(gantry, on_capture=on_capture_hook)
     exit_code = run_repl(session, gantry)
     console.print("[festo.ok]✓[/] Program shell exited successfully.")
     return exit_code
@@ -554,7 +594,7 @@ def _run_where(args: argparse.Namespace, gantry: Gantry) -> int:
     Returns:
         Process exit code.
     """
-    console.print(_location_table(gantry.get_location()))
+    console.print(_location_table(gantry.get_location(), gantry))
     return 0
 
 
@@ -621,7 +661,17 @@ def _run_status(args: argparse.Namespace, gantry: Gantry) -> int:
                 row_styles=["", "festo.muted"],
             )
             axis_table.add_column("Axis", style="festo.ok")
-            axis_table.add_column("Position (mm)", justify="right", style="festo.value")
+            units = {
+                str(axis_state.get("position_unit", "mm"))
+                for axis_state in axes.values()
+                if isinstance(axis_state, dict)
+            }
+            common_unit = next(iter(units)) if len(units) == 1 else None
+            axis_table.add_column(
+                f"Position ({common_unit})" if common_unit is not None else "Position",
+                justify="right",
+                style="festo.value",
+            )
             axis_table.add_column("Homed", style="festo.value")
             axis_table.add_column("Stopped", style="festo.value")
             axis_table.add_column("Ready", style="festo.value")
@@ -629,8 +679,13 @@ def _run_status(args: argparse.Namespace, gantry: Gantry) -> int:
             for axis_name, axis_state in axes.items():
                 if not isinstance(axis_state, dict):
                     continue
-                pos = axis_state.get("position_mm")
+                pos = axis_state.get("position")
+                if pos is None:
+                    pos = axis_state.get("position_mm")
+                unit = str(axis_state.get("position_unit", "mm"))
                 pos_text = "n/a" if pos is None else f"{float(pos):.3f}"
+                if pos is not None and common_unit is None:
+                    pos_text = f"{pos_text} {unit}"
                 error_text = axis_state.get("error")
                 error_cell = "[festo.muted]—[/]" if not error_text else f"[festo.err]{error_text}[/]"
                 axis_table.add_row(
@@ -679,7 +734,7 @@ def _run_jog(args: argparse.Namespace, gantry: Gantry) -> int:
     """
     session = MotionSession(gantry)
     location = session.jog(args.axis.upper(), args.direction, args.step, args.velocity, timeout=args.timeout)
-    console.print(_location_table(location))
+    console.print(_location_table(location, gantry))
     return 0
 
 
@@ -760,8 +815,8 @@ def _add_motion_command_parsers(subparsers: argparse._SubParsersAction) -> None:
     jog_parser = subparsers.add_parser("jog", help="Run one non-interactive jog step")
     jog_parser.add_argument("axis", help="Axis name")
     jog_parser.add_argument("direction", choices=_DIRECTIONS, help="Direction: '+' or '-'")
-    jog_parser.add_argument("step", type=float, help="Jog distance in mm")
-    jog_parser.add_argument("--velocity", type=float, default=10.0, help="Jog speed in mm/s")
+    jog_parser.add_argument("step", type=float, help="Jog step in axis native units")
+    jog_parser.add_argument("--velocity", type=float, default=10.0, help="Jog speed in native units/s")
     jog_parser.add_argument("--timeout", type=int, default=30, help="Move timeout in seconds")
     jog_parser.set_defaults(_handler=_run_jog)
 

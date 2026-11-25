@@ -16,6 +16,8 @@ independently unit-testable.
 
 import json
 import logging
+import math
+import warnings
 from pathlib import Path
 from typing import Callable
 
@@ -23,7 +25,9 @@ from applied_motion.applied_motion import Gantry
 
 logger = logging.getLogger(__name__)
 
-_JOG_LIMIT_MARGIN: float = 0.02  # stay this far (mm) inside SW limits when jogging
+_LINEAR_JOG_LIMIT_MARGIN: float = 0.02
+_LEGACY_POSITION_UNIT = "mm"
+_LEGACY_VELOCITY_UNIT = "mm/s"
 
 OnCaptureHook = Callable[[str, dict[str, float]], None]
 """Type alias for the optional capture hook.
@@ -38,6 +42,63 @@ position label and the recorded position dict.  Typical uses:
 * Emit an event to a higher-level orchestration layer.
 * Write a running log to a remote database.
 """
+
+
+def _validate_positions(value: object) -> dict[str, dict[str, float]]:
+    """Validate the numeric position mapping used by capture files.
+
+    Args:
+        value: Candidate label-to-axis position mapping.
+
+    Returns:
+        Validated mapping with numeric position values.
+
+    Raises:
+        ValueError: If the mapping is malformed or contains non-finite values.
+    """
+    if not isinstance(value, dict):
+        raise ValueError("positions must be a mapping")
+
+    positions: dict[str, dict[str, float]] = {}
+    for label, coordinates in value.items():
+        if not isinstance(label, str) or not isinstance(coordinates, dict):
+            raise ValueError("each position must map a string label to an axis mapping")
+        validated_coordinates: dict[str, float] = {}
+        for axis_name, position in coordinates.items():
+            if not isinstance(axis_name, str):
+                raise ValueError("axis names in positions must be strings")
+            if isinstance(position, bool) or not isinstance(position, (int, float)) or not math.isfinite(position):
+                raise ValueError("position values must be finite JSON numbers")
+            validated_coordinates[axis_name] = float(position)
+        positions[label] = validated_coordinates
+    return positions
+
+
+def _resolve_jog_step(step: float | None, step_mm: float | None, position_unit: str) -> float:
+    """Resolve the generic step and deprecated linear alias.
+
+    Args:
+        step: Generic step in native units, if supplied.
+        step_mm: Deprecated linear step alias, if supplied.
+        position_unit: Position unit of the target axis.
+
+    Returns:
+        The requested step in native units.
+
+    Raises:
+        ValueError: If no step is supplied, both forms are supplied, or the
+            deprecated alias is used for a non-linear axis.
+    """
+    if step is not None and step_mm is not None:
+        raise ValueError("pass either step or deprecated step_mm, not both")
+    if step is not None:
+        return step
+    if step_mm is None:
+        raise ValueError("step is required")
+    warnings.warn("step_mm is deprecated; use step", DeprecationWarning, stacklevel=3)
+    if position_unit != _LEGACY_POSITION_UNIT:
+        raise ValueError("step_mm is a deprecated alias for linear axes only")
+    return step_mm
 
 
 class MotionSession:
@@ -99,11 +160,13 @@ class MotionSession:
         self,
         axis_name: str,
         direction: str,
-        step_mm: float,
+        step: float | None = None,
         velocity: float = 10.0,
         timeout: int = 15,
+        *,
+        step_mm: float | None = None,
     ) -> dict[str, float]:
-        """Step-move one axis by *step_mm* in *direction*.
+        """Step-move one axis by *step* in *direction* using native units.
 
         Reads the current axis position, computes an absolute target, and
         dispatches a single-axis move via
@@ -114,56 +177,68 @@ class MotionSession:
                 ``axes``).
             direction: ``"+"`` to move in the positive direction, ``"-"``
                 to move in the negative direction.
-            step_mm: Distance to step in millimetres.  Must be positive.
-            velocity: Jog speed in mm/s.  Defaults to ``10.0``.
+            step: Distance to step in the selected axis's position unit.
+                Must be positive. Positional calls remain supported.
+            velocity: Jog speed in the axis's velocity unit. Defaults to ``10.0``.
             timeout: Maximum seconds to wait for the move to complete.
                 When exceeded the axis backend issues a stop command and
                 the move is abandoned.  Defaults to ``30`` seconds —
                 long enough for any normal jog step, but ensures the
                 axis will always halt rather than run indefinitely.
+            step_mm: Deprecated alias for *step*, accepted only for linear axes.
 
         Returns:
             Full gantry location dict after the move completes.
 
         Raises:
-            ValueError: If *direction* is not ``"+"`` or ``"-"``, or if
-                *step_mm* is not positive.
+            ValueError: If *direction* is not ``"+"`` or ``"-"``, if the
+                step is not positive, or if *step_mm* is used for a rotary axis.
             KeyError: If *axis_name* is not registered with the gantry.
         """
         if direction not in ("+", "-"):
             raise ValueError(f"direction must be '+' or '-', got {direction!r}")
-        if step_mm <= 0:
-            raise ValueError(f"step_mm must be positive, got {step_mm!r}")
         if axis_name not in self.gantry.axes:
             raise KeyError(f"Axis {axis_name!r} is not registered with this gantry")
 
         axis = self.gantry.axes[axis_name]
+        position_unit = getattr(axis, "position_unit", _LEGACY_POSITION_UNIT)
+        velocity_unit = getattr(axis, "velocity_unit", _LEGACY_VELOCITY_UNIT)
+        step = _resolve_jog_step(step, step_mm, position_unit)
+        if step <= 0:
+            raise ValueError(f"step_mm/step must be positive, got {step!r}")
+
         current = axis.get_current_axis_position()
-        raw_delta = step_mm if direction == "+" else -step_mm
+        raw_delta = step if direction == "+" else -step
+        margin = _LINEAR_JOG_LIMIT_MARGIN if position_unit == _LEGACY_POSITION_UNIT else 0.0
         if raw_delta > 0:
-            available = max(0.0, axis.max_position - current - _JOG_LIMIT_MARGIN)
+            available = max(0.0, axis.max_position - current - margin)
             delta = min(raw_delta, available)
         else:
-            available = max(0.0, current - axis.min_position - _JOG_LIMIT_MARGIN)
+            available = max(0.0, current - axis.min_position - margin)
             delta = max(raw_delta, -available)
 
         logger.info(
-            "MotionSession.jog: axis=%s limits=[%.3f, %.3f] mm current=%.3f delta=%.3f vel=%.1f mm/s timeout=%ss",
+            "MotionSession.jog: axis=%s limits=[%.3f, %.3f] %s current=%.3f delta=%.3f %s vel=%.1f %s timeout=%ss",
             axis_name,
             axis.min_position,
             axis.max_position,
+            position_unit,
             current,
             delta,
+            position_unit,
             velocity,
+            velocity_unit,
             timeout,
         )
         if delta != raw_delta:
             logger.warning(
-                "MotionSession.jog: axis=%s delta clamped %.3f\u2192%.3f mm (%s mm margin from SW limit)",
+                "MotionSession.jog: axis=%s delta clamped %.3f\u2192%.3f %s (%s %s margin from SW limit)",
                 axis_name,
                 raw_delta,
                 delta,
-                _JOG_LIMIT_MARGIN,
+                position_unit,
+                margin,
+                position_unit,
             )
         if abs(delta) < 1e-3:
             logger.info("MotionSession.jog: axis=%s at limit, skipping move", axis_name)
@@ -206,19 +281,78 @@ class MotionSession:
     # Persistence
     # ------------------------------------------------------------------
 
-    def save(self, path: Path | str) -> None:
-        """Write all captured positions to a JSON file.
-
-        The output format is a plain JSON object mapping label →
-        ``{axis_name: position_mm}``.
+    def _axis_unit_metadata(self, axis_name: str) -> dict[str, str]:
+        """Return public units for one active axis, with legacy defaults.
 
         Args:
-            path: Destination file path.  Parent directories must exist.
+            axis_name: Axis whose units are requested.
+
+        Returns:
+            Mapping containing position and velocity unit names.
+
+        Raises:
+            ValueError: If *axis_name* is not active on the gantry.
         """
+        axis = self.gantry.axes.get(axis_name)
+        if axis is None:
+            raise ValueError(f"Unknown axis {axis_name!r}")
+        return {
+            "position_unit": getattr(axis, "position_unit", _LEGACY_POSITION_UNIT),
+            "velocity_unit": getattr(axis, "velocity_unit", _LEGACY_VELOCITY_UNIT),
+        }
+
+    def save(self, path: Path | str) -> None:
+        """Write captured positions and referenced axis units as schema v2.
+
+        Args:
+            path: Destination file path. Parent directories must exist.
+
+        Raises:
+            ValueError: If captured positions are malformed, non-finite, or
+                reference an inactive axis.
+        """
+        positions = _validate_positions(self.positions)
+        axis_names = sorted({axis_name for coordinates in positions.values() for axis_name in coordinates})
+        axis_units = {axis_name: self._axis_unit_metadata(axis_name) for axis_name in axis_names}
+        document = {"schema_version": 2, "axis_units": axis_units, "positions": positions}
+
         path = Path(path)
         with path.open("w") as fh:
-            json.dump(self.positions, fh, indent=2)
+            json.dump(document, fh, indent=2, allow_nan=False)
         logger.info("MotionSession.save: wrote %d position(s) to %s", len(self.positions), path)
+
+    def _load_legacy_positions(self, loaded: dict) -> dict[str, dict[str, float]]:
+        """Validate legacy numeric-only v1 positions for linear active axes."""
+        positions = _validate_positions(loaded)
+        axis_names = {axis_name for coordinates in positions.values() for axis_name in coordinates}
+        expected_units = {"position_unit": _LEGACY_POSITION_UNIT, "velocity_unit": _LEGACY_VELOCITY_UNIT}
+        for axis_name in axis_names:
+            if self._axis_unit_metadata(axis_name) != expected_units:
+                raise ValueError("legacy v1 positions require active axes using mm and mm/s")
+        return positions
+
+    def _load_v2_positions(self, loaded: dict) -> dict[str, dict[str, float]]:
+        """Validate schema-v2 structure, units, axis references, and positions."""
+        if set(loaded) != {"schema_version", "axis_units", "positions"}:
+            raise ValueError("schema v2 capture must contain schema_version, axis_units, and positions only")
+
+        positions = _validate_positions(loaded["positions"])
+        axis_names = {axis_name for coordinates in positions.values() for axis_name in coordinates}
+        axis_units = loaded["axis_units"]
+        if not isinstance(axis_units, dict) or set(axis_units) != axis_names:
+            raise ValueError("schema v2 axis_units must cover exactly the axes referenced by positions")
+
+        for axis_name in axis_names:
+            saved_units = axis_units[axis_name]
+            if (
+                not isinstance(saved_units, dict)
+                or set(saved_units) != {"position_unit", "velocity_unit"}
+                or not all(isinstance(unit, str) for unit in saved_units.values())
+            ):
+                raise ValueError(f"schema v2 unit metadata is malformed for axis {axis_name!r}")
+            if saved_units != self._axis_unit_metadata(axis_name):
+                raise ValueError(f"schema v2 unit mismatch for axis {axis_name!r}")
+        return positions
 
     def load(self, path: Path | str) -> None:
         """Merge positions from a JSON file into ``positions``.
@@ -235,6 +369,16 @@ class MotionSession:
         """
         path = Path(path)
         with path.open() as fh:
-            loaded: dict[str, dict[str, float]] = json.load(fh)
-        self.positions.update(loaded)
-        logger.info("MotionSession.load: read %d position(s) from %s", len(loaded), path)
+            loaded = json.load(fh)
+        if not isinstance(loaded, dict):
+            raise ValueError("capture file must contain a JSON object")
+
+        if "schema_version" not in loaded:
+            positions = self._load_legacy_positions(loaded)
+        elif loaded.get("schema_version") == 2:
+            positions = self._load_v2_positions(loaded)
+        else:
+            raise ValueError(f"unsupported capture schema_version {loaded.get('schema_version')!r}")
+
+        self.positions.update(positions)
+        logger.info("MotionSession.load: read %d position(s) from %s", len(positions), path)

@@ -30,7 +30,7 @@ No hardware or network connection required.  All tests use a plain
 """
 
 import json
-from math import inf
+from math import inf, nan
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -43,7 +43,10 @@ from applied_motion.cli.session import MotionSession
 # ---------------------------------------------------------------------------
 
 
-def _make_gantry(axis_names: list[str] = None, current_positions: dict[str, float] = None):
+def _make_gantry(
+    axis_names: list[str] | None = None,
+    current_positions: dict[str, float] | None = None,
+):
     """Return a MagicMock Gantry pre-configured for teach-in tests."""
     if axis_names is None:
         axis_names = ["X", "Y", "Z"]
@@ -57,6 +60,8 @@ def _make_gantry(axis_names: list[str] = None, current_positions: dict[str, floa
         axis.get_current_axis_position.return_value = current_positions.get(name, 0.0)
         axis.min_position = -inf
         axis.max_position = inf
+        axis.position_unit = "mm"
+        axis.velocity_unit = "mm/s"
         gantry.axes[name] = axis
 
     gantry.get_location.return_value = dict(current_positions)
@@ -92,6 +97,53 @@ class TestJog:
         session.jog("Y", "+", 1.0, velocity=25.0)
         args, _ = gantry.axes["Y"].move.call_args
         assert args[1] == 25.0
+
+    def test_generic_step_keyword_is_accepted(self):
+        gantry = _make_gantry(axis_names=["X"])
+        session = MotionSession(gantry)
+
+        session.jog("X", "+", step=2.0)
+
+        assert gantry.axes["X"].move.call_args.args[0] == pytest.approx(2.0)
+
+    def test_step_mm_alias_remains_supported_for_linear_axis(self):
+        gantry = _make_gantry(axis_names=["X"])
+        session = MotionSession(gantry)
+
+        with pytest.warns(DeprecationWarning, match="step_mm"):
+            session.jog("X", "+", step_mm=2.0)
+
+        assert gantry.axes["X"].move.call_args.args[0] == pytest.approx(2.0)
+
+    def test_step_mm_alias_is_rejected_for_rotary_axis(self):
+        gantry = _make_gantry(axis_names=["R"])
+        gantry.axes["R"].position_unit = "degrees"
+        session = MotionSession(gantry)
+
+        with pytest.warns(DeprecationWarning, match="step_mm"):
+            with pytest.raises(ValueError, match="linear"):
+                session.jog("R", "+", step_mm=2.0)
+
+    def test_linear_jog_retains_two_hundredths_mm_limit_margin(self):
+        gantry = _make_gantry(axis_names=["X"], current_positions={"X": 9.9})
+        gantry.axes["X"].min_position = 0.0
+        gantry.axes["X"].max_position = 10.0
+        session = MotionSession(gantry)
+
+        session.jog("X", "+", 1.0)
+
+        assert gantry.axes["X"].move.call_args.args[0] == pytest.approx(0.08)
+
+    def test_rotary_jog_uses_zero_degree_limit_margin(self):
+        gantry = _make_gantry(axis_names=["R"], current_positions={"R": 359.5})
+        gantry.axes["R"].position_unit = "degrees"
+        gantry.axes["R"].min_position = 0.0
+        gantry.axes["R"].max_position = 360.0
+        session = MotionSession(gantry)
+
+        session.jog("R", "+", 1.0)
+
+        assert gantry.axes["R"].move.call_args.args[0] == pytest.approx(0.5)
 
     def test_returns_gantry_get_location(self):
         expected = {"X": 15.0, "Y": 0.0, "Z": 0.0}
@@ -226,7 +278,37 @@ class TestSaveLoad:
         path = tmp_path / "out.json"
         session.save(path)
         raw = json.loads(path.read_text())
-        assert raw == {"p": {"X": 9.9}}
+        assert raw == {
+            "schema_version": 2,
+            "axis_units": {"X": {"position_unit": "mm", "velocity_unit": "mm/s"}},
+            "positions": {"p": {"X": 9.9}},
+        }
+
+    def test_save_records_native_units_for_referenced_axes_only(self, tmp_path):
+        gantry = _make_gantry(axis_names=["X", "R"])
+        gantry.axes["R"].position_unit = "degrees"
+        gantry.axes["R"].velocity_unit = "degrees/s"
+        session = MotionSession(gantry)
+        session.positions = {"home": {"X": 1.0, "R": 90.0}}
+        path = tmp_path / "mixed.json"
+
+        session.save(path)
+
+        raw = json.loads(path.read_text())
+        assert raw["schema_version"] == 2
+        assert raw["axis_units"] == {
+            "X": {"position_unit": "mm", "velocity_unit": "mm/s"},
+            "R": {"position_unit": "degrees", "velocity_unit": "degrees/s"},
+        }
+        assert raw["positions"] == session.positions
+
+    @pytest.mark.parametrize("value", [True, nan, inf, -inf])
+    def test_save_rejects_non_numeric_or_non_finite_positions(self, tmp_path, value):
+        session = MotionSession(_make_gantry(axis_names=["X"]))
+        session.positions = {"p": {"X": value}}
+
+        with pytest.raises(ValueError):
+            session.save(tmp_path / "invalid.json")
 
     def test_load_merges_not_replaces(self, tmp_path):
         gantry = _make_gantry()
@@ -249,6 +331,137 @@ class TestSaveLoad:
         session.positions = {"p": {"X": 0.0}}
         session.load(path)
         assert session.positions["p"]["X"] == 99.0
+
+    def test_load_legacy_v1_for_linear_axes(self, tmp_path):
+        path = tmp_path / "legacy.json"
+        path.write_text(json.dumps({"home": {"X": 10.0}}))
+        session = MotionSession(_make_gantry(axis_names=["X"]))
+
+        session.load(path)
+
+        assert session.positions == {"home": {"X": 10.0}}
+
+    def test_load_legacy_v1_rejects_rotary_axis(self, tmp_path):
+        path = tmp_path / "legacy.json"
+        path.write_text(json.dumps({"home": {"R": 90.0}}))
+        gantry = _make_gantry(axis_names=["R"])
+        gantry.axes["R"].position_unit = "degrees"
+        gantry.axes["R"].velocity_unit = "degrees/s"
+        session = MotionSession(gantry)
+
+        with pytest.raises(ValueError, match="legacy v1.*mm"):
+            session.load(path)
+
+        assert session.positions == {}
+
+    @pytest.mark.parametrize("value", [True, nan, inf, -inf])
+    def test_load_legacy_v1_rejects_non_numeric_or_non_finite_positions(self, tmp_path, value):
+        path = tmp_path / "invalid-legacy.json"
+        path.write_text(json.dumps({"home": {"X": value}}))
+        session = MotionSession(_make_gantry(axis_names=["X"]))
+
+        with pytest.raises(ValueError):
+            session.load(path)
+
+        assert session.positions == {}
+
+    @pytest.mark.parametrize("schema_version", [1, 2])
+    def test_load_rejects_unknown_axis(self, tmp_path, schema_version):
+        path = tmp_path / "unknown-axis.json"
+        if schema_version == 1:
+            payload = {"home": {"BOGUS": 1.0}}
+        else:
+            payload = {
+                "schema_version": 2,
+                "axis_units": {"BOGUS": {"position_unit": "mm", "velocity_unit": "mm/s"}},
+                "positions": {"home": {"BOGUS": 1.0}},
+            }
+        path.write_text(json.dumps(payload))
+        session = MotionSession(_make_gantry(axis_names=["X"]))
+
+        with pytest.raises(ValueError, match="Unknown axis"):
+            session.load(path)
+
+    def test_load_v2_requires_exact_unit_metadata_for_referenced_axes(self, tmp_path):
+        path = tmp_path / "incomplete-units.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 2,
+                    "axis_units": {},
+                    "positions": {"home": {"X": 1.0}},
+                }
+            )
+        )
+        session = MotionSession(_make_gantry(axis_names=["X"]))
+
+        with pytest.raises(ValueError, match="axis_units"):
+            session.load(path)
+
+    def test_load_v2_rejects_unreferenced_axis_metadata(self, tmp_path):
+        path = tmp_path / "extra-units.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 2,
+                    "axis_units": {
+                        "X": {"position_unit": "mm", "velocity_unit": "mm/s"},
+                        "Y": {"position_unit": "mm", "velocity_unit": "mm/s"},
+                    },
+                    "positions": {"home": {"X": 1.0}},
+                }
+            )
+        )
+        session = MotionSession(_make_gantry(axis_names=["X", "Y"]))
+
+        with pytest.raises(ValueError, match="axis_units"):
+            session.load(path)
+
+    def test_load_v2_rejects_unit_mismatch(self, tmp_path):
+        path = tmp_path / "mismatched-units.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 2,
+                    "axis_units": {"R": {"position_unit": "mm", "velocity_unit": "mm/s"}},
+                    "positions": {"home": {"R": 90.0}},
+                }
+            )
+        )
+        gantry = _make_gantry(axis_names=["R"])
+        gantry.axes["R"].position_unit = "degrees"
+        gantry.axes["R"].velocity_unit = "degrees/s"
+        session = MotionSession(gantry)
+
+        with pytest.raises(ValueError, match="unit mismatch"):
+            session.load(path)
+
+    def test_load_rejects_unknown_schema_version(self, tmp_path):
+        path = tmp_path / "unknown-version.json"
+        path.write_text(json.dumps({"schema_version": 3, "axis_units": {}, "positions": {}}))
+        session = MotionSession(_make_gantry())
+
+        with pytest.raises(ValueError, match="schema_version"):
+            session.load(path)
+
+    @pytest.mark.parametrize("value", [True, nan, inf, -inf])
+    def test_load_rejects_non_numeric_or_non_finite_v2_positions(self, tmp_path, value):
+        path = tmp_path / "invalid-position.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 2,
+                    "axis_units": {"X": {"position_unit": "mm", "velocity_unit": "mm/s"}},
+                    "positions": {"home": {"X": value}},
+                }
+            )
+        )
+        session = MotionSession(_make_gantry(axis_names=["X"]))
+
+        with pytest.raises(ValueError):
+            session.load(path)
+
+        assert session.positions == {}
 
     def test_load_raises_on_missing_file(self):
         gantry = _make_gantry()

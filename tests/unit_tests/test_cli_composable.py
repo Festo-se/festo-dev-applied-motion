@@ -2,11 +2,14 @@
 
 import argparse
 import logging
+from io import StringIO
 from pathlib import Path
 
 import pytest
+from rich.console import Console
 
 from applied_motion.cli import cli
+from applied_motion.cli.theme import FESTO_THEME
 
 
 class TestBuildStandaloneMotionParser:
@@ -34,6 +37,207 @@ class TestBuildStandaloneMotionParser:
         assert args.direction == "+"
         assert args.step == 5.0
         assert args.velocity == 20.0
+
+    def test_jog_help_uses_native_axis_units(self, capsys):
+        parser = cli.build_standalone_motion_parser()
+
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--config", "gantry.json", "jog", "--help"])
+
+        help_text = capsys.readouterr().out
+        assert "axis native units" in help_text
+        assert "native units/s" in help_text
+
+
+class TestAxisUnitFormatting:
+    def test_location_table_labels_mixed_native_units(self):
+        from unittest.mock import MagicMock
+
+        gantry = MagicMock()
+        gantry.axes = {
+            "X": MagicMock(position_unit="mm"),
+            "R": MagicMock(position_unit="degrees"),
+        }
+        table = cli._location_table({"X": 12.5, "R": 90.0}, gantry)
+        stream = StringIO()
+        Console(file=stream, force_terminal=False, theme=FESTO_THEME).print(table)
+        rendered = stream.getvalue()
+
+        assert "Position" in rendered
+        assert "12.500 mm" in rendered
+        assert "90.000 degrees" in rendered
+
+    def test_positions_table_labels_each_axis_unit(self):
+        from unittest.mock import MagicMock
+
+        gantry = MagicMock()
+        gantry.axes = {
+            "X": MagicMock(position_unit="mm"),
+            "R": MagicMock(position_unit="degrees"),
+        }
+        table = cli._positions_table({"home": {"X": 12.5, "R": 90.0}}, gantry)
+        stream = StringIO()
+        Console(file=stream, force_terminal=False, theme=FESTO_THEME).print(table)
+        rendered = stream.getvalue()
+
+        assert "X (mm)" in rendered
+        assert "R (degrees)" in rendered
+
+    def test_status_table_uses_generic_rotary_position_and_unit(self, monkeypatch):
+        from unittest.mock import MagicMock
+
+        gantry = MagicMock()
+        gantry.get_status.return_value = {
+            "backend": "ModbusGantryBackend",
+            "supports_teach": False,
+            "summary": {
+                "healthy": True,
+                "all_homed": True,
+                "all_stopped": True,
+                "all_ready_for_motion": True,
+                "axis_count": 1,
+            },
+            "axes": {
+                "R": {
+                    "position": 90.0,
+                    "position_unit": "degrees",
+                    "position_mm": None,
+                    "is_homed": True,
+                    "is_stopped": True,
+                    "ready_for_motion": True,
+                    "error": None,
+                }
+            },
+            "controller": {},
+        }
+        printed = []
+        monkeypatch.setattr(cli.console, "print", printed.append)
+
+        assert cli._run_status(argparse.Namespace(as_json=False), gantry) == 0
+
+        axis_table = printed[2]
+        stream = StringIO()
+        Console(file=stream, force_terminal=False, theme=FESTO_THEME).print(axis_table)
+        rendered = stream.getvalue()
+        assert "Position (degrees)" in rendered
+        assert "90.000" in rendered
+
+
+class TestNativeJogLadders:
+    def test_linear_and_rotary_ladders_match_contract(self):
+        assert cli._STEP_SIZES == [0.1, 0.5, 1.0, 5.0, 10.0, 25.0, 50.0]
+        assert cli._ROTARY_STEP_SIZES == [0.1, 0.5, 1.0, 5.0, 10.0]
+
+    def test_axis_uses_its_native_ladder_and_legacy_fallback(self):
+        from unittest.mock import MagicMock
+
+        assert cli._step_sizes_for_axis(MagicMock(position_unit="mm")) is cli._STEP_SIZES
+        assert cli._step_sizes_for_axis(MagicMock(position_unit="degrees")) is cli._ROTARY_STEP_SIZES
+        assert cli._step_sizes_for_axis(object()) is cli._STEP_SIZES
+
+    def test_step_indices_advance_independently_and_clamp_per_axis(self):
+        from unittest.mock import MagicMock
+
+        axes = {
+            "X": MagicMock(position_unit="mm"),
+            "R": MagicMock(position_unit="degrees"),
+        }
+        step_indices = {"X": 6, "R": 3}
+
+        cli._adjust_step_indices(axes, step_indices, 1)
+
+        assert step_indices == {"X": 6, "R": 4}
+
+        cli._adjust_step_indices(axes, step_indices, -1)
+
+        assert step_indices == {"X": 5, "R": 3}
+
+    def test_tui_jogs_each_axis_using_its_own_step(self, monkeypatch):
+        from unittest.mock import MagicMock
+
+        class FakeKeyBindings:
+            def __init__(self):
+                self.handlers = {}
+
+            def add(self, key):
+                def register(handler):
+                    self.handlers[key] = handler
+                    return handler
+
+                return register
+
+        class FakeControl:
+            def __init__(self, render, focusable):
+                self.render = render
+
+        class FakeWindow:
+            def __init__(self, content):
+                self.content = content
+
+        class FakeLayout:
+            def __init__(self, container):
+                self.container = container
+
+        class FakeThread:
+            def __init__(self, target, daemon):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        rendered_output: list[list[tuple[str, str]]] = []
+
+        class FakeApplication:
+            rendered: list[tuple[str, str]]
+
+            def __init__(self, layout, key_bindings, full_screen):
+                self.layout = layout
+                self.key_bindings = key_bindings
+                FakeApplication.instance = self
+
+            def invalidate(self):
+                pass
+
+            def run(self):
+                handlers = self.key_bindings.handlers
+                for _ in range(4):
+                    handlers["+"](None)
+                handlers["right"](None)
+                handlers["up"](None)
+                handlers["-"](None)
+                handlers["right"](None)
+                handlers["up"](None)
+                self.rendered = self.layout.container.content.render()
+                rendered_output.append(self.rendered)
+
+        monkeypatch.setattr(cli, "KeyBindings", FakeKeyBindings)
+        monkeypatch.setattr(cli, "FormattedTextControl", FakeControl)
+        monkeypatch.setattr(cli, "Window", FakeWindow)
+        monkeypatch.setattr(cli, "Layout", FakeLayout)
+        monkeypatch.setattr(cli, "Application", FakeApplication)
+        monkeypatch.setattr(cli.threading, "Thread", FakeThread)
+        monkeypatch.setattr(cli.console, "print", lambda *args, **kwargs: None)
+
+        gantry = MagicMock()
+        gantry.axes = {
+            "X": MagicMock(position_unit="mm"),
+            "R": MagicMock(position_unit="degrees"),
+        }
+        gantry.get_location.return_value = {"X": 12.5, "R": 90.0}
+        session = MagicMock()
+        session.jog.return_value = {"X": 12.5, "R": 90.0}
+
+        cli._run_jog_mode(session, gantry)
+
+        jogs = [(args[0], args[1], args[2]) for args, _ in session.jog.call_args_list]
+        assert jogs == [
+            ("X", "+", 50.0),
+            ("R", "+", 10.0),
+            ("X", "+", 25.0),
+            ("R", "+", 5.0),
+        ]
+        rendered_text = "".join(text for _, text in rendered_output[0])
+        assert "Steps: X: 25 mm, R: 5 degrees" in rendered_text
 
 
 class TestRegisterMotionCli:
