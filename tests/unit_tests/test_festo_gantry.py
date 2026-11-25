@@ -25,8 +25,11 @@ import pytest
 
 from applied_motion.backends.fposbapi_axis import FPosBAxis
 from applied_motion.backends.gantry_backend import FPosBAPIGantryBackend
+from applied_motion.backends.axis_protocol import Axis
 from applied_motion.applied_motion import AxisNotFoundError, Gantry, MovementError
 from applied_motion.backends.edcon_axis import EdconAxis
+from applied_motion.backends.linear_axis import LinearAxis
+from applied_motion.backends.rotary_axis import RotaryAxis
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +213,35 @@ class TestGantryStatus:
         assert status["summary"]["healthy"] is True
         assert status["summary"]["axis_errors"] == {}
         assert status["controller"]["sys_status"] is None
+        assert status["axes"]["X"]["position"] == pytest.approx(12.34)
+        assert status["axes"]["X"]["position_unit"] == "mm"
+        assert status["axes"]["X"]["position_mm"] == pytest.approx(12.34)
+
+    def test_get_status_rotary_reports_degrees_without_millimetres(self):
+        rotary_axis = _make_stub_axis("R")
+        rotary_axis.position_unit = "degrees"
+        rotary_axis.get_current_axis_position.return_value = 90.0
+        gantry = Gantry(axes={"R": rotary_axis})
+
+        status = gantry.get_status()["axes"]["R"]
+
+        assert status["position"] == pytest.approx(90.0)
+        assert status["position_unit"] == "degrees"
+        assert status["position_mm"] is None
+
+    def test_get_status_legacy_custom_axis_defaults_to_millimetres(self):
+        axis = MagicMock(spec=Axis)
+        axis.get_current_axis_position.return_value = 12.34
+        axis.is_homed.return_value = True
+        axis.stopped.return_value = True
+        axis.ready_for_motion.return_value = True
+        gantry = Gantry(axes={"legacy": axis})
+
+        status = gantry.get_status()["axes"]["legacy"]
+
+        assert status["position"] == pytest.approx(12.34)
+        assert status["position_unit"] == "mm"
+        assert status["position_mm"] == pytest.approx(12.34)
 
     def test_get_status_marks_axis_error_and_unhealthy_when_axis_query_fails(self, gantry_mock):
         for axis in gantry_mock._stub_axes.values():
@@ -246,6 +278,8 @@ class TestGantryStatus:
         assert status["controller"]["fpb_error"] == "0"
         assert status["controller"]["read_err"] == "1, READ_ERR, 0, NULL, SUCCESS"
         assert status["controller"]["error"] is None
+        assert status["axes"]["X"]["position_unit"] == "mm"
+        assert status["axes"]["X"]["position_mm"] == pytest.approx(10.0)
 
     def test_get_status_fposbapi_handles_controller_query_error(self, gantry_fposbapi_mock):
         for axis in gantry_fposbapi_mock._stub_axes.values():
@@ -305,6 +339,30 @@ class TestGantryGetLocation:
         location = g.get_location()
         assert location["X"] == pytest.approx(1.0)
         assert location["Y"] == pytest.approx(2.0)
+
+    def test_get_location_preserves_numeric_shape_for_mixed_axis_units(self):
+        linear_axis = _make_stub_axis("X")
+        rotary_axis = _make_stub_axis("R")
+        linear_axis.position_unit = "mm"
+        rotary_axis.position_unit = "degrees"
+        linear_axis.get_current_axis_position.return_value = 12.5
+        rotary_axis.get_current_axis_position.return_value = 90.0
+        gantry = Gantry(axes={"X": linear_axis, "R": rotary_axis})
+
+        location = gantry.get_location()
+
+        assert location == {"X": pytest.approx(12.5), "R": pytest.approx(90.0)}
+
+
+def test_builtin_axes_publish_position_and_velocity_units():
+    assert EdconAxis.position_unit == "mm"
+    assert EdconAxis.velocity_unit == "mm/s"
+    assert LinearAxis.position_unit == "mm"
+    assert LinearAxis.velocity_unit == "mm/s"
+    assert RotaryAxis.position_unit == "degrees"
+    assert RotaryAxis.velocity_unit == "degrees/s"
+    assert FPosBAxis.position_unit == "mm"
+    assert FPosBAxis.velocity_unit == "mm/s"
 
 
 # ---------------------------------------------------------------------------

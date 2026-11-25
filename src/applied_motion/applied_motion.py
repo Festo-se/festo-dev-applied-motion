@@ -52,6 +52,8 @@ class AxisStatus(TypedDict):
     """Per-axis status payload returned by [`Gantry.get_status`][applied_motion.applied_motion.Gantry.get_status]."""
 
     position_mm: float | None
+    position: float | None
+    position_unit: str
     is_homed: bool | None
     is_stopped: bool | None
     ready_for_motion: bool | None
@@ -672,13 +674,18 @@ class Gantry:
         """
         axis_state: AxisStatus = {
             "position_mm": None,
+            "position": None,
+            "position_unit": getattr(axis, "position_unit", "mm"),
             "is_homed": None,
             "is_stopped": None,
             "ready_for_motion": None,
             "error": None,
         }
         try:
-            axis_state["position_mm"] = axis.get_current_axis_position()
+            position = axis.get_current_axis_position()
+            axis_state["position"] = position
+            if axis_state["position_unit"] == "mm":
+                axis_state["position_mm"] = position
             axis_state["is_homed"] = axis.is_homed()
             axis_state["is_stopped"] = axis.stopped()
             axis_state["ready_for_motion"] = axis.ready_for_motion()
@@ -782,13 +789,14 @@ class Gantry:
         return status
 
     def get_location(self) -> dict[str, float]:
-        """Return the current position of every axis in millimetres.
+        """Return the current position of every axis in its public position unit.
 
         Calls [`EdconAxis.get_current_axis_position`][applied_motion.backends.edcon_axis.EdconAxis.get_current_axis_position] for each registered
         axis and returns the results as a dict keyed by axis name.
 
         Returns:
-            Mapping of axis name → current position in mm.
+            Mapping of axis name to numeric current position. Values use each
+            axis's ``position_unit``; legacy axes without metadata use mm.
         """
         coordinates = {axis: self.axes[axis].get_current_axis_position() for axis in self.axes}
         logger.debug("Gantry.get_location: %s", coordinates)

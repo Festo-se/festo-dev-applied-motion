@@ -14,6 +14,8 @@ class RotaryAxis(EdconAxis):
     are read from the drive before the power stage is enabled.
     """
 
+    position_unit = "degrees"
+    velocity_unit = "degrees/s"
     _coordinate_kind = "rotary"
     _position_unit_label = "degrees"
     _position_limit_inset = 0.0

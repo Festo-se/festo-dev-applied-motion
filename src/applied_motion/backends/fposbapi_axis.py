@@ -54,6 +54,9 @@ class FPosBAxis:
             ``3``=Z by CECC-X convention).
     """
 
+    position_unit = "mm"  # TODO: Get these from FPosBAPI if possible
+    velocity_unit = "mm/s"
+
     def __init__(self, name: str, index: int, client: FPosBAPIClient) -> None:
         """Initialise the axis proxy.
 

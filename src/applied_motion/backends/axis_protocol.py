@@ -14,8 +14,8 @@ class Axis(Protocol):
     [`FPosBAxis`][applied_motion.backends.fposbapi_axis.FPosBAxis] (FPosBAPI backend)
     satisfy this protocol structurally — no explicit inheritance required.
 
-    All position values are in **millimetres (mm)**.
-    All velocity values are in **mm/s**.
+    Built-in axes expose ``position_unit`` and ``velocity_unit`` metadata.
+    Structural axes without that metadata use the legacy defaults mm and mm/s.
     """
 
     name: str
@@ -26,9 +26,9 @@ class Axis(Protocol):
         """Move the axis to *position* at *velocity*.
 
         Args:
-            position: Target position in mm (absolute or relative depending on
-                ``position_type`` kwarg).
-            velocity: Move speed in mm/s.
+            position: Target position in the axis's public position unit
+                (absolute or relative depending on ``position_type``).
+            velocity: Move speed in the axis's public velocity unit.
             **kwargs: Backend-specific options (e.g. ``position_type``,
                 ``timeout``).
 
@@ -42,10 +42,10 @@ class Axis(Protocol):
         ...
 
     def get_current_axis_position(self) -> float:
-        """Return the current axis position in mm.
+        """Return the current axis position in the axis's public position unit.
 
         Returns:
-            Current position in mm.
+            Current position in the axis's public position unit.
         """
         ...
 

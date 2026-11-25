@@ -68,6 +68,8 @@ class EdconAxis(MotionHandler):
     max_velocity_fas_units: int
     min_velocity_fas_units: int
 
+    position_unit = "mm"
+    velocity_unit = "mm/s"
     _coordinate_kind = "linear"
     _position_unit_label = "mm"
     _position_limit_inset = 1.0
