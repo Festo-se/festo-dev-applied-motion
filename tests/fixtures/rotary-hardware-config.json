@@ -1,0 +1,30 @@
+{
+    "_comment": "Configurator-compatible single rotary EDCON gantry fixture; test-only commissioning settings remain in the hardware test module.",
+    "spec_version": "4.0",
+    "system_config": {
+        "metadata": {}
+    },
+    "component_config": {
+        "metadata": {},
+        "components": {
+            "gantry_1": {
+                "_comment": "Rotary EDCON axis for opt-in commissioning tests; run_referencing is disabled during construction.",
+                "component_spec_version": "3.0",
+                "component_class": "gantry",
+                "backend": "modbus",
+                "axes": {
+                    "R": {
+                        "name": "R",
+                        "ip": "192.168.0.4",
+                        "type": "rotary",
+                        "run_referencing": false
+                    }
+                },
+                "axis_order": [
+                    "R"
+                ],
+                "concurrent_axes": null
+            }
+        }
+    }
+}
