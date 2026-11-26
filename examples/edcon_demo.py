@@ -4,20 +4,19 @@
 """Direct, configuration-driven demo for the Modbus/festo-edcon backend.
 
 Edit the constants below for the bench. No command-line arguments are used.
-The bundled ``gantry.json`` contains the Modbus component ``gantry_2``.
-The config's ``axes`` mapping defines every axis. ``MOVEMENTS`` below defines move order.
+The configurator-owned consolidated config contains the Modbus component ``gantry_2``.
+Verify its illustrative addresses against the target bench before running. The config's
+``axes`` mapping defines every axis. ``MOVEMENTS`` below defines move order.
 """
 
 import json
 import logging
-
 from collections import deque
-from pathlib import Path
 
+from configurator import load_consolidated_config
 from applied_motion import Gantry
 
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "gantry.json"
 GANTRY_NAME = "gantry_2"
 RUN_REFERENCING = False
 HOME_GANTRY = False
@@ -31,7 +30,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     with Gantry(
-        config=CONFIG_PATH,
+        config=load_consolidated_config(),
         name=GANTRY_NAME,
         run_referencing=RUN_REFERENCING,
     ) as gantry:

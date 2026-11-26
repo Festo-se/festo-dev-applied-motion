@@ -13,8 +13,6 @@ from typing import cast
 
 from configurator import SourceError, load_source, normalize_root
 
-from applied_motion.config_core.selector import ComponentSelector
-
 
 logger = logging.getLogger(__name__)
 
@@ -33,52 +31,19 @@ class SystemConfig(dict):
         if isinstance(config, SystemConfig):
             self.config = dict(config)
         else:
-            config = self._load_config_source(config)
-            logger.debug("SystemConfig: loaded config source=%s", type(config).__name__)
-            parsed_config = self._normalize_config(config)
-            self.config = parsed_config
+            try:
+                loaded, _ = load_source(config)
+            except SourceError as exc:
+                raise ValueError("Config config must load as a dict") from exc
+            logger.debug("SystemConfig: loaded config source=%s", type(loaded).__name__)
+            try:
+                self.config = normalize_root(loaded)
+            except SourceError as exc:
+                raise ValueError("Normalized config config must be a dict") from exc
 
     def __call__(self) -> dict:
         """Return the normalised component configuration dict."""
         return self.config
-
-    @staticmethod
-    def _load_config_source(config: dict | Path) -> dict:
-        """Return a raw config dict loaded from *config*.
-
-        Args:
-            config: Parsed configuration dict or path to a JSON file.
-
-        Returns:
-            Raw configuration mapping.
-
-        Raises:
-            ValueError: If the loaded configuration is not a dict.
-        """
-        try:
-            loaded, _ = load_source(config)
-        except SourceError as exc:
-            raise ValueError("Config config must load as a dict") from exc
-        return loaded
-
-    @staticmethod
-    def _normalize_config(raw_config: dict) -> dict:
-        """Return the normalized component config mapping.
-
-        Args:
-            raw_config: Raw configuration dict, possibly wrapped in a
-                top-level ``component_config`` key.
-
-        Returns:
-            Normalized component configuration dict.
-
-        Raises:
-            ValueError: If the normalized configuration is not a dict.
-        """
-        try:
-            return normalize_root(raw_config)
-        except SourceError as exc:
-            raise ValueError("Normalized config config must be a dict") from exc
 
 
 class GantryConfig:
@@ -187,7 +152,14 @@ class GantryConfig:
             ValueError: If required config structure or backend-specific fields
                 are missing or invalid.
         """
-        config_cfg = ComponentSelector.select(parsed_config, name)
+        components = parsed_config.get("components")
+        if not isinstance(components, dict):
+            raise ValueError("Config config must contain a 'components' mapping")
+        if name not in components:
+            raise ValueError(f"Config config does not contain component {name!r}")
+        config_cfg = components[name]
+        if not isinstance(config_cfg, dict):
+            raise ValueError(f"Config component {name!r} must be a dict")
 
         backend = config_cfg.get("backend", "modbus")
         if backend not in {"modbus", "fposbapi"}:

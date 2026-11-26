@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Applied-motion registration adapter for the configurator kernel."""
 
-from typing import Any, Mapping
 from pathlib import Path
+from typing import Any, Mapping
 
 from configurator import (
     COMPAT,
@@ -14,8 +14,6 @@ from configurator import (
     Registry,
     ValidationError,
     ValidationMode,
-    load_source,
-    normalize_root,
 )
 
 from applied_motion.config import GantryConfig
@@ -59,7 +57,7 @@ def build_gantry_from_view(
         ValueError: If the view is not a gantry component or its backend is
             unsupported by the existing applied-motion factory.
     """
-    del mode, resolver
+    _ = mode, resolver
     if view.component_type != "gantry":
         raise ValueError(f"Expected a gantry component, got {view.component_type!r}")
 
@@ -168,49 +166,18 @@ def build_gantry_from_config(source: Mapping[str, Any] | str | Path, name: str =
         configurator.ConfiguratorError: If loading, selection, validation, or
             construction fails.
     """
-    normalized = _prepare_legacy_gantry_source(source, name)
     try:
         result = Configurator.bootstrap(
-            normalized,
+            source,
             name,
             Registry.compose(gantry_registration()),
+            options={"legacy_component_types": {name: "gantry"}},
         )
     except (BuilderError, ValidationError) as exc:
         if isinstance(exc.cause, ValueError):
             raise exc.cause  # noqa: B904
         raise
     return result.instance
-
-
-def _prepare_legacy_gantry_source(source: Mapping[str, Any] | str | Path, name: str) -> dict[str, Any]:
-    """Add the canonical type to a selected legacy gantry component.
-
-    Args:
-        source: Configuration mapping, JSON string, or JSON file path.
-        name: Legacy component name whose type may be absent.
-
-    Returns:
-        Canonically normalized configuration mapping.
-    """
-    raw, _ = load_source(source)
-    normalized = normalize_root(raw)
-    components = normalized.get("components")
-    if not isinstance(components, Mapping):
-        return normalized
-
-    component = components.get(name)
-    if not isinstance(component, Mapping):
-        return normalized
-    if any(
-        key in component for key in ("component_type", "component_class")
-    ):  # TODO: "type" is probably not right here
-        return normalized
-
-    normalized = dict(normalized)
-    normalized["components"] = dict(components)
-    normalized["components"][name] = dict(component)
-    normalized["components"][name]["component_type"] = "gantry"
-    return normalized
 
 
 def close_gantry_construction(instance: Any) -> None:

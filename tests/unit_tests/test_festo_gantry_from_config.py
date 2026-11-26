@@ -313,6 +313,7 @@ class TestFromConfigModbus:
 
         config = copy.deepcopy(_MODBUS_CONFIG)
         config["component_config"]["components"]["gantry_2"] = {
+            "component_spec_version": "3.0",
             "backend": "modbus",
             "axes": {
                 "Y": {"name": "Y", "ip": "192.168.0.201"},
@@ -352,8 +353,11 @@ class TestFromConfigModbus:
         mocker.patch("applied_motion.gantry_factory.EdconAxis", autospec=True, side_effect=[axis_x, axis_y, axis_z])
         first = Gantry(config=_MODBUS_CONFIG)
         second_config = {
+            "spec_version": "4.0",
             "components": {
                 "gantry_2": {
+                    "component_class": "gantry",
+                    "component_spec_version": "3.0",
                     "backend": "modbus",
                     "axes": {"Y": {"name": "Y", "ip": "192.168.0.201"}},
                 }

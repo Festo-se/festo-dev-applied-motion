@@ -73,8 +73,20 @@ def test_legacy_axis_mapping_gets_identity_and_runtime_referencing_override(mock
 def test_build_gantry_from_config_bootstraps_legacy_component(mocker):
     construction = MagicMock(spec=GantryConstruction)
     mocker.patch("applied_motion.configurator_adapter._build_modbus_from_gcfg", return_value=construction)
+    source = {
+        "spec_version": "4.0",
+        "components": {
+            "gantry_1": {
+                "component_spec_version": "3.0",
+                "backend": "modbus",
+                "axes": {"X": {"name": "X", "ip": "192.168.0.193"}},
+                "axis_order": ["X"],
+                "concurrent_axes": None,
+            }
+        },
+    }
 
-    result = build_gantry_from_config(_view().root)
+    result = build_gantry_from_config(source)
 
     assert result is construction
 
